@@ -9,11 +9,11 @@
 import type { Express } from 'express';
 import { actions, PublicKey, nearToYocto, teraToGas } from 'near-api-js';
 import { deploy, NETWORK } from './config';
-import { accountExists, creator, relayer, summarize } from './chain';
+import { accountExists, creator, nearBalance, relayer, summarize, withRetry } from './chain';
 import { RateLimit } from './rate-limit';
 
-/** Covers account storage and the 1-yoctoNEAR deposits some calls need. */
-const NEW_ACCOUNT_NEAR = '0.02';
+/** Covers account storage, 1-yoctoNEAR deposits, and the few calls a user signs and pays for themselves (e.g. passing on the lease NFT). */
+const NEW_ACCOUNT_NEAR = '0.05';
 /** NEP-145 storage for one USDC balance. */
 const TOKEN_STORAGE_NEAR = '0.00125';
 const FAUCET_AMOUNT = 2_000n * 10n ** 6n;
@@ -74,16 +74,23 @@ export function mountAccounts(app: Express) {
     if (!createPerIp.take(req.ip ?? 'ip')) return res.status(429).json({ error: 'Too many new accounts from this network. Try again in an hour.' });
     const accountId = fullAccountId(name);
     if (await accountExists(accountId)) return res.status(409).json({ error: 'That name is taken. Try another.' });
+    const funds = await nearBalance(creator);
+    if (funds !== null && funds < 0.1) {
+      console.error(`creator ${creator.accountId} is low on NEAR (${funds}); top it up`);
+      return res.status(503).json({ error: "New accounts are paused: Handova's account wallet needs a NEAR top-up. Try again later, or connect a NEAR wallet." });
+    }
 
     try {
-      const outcome = await creator.signAndSendTransaction({
-        receiverId: accountId,
-        actions: [actions.createAccount(), actions.transfer(nearToYocto(NEW_ACCOUNT_NEAR)), actions.addFullAccessKey(publicKey)],
-        throwOnFailure: false,
-      });
+      const outcome = await withRetry(() =>
+        creator!.signAndSendTransaction({
+          receiverId: accountId,
+          actions: [actions.createAccount(), actions.transfer(nearToYocto(NEW_ACCOUNT_NEAR)), actions.addFullAccessKey(publicKey)],
+          throwOnFailure: false,
+        }),
+      );
       const s = summarize(outcome);
       if (!s.ok) return res.status(422).json({ error: 'NEAR could not create the account. Try another name.', detail: s.error });
-      await registerWithToken(accountId);
+      await withRetry(() => registerWithToken(accountId));
       res.json({ accountId, hash: s.hash, network: NETWORK });
     } catch (e) {
       res.status(502).json({ error: 'The NEAR network did not respond. Try again in a minute.', detail: (e as Error).message?.slice(0, 300) });

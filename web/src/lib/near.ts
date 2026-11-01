@@ -1,17 +1,24 @@
 /** Read-only chain access for the web app. */
-import { JsonRpcProvider } from 'near-api-js';
+import { FailoverRpcProvider, JsonRpcProvider } from 'near-api-js';
 import type { NearConfig } from './api';
 import type { EscrowConfig, Lease, Listing } from './types';
 
-let provider: JsonRpcProvider | null = null;
+let provider: FailoverRpcProvider | null = null;
+
+/** Browser-safe (CORS) fallbacks in case the main RPC rate-limits. */
+const FALLBACK: Record<string, string[]> = {
+  testnet: ['https://rpc.testnet.fastnear.com'],
+  mainnet: ['https://free.rpc.fastnear.com'],
+};
 let cfg: NearConfig | null = null;
 
 export function initNear(c: NearConfig) {
   cfg = c;
-  provider = new JsonRpcProvider({ url: c.rpc });
+  const urls = [c.rpc, ...(FALLBACK[c.network] ?? [])].filter((u, i, a) => a.indexOf(u) === i);
+  provider = new FailoverRpcProvider(urls.map((url) => new JsonRpcProvider({ url }, { retries: 2, backoff: 2, wait: 500 })));
 }
 
-export function getProvider(): JsonRpcProvider {
+export function getProvider(): FailoverRpcProvider {
   if (!provider) throw new Error('NEAR not initialised');
   return provider;
 }

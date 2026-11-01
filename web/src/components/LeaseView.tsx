@@ -24,7 +24,8 @@ export function LeaseView({ id }: { id: number }) {
   const [busy, setBusy] = useState('');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
-  const now = Date.now();
+  // Re-render as deadlines pass, so buttons like "Claim the rent" appear without a reload.
+  const [now, setNow] = useState(Date.now());
 
   const load = useCallback(async () => {
     const l = await chain.lease(id).catch(() => null);
@@ -35,6 +36,12 @@ export function LeaseView({ id }: { id: number }) {
   }, [id]);
 
   useEffect(() => { load(); chain.config().then((c) => { setT(c.timeouts); setArbiter(c.arbiter); }).catch(() => {}); }, [load]);
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 3000);
+    // Pick up the other side's actions (handover, approval…) while the page is open.
+    const poll = setInterval(() => { if (!document.hidden) load(); }, 15000);
+    return () => { clearInterval(tick); clearInterval(poll); };
+  }, [load]);
 
   if (lease === undefined) return <div className="flex justify-center py-16 text-sub"><Spinner className="h-6 w-6" /></div>;
   if (lease === null) return <p className="py-16 text-center text-sub">Lease #{id} doesn't exist.</p>;
@@ -74,7 +81,7 @@ export function LeaseView({ id }: { id: number }) {
     setBusy('nft_transfer');
     try {
       await getProvider().viewAccount({ accountId: receiver }).catch(() => { throw new Error(`${receiver} doesn't exist. Check the name.`); });
-      const r = await session.callDirect(cfg.escrow, 'nft_transfer', { receiver_id: receiver, token_id: String(lease!.id) }, { deposit: 1n, gas: teraToGas('30') });
+      const r = await session.callDirect(cfg.escrow, 'nft_transfer', { receiver_id: receiver, token_id: String(lease!.id) }, { deposit: 1n, gas: teraToGas('10') });
       if (!r.ok) throw new Error(r.error ?? 'The transfer did not go through.');
       toast('ok', `Lease NFT sent to ${receiver}. The caution fee now belongs to them.`, txUrl(r.hash));
       setTo('');

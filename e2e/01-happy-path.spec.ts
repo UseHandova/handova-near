@@ -81,7 +81,7 @@ test('recovery phrase: back it up, sign out, restore on a new phone', async ({ p
   await a.getByRole('button', { name: "I've written it down" }).click();
   await expect(a.getByText('Write down your recovery phrase')).toBeHidden();
   await a.getByRole('button', { name: 'Sign out' }).click();
-  await expect(a.getByRole('button', { name: 'Get started' })).toBeVisible();
+  await expect(a.locator('header').getByRole('button', { name: 'Get started' })).toBeVisible();
 
   const b = await phone('phone-b');
   // Wrong phrase is refused with a clear message.

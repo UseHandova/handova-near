@@ -75,12 +75,20 @@ function deviceSession(d: DeviceAccount): Session {
     needsBackup: !!d.seedPhrase && !d.backedUp,
     call: (receiverId, method, args, opts = {}) => gaslessCall(API_BASE, account, receiverId, method, args, opts),
     callDirect: async (receiverId, method, args, opts = {}) => {
-      const outcome = await account.signAndSendTransaction({
-        receiverId,
-        actions: [actions.functionCall(method, args, opts.gas ?? teraToGas('100'), opts.deposit ?? 0n)],
-        throwOnFailure: false,
-      });
-      return summarize(outcome);
+      try {
+        const outcome = await account.signAndSendTransaction({
+          receiverId,
+          actions: [actions.functionCall(method, args, opts.gas ?? teraToGas('30'), opts.deposit ?? 0n)],
+          throwOnFailure: false,
+        });
+        return summarize(outcome);
+      } catch (e) {
+        const msg = (e as Error).message ?? '';
+        if (/not enough balance|NotEnoughBalance|LackBalance/i.test(msg)) {
+          throw new Error(`This step needs a tiny NEAR network fee and ${d.accountId} has too little NEAR. Send it about 0.05 NEAR and try again.`);
+        }
+        throw new Error('The NEAR network did not accept the transaction. Try again in a minute.');
+      }
     },
   };
 }

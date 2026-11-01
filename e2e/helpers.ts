@@ -103,6 +103,7 @@ export async function listHome(page: Page, o: { title: string; area?: string; re
 /** Pay rent + caution into escrow from the listing page (USDC on NEAR); returns the lease ID. */
 export async function pay(page: Page, listingId: number, opts: { forTenant?: string } = {}): Promise<number> {
   await page.goto(`/#/home/${listingId}`);
+  await page.reload(); // same-hash navigation doesn't reload; we want fresh chain state
   await page.getByRole('button', { name: /into escrow/ }).click();
   await expect(page.getByText('How do you want to pay?')).toBeVisible();
   if (opts.forTenant) {
@@ -145,4 +146,27 @@ export const waitPeriod = (page: Page) => page.waitForTimeout((WAIT_SECS + 4) * 
 /** Wait until a lease reaches a status on-chain (the UI refreshes after each action). */
 export async function expectLease(id: number, status: string) {
   await expect.poll(async () => (await chain.lease(id)).status, { timeout: 30_000 }).toBe(status);
+}
+
+/** Landlord lists, tenant gets test USDC, pays, landlord hands over, tenant confirms. Returns IDs and amounts. */
+export async function activeLease(ll: Page, tn: Page, tenant: string, title = `E2E home ${Date.now().toString(36)}`) {
+  const listingId = await listHome(ll, { title, rentNgn: 20_000, cautionNgn: 5_000 });
+  await faucet(tenant);
+  const leaseId = await pay(tn, listingId);
+  await act(ll, leaseId, /handed over the keys/, /Handover marked/);
+  await act(tn, leaseId, /confirm move-in/, /Moved in!/);
+  await expectLease(leaseId, 'Active');
+  const l = await chain.lease(leaseId);
+  return { listingId, leaseId, rent: BigInt(l.rent), caution: BigInt(l.caution) };
+}
+
+/** Start move-out as the holder and have the landlord dispute `claimUsdc` of the caution. */
+export async function disputed(ll: Page, holder: Page, leaseId: number, claimUsdc: string) {
+  await act(holder, leaseId, /moving out/, /Move-out started/);
+  await ll.goto(`/#/lease/${leaseId}`);
+  await ll.getByPlaceholder(/Amount in USDC/).fill(claimUsdc);
+  await ll.getByPlaceholder('What was damaged?').fill('Broken kitchen door');
+  await ll.getByRole('button', { name: 'Open a dispute' }).click();
+  await toast(ll, /Dispute opened/);
+  await expectLease(leaseId, 'Disputed');
 }

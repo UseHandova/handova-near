@@ -11,7 +11,7 @@ import cors from 'cors';
 import { mountMedia } from './media';
 import { mountNear } from './near';
 import { deploy, NETWORK } from './near/config';
-import { creator, relayer } from './near/chain';
+import { creator, nearBalance, relayer } from './near/chain';
 import { startKeeper } from './near/keeper';
 
 const app = express();
@@ -24,8 +24,15 @@ app.use(express.json({ limit: '12mb' })); // voice notes and document photos arr
 mountNear(app);
 mountMedia(app); // listing photos (Arc-era module, reused)
 
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, network: NETWORK, escrow: deploy.escrow, relayer: relayer?.accountId ?? null, creator: creator?.accountId ?? null });
+app.get('/api/health', async (_req, res) => {
+  const [relayerNear, creatorNear] = await Promise.all([nearBalance(relayer), nearBalance(creator)]);
+  res.json({
+    ok: true,
+    network: NETWORK,
+    escrow: deploy.escrow,
+    relayer: relayer ? { account: relayer.accountId, near: relayerNear, low: relayerNear !== null && relayerNear < 0.05 } : null,
+    creator: creator ? { account: creator.accountId, near: creatorNear, low: creatorNear !== null && creatorNear < 0.1 } : null,
+  });
 });
 
 if (import.meta.main) {

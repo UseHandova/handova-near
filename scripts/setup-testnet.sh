@@ -24,6 +24,13 @@ near account create-account sponsor-by-faucet-service "$ROOT" autogenerate-new-k
 echo "▶ Deploying contracts"
 ROOT="$ROOT" OUT="$OUT" ./scripts/deploy-testnet.sh
 
+# The faucet gives 10 NEAR per new account. Most of ROOT's went into deploying, so merge a second
+# faucet account into ROOT: it pays for new users' accounts (0.05 NEAR each).
+TOPUP="topup-$(openssl rand -hex 4).testnet"
+echo "▶ Topping up $ROOT with a second faucet account"
+near account create-account sponsor-by-faucet-service "$TOPUP" autogenerate-new-keypair save-to-legacy-keychain $NET create
+near account delete-account "$TOPUP" beneficiary "$ROOT" $NET sign-with-legacy-keychain send
+
 RELAYER="relayer.$ROOT"
 echo "▶ Creating the relayer $RELAYER"
 near account create-account fund-myself "$RELAYER" '1 NEAR' autogenerate-new-keypair save-to-legacy-keychain \

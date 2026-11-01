@@ -11,7 +11,7 @@ import type { Express } from 'express';
 import { deserialize } from 'borsh';
 import { actions, SCHEMA, type SignedDelegate } from 'near-api-js';
 import { deploy } from './config';
-import { relayer, summarize } from './chain';
+import { nearBalance, relayer, summarize, withRetry } from './chain';
 import { RateLimit } from './rate-limit';
 
 /** Escrow methods a user may call gaslessly, always with zero deposit. */
@@ -30,6 +30,9 @@ export const ESCROW_METHODS = new Set([
   'propose_split',
   'settle_dispute_timeout',
   'withdraw',
+  // The arbiter (a Handova account or a DAO member's) rules gaslessly too; the contract checks it's the arbiter.
+  'resolve_move_in',
+  'resolve_dispute',
 ]);
 const MAX_GAS_PER_ACTION = 300_000_000_000_000n;
 const MAX_ACTIONS = 2;
@@ -105,16 +108,24 @@ export function mountRelayer(app: Express) {
     if (!perIp.take(req.ip ?? 'ip') || !perSender.take(checked.senderId)) {
       return res.status(429).json({ error: 'Too many requests. Wait a few minutes and try again.' });
     }
+    const gasFunds = await nearBalance(relayer);
+    if (gasFunds !== null && gasFunds < 0.05) {
+      console.error(`relayer ${relayer.accountId} is low on NEAR (${gasFunds}); top it up`);
+      return res.status(503).json({ error: "Free gas is paused: Handova's relayer needs a NEAR top-up. Try later, or use a NEAR wallet." });
+    }
     if (!daily.take('all')) {
       return res.status(503).json({ error: "Handova's free-gas budget for today is used up. Try tomorrow, or use a NEAR wallet (you pay a tiny fee)." });
     }
     try {
-      const outcome = await relayer.signAndSendTransaction({
-        receiverId: checked.senderId,
-        actions: [actions.signedDelegate(sd)],
-        throwOnFailure: false,
-        waitUntil: 'EXECUTED_OPTIMISTIC',
-      });
+      // Safe to retry: the delegate's nonce makes it run at most once.
+      const outcome = await withRetry(() =>
+        relayer!.signAndSendTransaction({
+          receiverId: checked.senderId,
+          actions: [actions.signedDelegate(sd)],
+          throwOnFailure: false,
+          waitUntil: 'EXECUTED_OPTIMISTIC',
+        }),
+      );
       const s = summarize(outcome);
       res.status(s.ok ? 200 : 422).json({ ...s, methods: checked.methods });
     } catch (e) {

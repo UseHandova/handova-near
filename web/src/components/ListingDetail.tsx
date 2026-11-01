@@ -20,7 +20,12 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
   const [l, setL] = useState<Listing | null | undefined>(undefined);
   const [paying, setPaying] = useState(false);
   const reload = () => chain.listing(id).then(setL).catch(() => setL(null));
-  useEffect(() => { reload(); }, [id]);
+  useEffect(() => {
+    reload();
+    // Pick up the landlord's changes (paused, new price, taken) while the page is open.
+    const poll = setInterval(() => { if (!document.hidden) reload(); }, 15000);
+    return () => clearInterval(poll);
+  }, [id]);
 
   if (l === undefined) return <div className="flex justify-center py-16 text-sub"><Spinner className="h-6 w-6" /></div>;
   if (l === null) return <p className="py-16 text-center text-sub">This home doesn't exist. <a href="#/" className="font-semibold text-accent">See all homes</a></p>;
