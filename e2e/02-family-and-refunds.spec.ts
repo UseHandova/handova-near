@@ -1,4 +1,4 @@
-import { act, chain, expect, expectLease, faucet, listHome, pay, signUp, test, toast, waitPeriod, withdrawAll } from './helpers';
+import { act, chain, expect, expectLease, faucet, listHome, pay, signUp, test, toast, waitPeriod, withdrawAll, openLease } from './helpers';
 
 test('family abroad pays for mum; only mum confirms; she gets the NFT', async ({ phone }) => {
   const ll = await phone('landlord');
@@ -36,7 +36,7 @@ test('no handover in time: the payer cancels and gets everything back', async ({
   const leaseId = await pay(nurse, listingId, { forTenant: mum });
   const total = BigInt((await chain.lease(leaseId)).rent) + BigInt((await chain.lease(leaseId)).caution);
 
-  await nurse.goto(`/#/lease/${leaseId}`);
+  await openLease(nurse, leaseId);
   await expect(nurse.getByText(/can cancel for a full refund/)).toBeVisible();
   await expect(nurse.getByRole('button', { name: /Cancel and get a full refund/ })).toHaveCount(0);
   await waitPeriod(nurse);
@@ -61,6 +61,6 @@ test('landlord declines before move-in: tenant refunded in full', async ({ phone
   await act(ll, leaseId, /Decline and refund/, /Declined/);
   await expectLease(leaseId, 'Cancelled');
   expect(await chain.escrowBalance(tenant)).toBe(BigInt(l.rent) + BigInt(l.caution));
-  await tn.goto(`/#/lease/${leaseId}`);
+  await openLease(tn, leaseId);
   await expect(tn.getByText('Cancelled · refunded').first()).toBeVisible();
 });

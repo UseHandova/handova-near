@@ -1,4 +1,4 @@
-import { act, activeLease, chain, expect, expectLease, faucet, signUp, test, toast } from './helpers';
+import { act, activeLease, chain, expect, expectLease, faucet, signUp, test, toast, openLease } from './helpers';
 
 test('lease takeover: holder offers, landlord agrees, a new tenant buys it and gets the caution right', async ({ phone }) => {
   const ll = await phone('landlord');
@@ -9,18 +9,18 @@ test('lease takeover: holder offers, landlord agrees, a new tenant buys it and g
   const buyer = await signUp(nw, 'buyer');
   const { leaseId, caution } = await activeLease(ll, tn, tenant);
 
-  await tn.goto(`/#/lease/${leaseId}`);
+  await openLease(tn, leaseId);
   await tn.getByLabel('Takeover price').fill('5');
   await tn.getByRole('button', { name: 'Offer for takeover' }).click();
   await toast(tn, /Offer published/);
   await expect.poll(async () => (await chain.lease(leaseId)).takeover?.price).toBe('5000000');
 
   // Not buyable until the landlord agrees.
-  await nw.goto(`/#/lease/${leaseId}`);
+  await openLease(nw, leaseId);
   await expect(nw.getByText(/Waiting for the landlord to agree/)).toBeVisible();
   await expect(nw.getByRole('button', { name: /Take over this lease/ })).toHaveCount(0);
 
-  await ll.goto(`/#/lease/${leaseId}`);
+  await openLease(ll, leaseId);
   await expect(ll.getByText(/Rental passport:/)).toBeVisible();
   await ll.getByRole('button', { name: 'Agree to this takeover' }).click();
   await toast(ll, /Agreed/);
@@ -65,7 +65,7 @@ test('rental passport: a finished lease shows on the tenant passport and to the 
   await tn.getByRole('button', { name: /^Pay [\d,.]+ USDC$/ }).click();
   await tn.waitForURL(/#\/lease\/\d+/);
   const second = Number(tn.url().split('/').pop());
-  await ll.goto(`/#/lease/${second}`);
+  await openLease(ll, second);
   await expect(ll.getByText(/finished 1 lease; caution returned in full 1 time/)).toBeVisible();
 });
 

@@ -1,4 +1,4 @@
-import { act, activeLease, apiPost, arbiter, chain, disputed, expect, expectLease, signInWithPhrase, signUp, test, toast, waitPeriod } from './helpers';
+import { act, activeLease, apiPost, arbiter, chain, disputed, expect, expectLease, signInWithPhrase, signUp, test, toast, waitPeriod, openLease } from './helpers';
 
 const usdc = (n: bigint) => (Number(n) / 1e6).toFixed(2);
 
@@ -11,14 +11,14 @@ test('caution dispute settled by agreement', async ({ phone }) => {
   await disputed(ll, tn, leaseId, usdc(caution));
   const keep = caution / 4n;
 
-  await tn.goto(`/#/lease/${leaseId}`);
+  await openLease(tn, leaseId);
   await expect(tn.getByText(/Broken kitchen door/)).toBeVisible();
   await tn.getByPlaceholder(/USDC, 0 to/).fill(usdc(keep));
   await tn.getByRole('button', { name: 'Propose' }).click();
   await toast(tn, /Proposal sent/);
   await expectLease(leaseId, 'Disputed');
 
-  await ll.goto(`/#/lease/${leaseId}`);
+  await openLease(ll, leaseId);
   await ll.getByPlaceholder(/USDC, 0 to/).fill(usdc(keep));
   await ll.getByRole('button', { name: 'Propose' }).click();
   await toast(ll, /Proposal sent/);
@@ -40,7 +40,7 @@ test('caution dispute decided by the arbiter', async ({ phone }) => {
   const { leaseId, rent, caution } = await activeLease(ll, tn, tenant);
   await disputed(ll, tn, leaseId, usdc(caution));
 
-  await ar.goto(`/#/lease/${leaseId}`);
+  await openLease(ar, leaseId);
   await ar.getByLabel('Arbiter amount').fill('1.00');
   await ar.getByRole('button', { name: 'Decide' }).click();
   await toast(ar, /Decision recorded/);
@@ -56,7 +56,7 @@ test('dispute nobody settles: 50/50 after the window', async ({ phone }) => {
   const tenant = await signUp(tn, 'tn');
   const { leaseId, rent, caution } = await activeLease(ll, tn, tenant);
   await disputed(ll, tn, leaseId, usdc(caution));
-  await tn.goto(`/#/lease/${leaseId}`);
+  await openLease(tn, leaseId);
   await expect(tn.getByRole('button', { name: /Settle 50\/50/ })).toHaveCount(0);
   await waitPeriod(tn);
   await act(tn, leaseId, /Settle 50\/50/, /Settled 50\/50/);
@@ -78,7 +78,7 @@ test('landlord silent after move-out: tenant claims the caution', async ({ phone
   await expectLease(leaseId, 'Closed');
   expect(await chain.escrowBalance(tenant)).toBe(caution);
   // Too late for the landlord to dispute: the button is gone.
-  await ll.goto(`/#/lease/${leaseId}`);
+  await openLease(ll, leaseId);
   await expect(ll.getByRole('button', { name: 'Open a dispute' })).toHaveCount(0);
 });
 

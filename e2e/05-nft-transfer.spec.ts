@@ -1,4 +1,4 @@
-import { act, activeLease, chain, expect, expectLease, signUp, test, toast } from './helpers';
+import { act, activeLease, chain, expect, expectLease, signUp, test, toast, openLease } from './helpers';
 
 test('lease NFT passed to a new tenant: the caution right moves with it', async ({ phone }) => {
   const ll = await phone('landlord');
@@ -9,7 +9,7 @@ test('lease NFT passed to a new tenant: the caution right moves with it', async 
   const newTenant = await signUp(nw, 'nt');
   const { leaseId, caution } = await activeLease(ll, tn, tenant);
 
-  await tn.goto(`/#/lease/${leaseId}`);
+  await openLease(tn, leaseId);
   await tn.getByPlaceholder(/name {2}or {2}name\./).fill(newTenant.split('.')[0]);
   await tn.getByRole('button', { name: 'Send lease NFT' }).click();
   await toast(tn, /Lease NFT sent/);

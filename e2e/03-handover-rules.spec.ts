@@ -1,4 +1,4 @@
-import { act, apiPost, arbiter, chain, expect, expectLease, faucet, listHome, pay, signInWithPhrase, signUp, test, toast, waitPeriod } from './helpers';
+import { act, apiPost, arbiter, chain, expect, expectLease, faucet, listHome, pay, signInWithPhrase, signUp, test, toast, waitPeriod, openLease } from './helpers';
 
 test('tenant silent after handover: a verified landlord claims the rent', async ({ phone }) => {
   const ll = await phone('landlord');
@@ -13,7 +13,7 @@ test('tenant silent after handover: a verified landlord claims the rent', async 
   await expect(ll.getByText(/you can claim in/)).toBeVisible();
   await expect(ll.getByRole('button', { name: /Claim the rent/ })).toHaveCount(0);
   // The tenant can no longer cancel once the handover is marked.
-  await tn.goto(`/#/lease/${leaseId}`);
+  await openLease(tn, leaseId);
   await expect(tn.getByRole('button', { name: /Cancel and get a full refund/ })).toHaveCount(0);
   await waitPeriod(ll);
   await act(ll, leaseId, /Claim the rent/, /Move-in claimed/);
@@ -38,7 +38,7 @@ test('fake handover: tenant disputes, landlord cannot claim, arbiter refunds; se
   const lease2 = await pay(tn, l2);
   for (const id of [lease1, lease2]) {
     await act(ll, id, /handed over the keys/, /Handover marked/);
-    await tn.goto(`/#/lease/${id}`);
+    await openLease(tn, id);
     await tn.getByPlaceholder(/What happened/).fill('No keys, house locked');
     await tn.getByRole('button', { name: "I didn't get the keys" }).click();
     await toast(tn, /Dispute sent/);
@@ -46,7 +46,7 @@ test('fake handover: tenant disputes, landlord cannot claim, arbiter refunds; se
   expect((await chain.lease(lease1)).move_in_dispute).toBe('No keys, house locked');
 
   await waitPeriod(ll);
-  await ll.goto(`/#/lease/${lease1}`);
+  await openLease(ll, lease1);
   await expect(ll.getByText(/The tenant disputed the handover/)).toBeVisible();
   await expect(ll.getByRole('button', { name: /Claim the rent/ })).toHaveCount(0);
 
@@ -78,14 +78,14 @@ test('unverified landlord cannot collect by silence; an arbiter who stays silent
   const lease2 = await pay(tn, l2);
   await act(ll, lease1, /handed over the keys/, /Handover marked/);
   await act(ll, lease2, /handed over the keys/, /Handover marked/);
-  await tn.goto(`/#/lease/${lease2}`);
+  await openLease(tn, lease2);
   await tn.getByPlaceholder(/What happened/).fill('Keys never arrived');
   await tn.getByRole('button', { name: "I didn't get the keys" }).click();
   await toast(tn, /Dispute sent/);
 
   await waitPeriod(ll);
   // Fake-listing protection: an unverified landlord never gets a claim button.
-  await ll.goto(`/#/lease/${lease1}`);
+  await openLease(ll, lease1);
   await expect(ll.getByText(/Only ID-verified landlords can collect/)).toBeVisible();
   await expect(ll.getByRole('button', { name: /Claim the rent/ })).toHaveCount(0);
   expect((await chain.lease(lease1)).status).toBe('Pending');

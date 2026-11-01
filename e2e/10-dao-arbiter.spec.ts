@@ -1,7 +1,7 @@
 /** A Sputnik DAO council (2 of 3) settles a caution dispute; the DAO itself calls the escrow. */
 import { Account, JsonRpcProvider, nearToYocto, teraToGas, type KeyPairString } from 'near-api-js';
 import { generateSeedPhrase } from 'near-api-js/seed-phrase';
-import { activeLease, apiPost, arbiter, chain, disputed, expect, expectLease, signInWithPhrase, signUp, test, toast } from './helpers';
+import { activeLease, apiPost, arbiter, chain, disputed, expect, expectLease, signInWithPhrase, signUp, test, toast, openLease } from './helpers';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { deploy, secrets } from './env';
 
@@ -73,11 +73,11 @@ test('caution dispute decided by a 2-of-3 DAO council', async ({ phone }) => {
   await disputed(ll, tn, leaseId, (Number(caution) / 1e6).toFixed(2));
 
   // Parties see who decides.
-  await tn.goto(`/#/lease/${leaseId}`);
+  await openLease(tn, leaseId);
   await expect(tn.getByText('Decided by the arbiter DAO')).toBeVisible();
 
   // Council member A proposes: landlord keeps 1 USDC. Then A and B approve.
-  await a.goto(`/#/lease/${leaseId}`);
+  await openLease(a, leaseId);
   await a.getByLabel('DAO ruling amount').fill('1');
   await a.getByRole('button', { name: 'Propose this split' }).click();
   await toast(a, /Proposed to the council/);
@@ -85,7 +85,7 @@ test('caution dispute decided by a 2-of-3 DAO council', async ({ phone }) => {
   await toast(a, /Vote recorded/);
   expect((await chain.lease(leaseId)).status).toBe('Disputed'); // one vote isn't enough
 
-  await b.goto(`/#/lease/${leaseId}`);
+  await openLease(b, leaseId);
   await b.getByRole('button', { name: 'Approve' }).click();
   await toast(b, /Vote recorded/);
   await expectLease(leaseId, 'Closed');

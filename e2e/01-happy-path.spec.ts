@@ -1,4 +1,4 @@
-import { act, apiPost, chain, expect, expectLease, faucet, listHome, pay, signInWithPhrase, signUp, test, toast, withdrawAll } from './helpers';
+import { act, apiPost, chain, expect, expectLease, faucet, listHome, pay, signInWithPhrase, signUp, test, toast, withdrawAll, openLease } from './helpers';
 
 test('list → pay → handover → move-in → NFT → landlord paid → move-out → caution back', async ({ phone }) => {
   const ll = await phone('landlord');
@@ -62,7 +62,7 @@ test('list → pay → handover → move-in → NFT → landlord paid → move-o
   await withdrawAll(tn);
   expect(await chain.usdc(tenant)).toBe(2_000n * 1_000_000n - rent);
   expect((await chain.nft(leaseId)).metadata.title).toContain('Closed');
-  await tn.goto(`/#/lease/${leaseId}`);
+  await openLease(tn, leaseId);
   await expect(tn.getByText('Finished')).toBeVisible();
 
   // Listing is open again.

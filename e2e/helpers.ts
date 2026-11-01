@@ -118,9 +118,15 @@ export async function pay(page: Page, listingId: number, opts: { forTenant?: str
   return Number(page.url().split('/').pop());
 }
 
+/** Open a lease with fresh chain state (same-hash navigation would not reload the page). */
+export async function openLease(page: Page, leaseId: number) {
+  await page.goto(`/#/lease/${leaseId}`);
+  await page.reload();
+}
+
 /** Open a lease and press a button; wait for the success toast. */
 export async function act(page: Page, leaseId: number, button: RegExp, done: RegExp) {
-  await page.goto(`/#/lease/${leaseId}`);
+  await openLease(page, leaseId);
   await page.getByRole('button', { name: button }).click();
   await toast(page, done);
 }
