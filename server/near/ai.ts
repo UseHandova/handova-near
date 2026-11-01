@@ -10,7 +10,8 @@
  */
 import type { Express } from 'express';
 import { createHash } from 'node:crypto';
-import { recoverMessageAddress } from 'viem';
+import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { keccak_256 } from '@noble/hashes/sha3.js';
 import { env } from './config';
 import { RateLimit } from './rate-limit';
 
@@ -41,6 +42,17 @@ function key(): string {
 }
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
+
+/** Ethereum-style personal_sign recovery (EIP-191), the scheme NEAR AI's TEE signs with. */
+export function recoverSigner(message: string, signatureHex: string): string {
+  const sig = Buffer.from(signatureHex.replace(/^0x/, ''), 'hex');
+  if (sig.length !== 65) throw new Error('bad signature length');
+  const msg = Buffer.from(message, 'utf8');
+  const digest = keccak_256(Buffer.concat([Buffer.from(`\x19Ethereum Signed Message:\n${msg.length}`, 'utf8'), msg]));
+  const v = sig[64] >= 27 ? sig[64] - 27 : sig[64];
+  const pub = secp256k1.Signature.fromBytes(sig.subarray(0, 64), 'compact').addRecoveryBit(v).recoverPublicKey(digest).toBytes(false);
+  return `0x${Buffer.from(keccak_256(pub.subarray(1)).subarray(12)).toString('hex')}`;
+}
 
 async function nearai(path: string, init: RequestInit = {}): Promise<Response> {
   return fetch(`${BASE}${path}`, { ...init, headers: { authorization: `Bearer ${key()}`, ...(init.headers as any) } });
@@ -73,8 +85,7 @@ export async function receiptFor(chatId: string, model: string, requestText: str
   const hashesMatch = signedText === `${model}:${requestHash}:${responseHash}`;
   let signatureValid = false;
   try {
-    const recovered = await recoverMessageAddress({ message: signedText, signature: sig.signature });
-    signatureValid = recovered.toLowerCase() === signingAddress;
+    signatureValid = recoverSigner(signedText, sig.signature) === signingAddress;
   } catch {
     signatureValid = false;
   }
@@ -119,7 +130,7 @@ async function verifiedJsonOnce<T>(model: string, messages: unknown[], maxTokens
 export async function transcribe(audio: Uint8Array, mime: string): Promise<string> {
   const form = new FormData();
   const ext = mime.includes('ogg') ? 'ogg' : mime.includes('mpeg') || mime.includes('mp3') ? 'mp3' : mime.includes('wav') ? 'wav' : mime.includes('mp4') || mime.includes('m4a') ? 'm4a' : 'webm';
-  form.append('file', new Blob([audio], { type: mime }), `voice.${ext}`);
+  form.append('file', new Blob([new Uint8Array(audio)], { type: mime }), `voice.${ext}`);
   form.append('model', TRANSCRIBE_MODEL);
   const r = await nearai('/audio/transcriptions', { method: 'POST', body: form });
   const body: any = await r.json().catch(() => ({}));

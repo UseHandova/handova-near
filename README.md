@@ -128,7 +128,7 @@ A headless-browser run of exactly these steps (sign-up, AI draft, publish, Inten
 | `web/` | The NEAR web app (React + Vite + Tailwind) |
 | `deploy/<network>.json` | Contract IDs per network — nothing is hardcoded |
 | `scripts/` | `setup-testnet.sh`, `deploy-testnet.sh`, `demo-testnet.ts` |
-| `src/`, `server/*.ts` (top level) | The Arc-era app and server, imported as baseline (see below) |
+| `e2e/` | Playwright end-to-end suite against a testnet deployment with 20-second waiting periods |
 
 ### Security notes
 - **Relayer allowlist** ([`relayer.ts`](server/near/relayer.ts), tests in `relayer.test.ts`): only function calls to the escrow (a fixed method list, zero deposit) or `ft_transfer_call` on USDC (exactly 1 yocto) whose `receiver_id` is the escrow; at most 2 actions; gas cap; per-sender and per-IP rate limits and a daily budget (`RELAYER_DAILY_TX`). The relayer is a separate low-balance account. A leaked endpoint can't make the relayer pay for anything else.
@@ -160,7 +160,7 @@ A headless-browser run of exactly these steps (sign-up, AI draft, publish, Inten
 
 Handova first existed on **Arc** (Circle's L1) as a Solidity + USDC app: [`UseHandova/Handova`](https://github.com/UseHandova/Handova), commit `16fe0e4` (21 Oct 2026). We moved to NEAR during NEAR HACKATHON. **Only the NEAR work is the hackathon entry.**
 
-- The first commit (tag **`baseline-arc`**) imports the reused Arc-era code unchanged: the old web app in `src/`, the old API modules in `server/*.ts`, brand assets, tests and configs. It has **no NEAR code** and no Solidity.
+- The first commit (tag **`baseline-arc`**) imports the Arc-era code unchanged: the old web app, the old API modules, brand assets, tests and configs. It has **no NEAR code** and no Solidity. Later, the EVM/Circle parts were **deleted** (no `@circle-fin`, wagmi, viem or ConnectKit remain); only the brand assets and `server/media.ts` (photo uploads) are still used.
 - Everything after it is hackathon work: the Rust contract (written from scratch, not ported), `server/near/`, `server/index.ts`, `shared/`, `web/`, `scripts/`, `deploy/`. See the diff:
   ```sh
   git diff baseline-arc..hackathon-submission --stat
@@ -170,7 +170,7 @@ Handova first existed on **Arc** (Circle's L1) as a Solidity + USDC app: [`UseHa
 
 ### Libraries and AI-written code
 - Contract: `near-sdk` 5.30, `near-contract-standards` 5.30, `base64`; tests: `near-workspaces` 0.24, `tokio`.
-- Server/web: `near-api-js` 7.4, `@hot-labs/near-connect` 0.12, `borsh`, `express`, `react` 18, `vite`, `tailwindcss`, `lucide-react`, `qrcode`, `viem` (only to recover the ECDSA signer of NEAR AI receipts), `vite-plugin-node-polyfills`.
+- Server/web: `near-api-js` 7.4, `@hot-labs/near-connect` 0.12, `borsh`, `express`, `react` 18, `vite`, `tailwindcss`, `lucide-react`, `qrcode`, `@noble/curves` + `@noble/hashes` (recover the ECDSA signer of NEAR AI receipts), `vite-plugin-node-polyfills`, `@playwright/test`.
 - External services: NEAR RPC (FastNEAR), NEAR Intents 1Click API, NEAR AI Cloud, open.er-api.com (USD→NGN display rate).
 - Most of the NEAR-edition code was written with **Claude Code** (Anthropic), directed and reviewed by the team.
 
