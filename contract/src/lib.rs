@@ -29,13 +29,15 @@ use near_sdk::{env, near, require, AccountId, BorshStorageKey, PanicOnDefault};
 pub use escrow::{Dispute, Lease, LeaseStatus, PayMsg};
 
 pub const DAY_SECS: u64 = 86_400;
-/// A lease month, for working out the lease end date.
-pub const MONTH_SECS: u64 = 30 * DAY_SECS;
+/// A lease month (365/12 days), so a 12-month lease ends after exactly 365 days.
+pub const MONTH_SECS: u64 = 365 * DAY_SECS / 12;
 /// Longest `property_ref`: the listing details as compact JSON (title, area, photo links) or a link.
 pub const MAX_REF_LEN: usize = 1024;
 pub const MAX_REASON_LEN: usize = 500;
-/// Stops one account from filling contract storage with listings.
+/// Stops one account from filling contract storage with listings (the contract pays storage).
 pub const MAX_LISTINGS_PER_LANDLORD: u32 = 50;
+/// Until the verifier marks a landlord ID-verified, they can list only a few homes.
+pub const MAX_LISTINGS_UNVERIFIED: u32 = 3;
 
 #[near(serializers = [borsh])]
 #[derive(BorshStorageKey)]
@@ -202,6 +204,10 @@ impl Contract {
         require!(property_ref.len() <= MAX_REF_LEN, "property_ref is too long (max 1024 characters)");
         let count = self.listing_counts.get(&landlord).copied().unwrap_or(0);
         require!(count < MAX_LISTINGS_PER_LANDLORD, "You have reached the limit of 50 listings");
+        require!(
+            count < MAX_LISTINGS_UNVERIFIED || self.verified.contains_key(&landlord),
+            "Unverified landlords can list up to 3 homes. Verify your ID to list more"
+        );
         self.listing_counts.insert(landlord.clone(), count + 1);
 
         let id = self.next_listing_id;
@@ -347,7 +353,10 @@ impl Contract {
     pub fn get_leases_for(&self, account_id: AccountId) -> Vec<Lease> {
         self.leases_by_account
             .get(&account_id)
-            .map(|ids| ids.iter().rev().filter_map(|id| self.leases.get(id)).map(|l| self.with_holder(l)).collect())
+            .map(|ids| {
+                let mut seen = std::collections::HashSet::new();
+                ids.iter().rev().filter(|id| seen.insert(**id)).filter_map(|id| self.leases.get(id)).map(|l| self.with_holder(l)).collect()
+            })
             .unwrap_or_default()
     }
 

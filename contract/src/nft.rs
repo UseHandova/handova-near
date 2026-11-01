@@ -40,8 +40,8 @@ impl NonFungibleTokenCore for Contract {
         memo: Option<String>,
         msg: String,
     ) -> PromiseOrValue<bool> {
-        let lease_id = self.assert_transferable(&token_id);
-        self.index_lease(&receiver_id, lease_id);
+        self.assert_transferable(&token_id);
+        // The receiver is indexed in nft_resolve_transfer, only if they keep the token.
         self.nft.nft_transfer_call(receiver_id, token_id, approval_id, memo, msg)
     }
 
@@ -60,7 +60,13 @@ impl NonFungibleTokenResolver for Contract {
         token_id: TokenId,
         approved_account_ids: Option<HashMap<AccountId, u64>>,
     ) -> bool {
-        self.nft.nft_resolve_transfer(previous_owner_id, receiver_id, token_id, approved_account_ids)
+        let kept = self.nft.nft_resolve_transfer(previous_owner_id, receiver_id.clone(), token_id.clone(), approved_account_ids);
+        if kept {
+            if let Ok(lease_id) = token_id.parse::<u64>() {
+                self.index_lease(&receiver_id, lease_id);
+            }
+        }
+        kept
     }
 }
 

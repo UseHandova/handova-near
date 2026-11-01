@@ -64,6 +64,7 @@ pub struct Lease {
     pub handover_at_ms: Option<u64>,
     /// Tenant says the landlord marked a handover that didn't happen. Blocks the landlord's claim.
     pub move_in_dispute: Option<String>,
+    pub move_in_dispute_at_ms: Option<u64>,
     pub moved_in_at_ms: Option<u64>,
     pub ends_at_ms: Option<u64>,
     pub move_out_at_ms: Option<u64>,
@@ -120,6 +121,7 @@ impl FungibleTokenReceiver for Contract {
             paid_at_ms: env::block_timestamp_ms(),
             handover_at_ms: None,
             move_in_dispute: None,
+            move_in_dispute_at_ms: None,
             moved_in_at_ms: None,
             ends_at_ms: None,
             move_out_at_ms: None,
@@ -168,10 +170,15 @@ impl Contract {
         self.activate(lease_id);
     }
 
-    /// Anyone, after the landlord marked the handover and the tenant stayed silent for the
-    /// handover window (3 days). Same result as the tenant confirming.
+    /// Anyone, after an ID-verified landlord marked the handover and the tenant stayed silent for
+    /// the handover window (3 days). Same result as the tenant confirming. Unverified landlords
+    /// always need the tenant's confirmation, so a fake listing can't collect rent by silence.
     pub fn claim_move_in(&mut self, lease_id: u64) {
         let lease = self.lease_ref(lease_id);
+        require!(
+            self.verified.contains_key(&lease.landlord),
+            "Only ID-verified landlords can claim move-in without the tenant. Ask the tenant to confirm"
+        );
         require!(lease.status == LeaseStatus::Pending, "This lease is not waiting for move-in");
         let handover = lease.handover_at_ms.unwrap_or_else(|| env::panic_str("The landlord hasn't marked the handover"));
         require!(lease.move_in_dispute.is_none(), "The tenant disputed the handover; the arbiter decides");
@@ -191,6 +198,7 @@ impl Contract {
         require!(lease.status == LeaseStatus::Pending, "This lease is not waiting for move-in");
         require!(lease.handover_at_ms.is_some(), "There is no handover to dispute");
         lease.move_in_dispute = Some(reason.clone());
+        lease.move_in_dispute_at_ms = Some(env::block_timestamp_ms());
         events::emit("move_in_disputed", json!({ "lease_id": lease_id, "reason": reason }));
     }
 
@@ -206,6 +214,16 @@ impl Contract {
         } else {
             self.cancel(lease_id, "arbiter");
         }
+    }
+
+    /// Anyone, if the arbiter hasn't decided a disputed handover within the dispute window:
+    /// the payer is refunded in full. Money can never wait on the arbiter forever.
+    pub fn settle_move_in_timeout(&mut self, lease_id: u64) {
+        let lease = self.lease_ref(lease_id);
+        require!(lease.status == LeaseStatus::Pending, "This lease is not waiting for move-in");
+        let at = lease.move_in_dispute_at_ms.unwrap_or_else(|| env::panic_str("There is no handover dispute on this lease"));
+        require!(env::block_timestamp_ms() >= at + self.timeouts.dispute_secs * 1000, "The arbiter still has time to decide");
+        self.cancel(lease_id, "dispute_timeout");
     }
 
     /// Cancel before move-in with a full refund to the payer.

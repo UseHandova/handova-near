@@ -1,10 +1,11 @@
-import { act, arbiter, chain, expect, expectLease, faucet, listHome, pay, signInWithPhrase, signUp, test, toast, waitPeriod } from './helpers';
+import { act, apiPost, arbiter, chain, expect, expectLease, faucet, listHome, pay, signInWithPhrase, signUp, test, toast, waitPeriod } from './helpers';
 
-test('tenant silent after handover: landlord claims the rent', async ({ phone }) => {
+test('tenant silent after handover: a verified landlord claims the rent', async ({ phone }) => {
   const ll = await phone('landlord');
   const tn = await phone('tenant');
   const landlord = await signUp(ll, 'll');
   const tenant = await signUp(tn, 'tn');
+  expect((await apiPost('/api/near/verify-landlord', { accountId: landlord }, true)).status).toBe(200);
   const listingId = await listHome(ll, { title: 'Silent tenant', rentNgn: 20_000, cautionNgn: 5_000 });
   await faucet(tenant);
   const leaseId = await pay(tn, listingId);
@@ -63,4 +64,35 @@ test('fake handover: tenant disputes, landlord cannot claim, arbiter refunds; se
   await act(ar, lease2, /the tenant moved in/, /Ruled: moved in/);
   await expectLease(lease2, 'Active');
   expect(await chain.escrowBalance(landlord)).toBe(BigInt((await chain.lease(lease2)).rent));
+});
+
+test('unverified landlord cannot collect by silence; an arbiter who stays silent means a refund', async ({ phone }) => {
+  const ll = await phone('landlord');
+  const tn = await phone('tenant');
+  await signUp(ll, 'll');
+  const tenant = await signUp(tn, 'tn');
+  const l1 = await listHome(ll, { title: 'Unverified silence', rentNgn: 20_000, cautionNgn: 5_000 });
+  const l2 = await listHome(ll, { title: 'Silent arbiter', rentNgn: 20_000, cautionNgn: 5_000 });
+  await faucet(tenant);
+  const lease1 = await pay(tn, l1);
+  const lease2 = await pay(tn, l2);
+  await act(ll, lease1, /handed over the keys/, /Handover marked/);
+  await act(ll, lease2, /handed over the keys/, /Handover marked/);
+  await tn.goto(`/#/lease/${lease2}`);
+  await tn.getByPlaceholder(/What happened/).fill('Keys never arrived');
+  await tn.getByRole('button', { name: "I didn't get the keys" }).click();
+  await toast(tn, /Dispute sent/);
+
+  await waitPeriod(ll);
+  // Fake-listing protection: an unverified landlord never gets a claim button.
+  await ll.goto(`/#/lease/${lease1}`);
+  await expect(ll.getByText(/Only ID-verified landlords can collect/)).toBeVisible();
+  await expect(ll.getByRole('button', { name: /Claim the rent/ })).toHaveCount(0);
+  expect((await chain.lease(lease1)).status).toBe('Pending');
+
+  // The arbiter never ruled: anyone can refund the payer.
+  await act(tn, lease2, /arbiter didn't decide in time/, /Refunded/);
+  await expectLease(lease2, 'Cancelled');
+  const l = await chain.lease(lease2);
+  expect(await chain.escrowBalance(tenant)).toBe(BigInt(l.rent) + BigInt(l.caution));
 });

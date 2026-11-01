@@ -21,6 +21,9 @@ test('relayer pays only for Handova calls', async () => {
   expect((await relay(acc, deploy.escrow, 'set_owner', { owner: acc.accountId })).body.error).toMatch(/can't be sent gaslessly/);
   expect((await relay(acc, deploy.escrow, 'withdraw', {}, 1n)).body.error).toMatch(/can't attach NEAR/);
   expect((await relay(acc, deploy.token, 'ft_transfer_call', { receiver_id: 'thief.testnet', amount: '1', msg: '' }, 1n)).body.error).toMatch(/only go to the Handova escrow/);
+  // Arbiter rulings are relayed only for the arbiter.
+  const notArbiter = await relay(acc, deploy.escrow, 'resolve_dispute', { lease_id: 1, landlord_amount: '0' });
+  expect(notArbiter.status).toBe(403);
   // An allowed call goes through and reaches the contract (which refuses it: nothing to withdraw).
   const ok = await relay(acc, deploy.escrow, 'withdraw', {});
   expect(ok.status).toBe(422);

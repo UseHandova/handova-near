@@ -109,7 +109,9 @@ export function mountIntents(app: Express) {
       res.json({ live, ...quote });
     } catch (e) {
       const msg = (e as Error).message;
-      res.status(400).json({ error: `No quote: ${msg}. Check the refund address matches the chain you pay from.` });
+      const status = (e as any).status as number | undefined;
+      if (status && status < 500) return res.status(400).json({ error: `No quote: ${msg}. Check the refund address matches the chain you pay from.` });
+      res.status(502).json({ error: 'NEAR Intents is not answering right now. Try again in a minute.' });
     }
   });
 

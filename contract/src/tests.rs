@@ -183,6 +183,7 @@ fn tenant_cannot_cancel_after_handover() {
 #[test]
 fn landlord_claims_move_in_after_3_silent_days() {
     let mut t = T::new();
+    t.as_("verifier.near").set_verified(acc("landlord.near"), true);
     let l = t.list();
     t.pay("tenant.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l}}}"#));
     t.as_("landlord.near").mark_handover(1);
@@ -310,7 +311,7 @@ fn landlord_starts_move_out_only_after_term() {
     t.active_lease();
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.as_("landlord.near").move_out(1)));
     assert!(r.is_err());
-    t.wait_days(12 * 30);
+    t.wait_days(365);
     t.as_("landlord.near").move_out(1);
     assert_eq!(t.lease(1).status, LeaseStatus::Ending);
 }
@@ -410,4 +411,51 @@ fn keeper_can_page_through_leases() {
 fn rent_has_a_minimum() {
     let mut t = T::new();
     t.as_("landlord.near").create_listing(U128(999_999), U128(0), 12, "x".into());
+}
+
+#[test]
+#[should_panic(expected = "Only ID-verified landlords can claim move-in")]
+fn unverified_landlord_cannot_collect_by_silence() {
+    let mut t = T::new();
+    let l = t.list();
+    t.pay("tenant.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l}}}"#));
+    t.as_("landlord.near").mark_handover(1);
+    t.wait_days(30);
+    t.as_("keeper.near").claim_move_in(1);
+}
+
+#[test]
+fn disputed_handover_refunds_payer_if_arbiter_silent() {
+    let mut t = T::new();
+    let l = t.list();
+    t.pay("nurse.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l},"tenant":"mum.near"}}"#));
+    t.as_("landlord.near").mark_handover(1);
+    t.as_("mum.near").dispute_move_in(1, "No keys".into());
+    t.wait_days(6);
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.as_("anyone.near").settle_move_in_timeout(1)));
+    assert!(r.is_err(), "arbiter still has time");
+    t.wait_days(1);
+    t.as_("anyone.near").settle_move_in_timeout(1);
+    assert_eq!(t.lease(1).status, LeaseStatus::Cancelled);
+    assert_eq!(t.bal("nurse.near"), RENT + CAUTION);
+}
+
+#[test]
+fn unverified_landlords_list_up_to_3_homes() {
+    let mut t = T::new();
+    for _ in 0..3 {
+        t.list();
+    }
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.list()));
+    assert!(r.is_err());
+    t.as_("verifier.near").set_verified(acc("landlord.near"), true);
+    t.list();
+}
+
+#[test]
+fn twelve_month_lease_lasts_365_days() {
+    let mut t = T::new();
+    t.active_lease();
+    let l = t.lease(1);
+    assert_eq!(l.ends_at_ms.unwrap() - l.moved_in_at_ms.unwrap(), 365 * DAY_MS);
 }

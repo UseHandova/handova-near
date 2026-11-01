@@ -9,7 +9,7 @@
 import type { Express } from 'express';
 import { actions, PublicKey, nearToYocto, teraToGas } from 'near-api-js';
 import { deploy, NETWORK } from './config';
-import { accountExists, creator, nearBalance, relayer, summarize, withRetry } from './chain';
+import { accountExists, creator, nearBalance, provider, relayer, summarize, withRetry } from './chain';
 import { RateLimit } from './rate-limit';
 
 /** Covers account storage, 1-yoctoNEAR deposits, and the few calls a user signs and pays for themselves (e.g. passing on the lease NFT). */
@@ -73,7 +73,20 @@ export function mountAccounts(app: Express) {
     }
     if (!createPerIp.take(req.ip ?? 'ip')) return res.status(429).json({ error: 'Too many new accounts from this network. Try again in an hour.' });
     const accountId = fullAccountId(name);
-    if (await accountExists(accountId)) return res.status(409).json({ error: 'That name is taken. Try another.' });
+    if (await accountExists(accountId)) {
+      // A first attempt may have created the account and then failed to register it with USDC.
+      // If this device's key is already on the account, finish the job instead of saying "taken".
+      const keys: any = await provider.viewAccessKeyList({ accountId }).catch(() => null);
+      if (keys?.keys?.some((k: any) => k.public_key === publicKey.toString())) {
+        try {
+          await withRetry(() => registerWithToken(accountId));
+          return res.json({ accountId, network: NETWORK, resumed: true });
+        } catch {
+          return res.status(502).json({ error: 'Your account exists but could not be set up for USDC yet. Try again in a minute.' });
+        }
+      }
+      return res.status(409).json({ error: 'That name is taken. Try another.' });
+    }
     const funds = await nearBalance(creator);
     if (funds !== null && funds < 0.1) {
       console.error(`creator ${creator.accountId} is low on NEAR (${funds}); top it up`);

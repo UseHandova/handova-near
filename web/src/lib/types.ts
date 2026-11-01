@@ -27,6 +27,7 @@ export interface Lease {
   paid_at_ms: number;
   handover_at_ms: number | null;
   move_in_dispute: string | null;
+  move_in_dispute_at_ms: number | null;
   moved_in_at_ms: number | null;
   ends_at_ms: number | null;
   move_out_at_ms: number | null;

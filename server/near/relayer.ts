@@ -11,7 +11,7 @@ import type { Express } from 'express';
 import { deserialize } from 'borsh';
 import { actions, SCHEMA, type SignedDelegate } from 'near-api-js';
 import { deploy } from './config';
-import { nearBalance, relayer, summarize, withRetry } from './chain';
+import { nearBalance, relayer, summarize, view, withRetry } from './chain';
 import { RateLimit } from './rate-limit';
 
 /** Escrow methods a user may call gaslessly, always with zero deposit. */
@@ -30,10 +30,21 @@ export const ESCROW_METHODS = new Set([
   'propose_split',
   'settle_dispute_timeout',
   'withdraw',
-  // The arbiter (a Handova account or a DAO member's) rules gaslessly too; the contract checks it's the arbiter.
+  'settle_move_in_timeout',
+  // Arbiter rulings: relayed only when the sender is the escrow's arbiter (checked below).
   'resolve_move_in',
   'resolve_dispute',
 ]);
+export const ARBITER_METHODS = new Set(['resolve_move_in', 'resolve_dispute']);
+
+let arbiterCache: { at: number; id: string } | null = null;
+async function currentArbiter(): Promise<string> {
+  if (!arbiterCache || Date.now() - arbiterCache.at > 60_000) {
+    const cfg = await view<{ arbiter: string }>(deploy.escrow, 'get_config');
+    arbiterCache = { at: Date.now(), id: cfg.arbiter };
+  }
+  return arbiterCache.id;
+}
 const MAX_GAS_PER_ACTION = 300_000_000_000_000n;
 const MAX_ACTIONS = 2;
 
@@ -104,6 +115,9 @@ export function mountRelayer(app: Express) {
       checked = checkDelegate(sd, { escrow: deploy.escrow, token: deploy.token });
     } catch (e) {
       return res.status(400).json({ error: (e as Error).message || 'Could not read the signed request. Refresh and try again.' });
+    }
+    if (checked.methods.some((m) => ARBITER_METHODS.has(m)) && checked.senderId !== (await currentArbiter().catch(() => ''))) {
+      return res.status(403).json({ error: 'Only the arbiter can make this ruling.' });
     }
     if (!perIp.take(req.ip ?? 'ip') || !perSender.take(checked.senderId)) {
       return res.status(429).json({ error: 'Too many requests. Wait a few minutes and try again.' });

@@ -105,10 +105,13 @@ export function LeaseView({ id }: { id: number }) {
   if (lease.status === 'Pending' && t) {
     const cancelAt = lease.paid_at_ms + s(t.cancel_after_secs);
     const claimAt = (lease.handover_at_ms ?? 0) + s(t.handover_claim_secs);
+    const verifiedLandlord = !!listing?.landlord_verified;
     if (isTenant) {
       actions.push(btn('confirm_move_in', 'I have the keys — confirm move-in', 'Moved in! The landlord is paid and your lease NFT holds your caution fee.'));
       if (lease.handover_at_ms && !lease.move_in_dispute) {
-        notes.push(`The landlord says they handed over the keys. If you don't respond in ${timeLeft(claimAt - now)}, the landlord can claim the rent.`);
+        notes.push(verifiedLandlord
+          ? `The landlord says they handed over the keys. If you don't respond in ${timeLeft(claimAt - now)}, the landlord can claim the rent.`
+          : 'The landlord says they handed over the keys. The rent stays in escrow until you confirm.');
         actions.push(
           <div key="dmi" className="space-y-2 rounded-xl border border-line p-3">
             <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="What happened? e.g. no keys, house locked" maxLength={500} />
@@ -121,6 +124,11 @@ export function LeaseView({ id }: { id: number }) {
       if (now >= cancelAt) actions.push(btn('cancel_lease', 'Cancel and get a full refund', `Cancelled. ${usd(usdc(BigInt(lease.rent) + BigInt(lease.caution)))} is back in ${lease.payer}'s Handova balance.`, {}, 'btn-danger'));
       else notes.push(`If the landlord doesn't hand over within ${timeLeft(cancelAt - now)}, ${isPayer && !isTenant ? 'you' : 'the payer'} can cancel for a full refund.`);
     }
+    if (lease.move_in_dispute_at_ms) {
+      const decideBy = lease.move_in_dispute_at_ms + s(t.dispute_secs);
+      if (now >= decideBy) actions.push(btn('settle_move_in_timeout', "Refund the payer (arbiter didn't decide in time)", 'Refunded. The payer got everything back.', {}, 'btn-ghost'));
+      else if (!isArbiter) notes.push(`The arbiter has ${timeLeft(decideBy - now)} to decide. If they don't, the payer is refunded in full.`);
+    }
     if (isArbiter && lease.move_in_dispute) {
       notes.push(`Handover disputed by the tenant: "${lease.move_in_dispute}". You are the arbiter.`);
       actions.push(btn('resolve_move_in', 'Rule: the tenant moved in — pay the landlord', 'Ruled: moved in. Rent paid to the landlord, lease NFT minted.', { moved_in: true }, 'btn-ghost'));
@@ -129,6 +137,7 @@ export function LeaseView({ id }: { id: number }) {
     if (isLandlord) {
       if (!lease.handover_at_ms) actions.push(btn('mark_handover', "I've handed over the keys", 'Handover marked. The tenant has 3 days to confirm.'));
       else if (lease.move_in_dispute) notes.push(`The tenant disputed the handover: "${lease.move_in_dispute}". The arbiter decides; you can also decline and refund.`);
+      else if (!verifiedLandlord) notes.push('Waiting for the tenant to confirm. Only ID-verified landlords can collect if the tenant stays silent.');
       else if (now >= claimAt) actions.push(btn('claim_move_in', 'Claim the rent (tenant silent)', 'Move-in claimed. Rent added to your balance.'));
       else notes.push(`Waiting for the tenant to confirm. If they stay silent, you can claim in ${timeLeft(claimAt - now)}.`);
       actions.push(btn('cancel_lease', 'Decline and refund the tenant', 'Declined. The payer was refunded in full.', {}, 'btn-danger'));

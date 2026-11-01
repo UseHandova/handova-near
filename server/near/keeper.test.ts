@@ -14,4 +14,9 @@ test('keeper triggers only what the rules allow', () => {
   expect(dueAction({ ...base, status: 'Disputed', dispute: { opened_at_ms: DAY } }, t, 7 * DAY)).toBeNull();
   expect(dueAction({ ...base, status: 'Disputed', dispute: { opened_at_ms: DAY } }, t, 8 * DAY)).toBe('settle_dispute_timeout');
   expect(dueAction({ ...base, status: 'Active' }, t, 999 * DAY)).toBeNull();
+  // Unverified landlords never collect by silence.
+  expect(dueAction({ ...base, handover_at_ms: 0 }, t, 9 * DAY, false)).toBeNull();
+  // A disputed handover the arbiter ignores refunds the payer.
+  expect(dueAction({ ...base, handover_at_ms: 0, move_in_dispute: 'no keys', move_in_dispute_at_ms: DAY }, t, 7 * DAY)).toBeNull();
+  expect(dueAction({ ...base, handover_at_ms: 0, move_in_dispute: 'no keys', move_in_dispute_at_ms: DAY }, t, 8 * DAY)).toBe('settle_move_in_timeout');
 });

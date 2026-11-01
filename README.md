@@ -1,6 +1,8 @@
 # Handova — rent in Lagos, straight from the landlord, with the rent in escrow on NEAR
 
-Handova lets a tenant rent a home directly from the landlord, with no agent. The tenant (or family abroad) pays rent and the caution fee in USDC into a NEAR smart contract. The landlord is paid only when the tenant confirms they moved in. The tenant then holds a **lease NFT that holds the caution fee**, and that fee comes back at move-out unless the landlord proves damage. People pay no gas, and they can pay from any chain through NEAR Intents.
+Handova lets a tenant rent a home directly from the landlord, with no agent. The tenant (or family abroad) pays rent and the caution fee in USDC into a NEAR smart contract. The landlord is paid when the tenant confirms they moved in (or, for an ID-verified landlord only, if the tenant ignores a marked handover for 3 days). The tenant then holds a **lease NFT that holds the caution fee**, and that fee comes back at move-out unless the landlord proves damage. People pay no gas, and they can pay from any chain through NEAR Intents.
+
+> **Status, plainly:** everything runs on **NEAR testnet**. NEAR Intents has no testnet, so the app shows a live 1Click quote and then simulates the deposit arriving with test USDC; the escrow payment after that is real (testnet). No real landlords or tenants have used it yet.
 
 > **The one moment:** a nurse in London pays her mum's Lagos rent from a wallet on another chain → it lands in the Handova escrow on NEAR → the landlord is paid only when mum confirms she moved in → no agent fee, no gas, and the caution fee comes back at move-out.
 
@@ -34,7 +36,7 @@ Renting in Lagos usually means paying a year of rent up front, plus agent and ag
 | Accounts for people without a wallet | Named sub-accounts `name.handova.testnet` created with the **device's own key** (the server never sees the private key); 12-word recovery phrase | [`server/near/accounts.ts`](server/near/accounts.ts), [`web/src/lib/session.tsx`](web/src/lib/session.tsx) |
 | Pay from any chain | NEAR Intents 1Click: `EXACT_OUTPUT` quote → deposit on the origin chain → USDC delivered to the payer's NEAR account → gasless `ft_transfer_call` into escrow | [`server/near/intents.ts`](server/near/intents.ts), [`web/src/components/IntentsPay.tsx`](web/src/components/IntentsPay.tsx) |
 | Existing NEAR wallets | NEAR Connect (`@hot-labs/near-connect`): HOT, Meteor, MyNearWallet, Intear… | [`session.tsx`](web/src/lib/session.tsx) |
-| Voice note → listing draft (English, Pidgin, Yorùbá, Igbo, Hausa) | NEAR AI Cloud, private models in TEEs (`openai/whisper-large-v3`, `z-ai/glm-5.3-flash`). Every answer comes with a receipt the server checks: request/response hashes, ECDSA signature, and that the signer is in the model's attestation report | [`server/near/ai.ts`](server/near/ai.ts) |
+| Voice note or text → listing draft (drafting tested on English and Nigerian Pidgin text; voice goes through Whisper, which lists English, Yorùbá and Hausa but not Igbo) | NEAR AI Cloud, private models in TEEs (`openai/whisper-large-v3`, `z-ai/glm-5.3-flash`). Every answer comes with a receipt the server checks: request/response hashes, ECDSA signature, and that the signer is in the model's attestation report | [`server/near/ai.ts`](server/near/ai.ts) |
 | Ownership document pre-check for the admin (never approves) | NEAR AI Cloud vision model in a TEE (`Qwen/Qwen3-VL-30B-A3B-Instruct`) | `POST /api/ai/document-check` |
 | Timeouts nobody acted on | Keeper calls the contract's "anyone may trigger" methods; it can only do what the rules already allow | [`server/near/keeper.ts`](server/near/keeper.ts) |
 | Following lease events | NEP-297 `EVENT_JSON` logs for every step (`lease_paid`, `moved_in`, `lease_closed`…) | [`contract/src/events.rs`](contract/src/events.rs) |
@@ -47,7 +49,8 @@ Renting in Lagos usually means paying a year of rent up front, plus agent and ag
 |---|---|
 | Tenant (or anyone for them) pays | Rent + caution locked, status `Pending`. Overpayment is refunded; a bad `msg` refunds everything |
 | Tenant confirms move-in | Rent credited to the landlord; lease NFT minted to the tenant, holding the caution (`Active`) |
-| Landlord marked the handover, tenant silent 3 days | Anyone can trigger `claim_move_in` (same result as the tenant confirming) |
+| Landlord marked the handover, tenant silent 3 days | **Only for ID-verified landlords:** anyone can trigger `claim_move_in` (same as the tenant confirming). An unverified landlord always needs the tenant's confirmation, so a fake listing can't collect rent by silence |
+| Tenant disputes the handover, arbiter silent 7 days | Anyone can trigger `settle_move_in_timeout`: the payer is refunded in full. No state can lock money waiting for the arbiter |
 | Tenant says the handover never happened | `dispute_move_in` blocks the claim; the arbiter decides (move-in or full refund) |
 | No handover within 7 days of payment | Tenant or payer cancels; the **payer** is refunded in full. The landlord can decline any time before move-in |
 | Tenant moves out | 7-day landlord review (`Ending`): approve → full caution to the NFT holder; or dispute part of it |
@@ -76,7 +79,7 @@ Needs Rust and [cargo-near](https://github.com/near/cargo-near).
 ```sh
 cd contract && cargo test
 ```
-You'll see: **24 unit tests** (each escrow rule, NFT locking, the caution following the NFT, failed-withdraw restore) and **3 sandbox tests** on a real local NEAR node, using a real NEP-141 token. Those three cover the "family pays for mum" flow, NFT transfer followed by a 50/50 dispute timeout, and the check that the contract's USDC balance always equals what it owes.
+You'll see: **28 unit tests** (each escrow rule, NFT locking, the caution following the NFT, failed-withdraw restore, verified-only silence claims, arbiter timeout, listing limits) and **3 sandbox tests** on a real local NEAR node, using a real NEP-141 token. Those three cover the "family pays for mum" flow, NFT transfer followed by a 50/50 dispute timeout, and the check that the contract's USDC balance always equals what it owes.
 
 ### C. Your own Handova on testnet, end to end (about 3 minutes)
 
@@ -102,7 +105,12 @@ On a phone-sized window:
 4. As the landlord, open the lease → **I've handed over the keys**. As the tenant → **I have the keys — confirm move-in**. The lease NFT appears with its on-chain picture.
 5. Landlord → **Account → Withdraw**.
 
-A headless-browser run of exactly these steps (sign-up, AI draft, publish, Intents quote, pay, handover, move-in, NFT, withdraw) passes with no console errors.
+### E. End-to-end suite (real browser → app → API → testnet)
+```sh
+bun run setup:e2e      # once: your own testnet copy with 20-second waiting periods
+bun run test:e2e       # 19 Playwright tests on a phone-sized Chromium
+```
+Covers every contract method through the UI, with on-chain balance checks after each step: happy path; recovery phrase; family pays for someone else; payer cancel and landlord decline refunds; verified landlord claims after silence; unverified landlord can't; tenant disputes a fake handover and the arbiter rules (both ways); silent arbiter → refund; every caution outcome (agreement, arbiter, 50/50 timeout, tenant claim, keeper); passing the lease NFT on; listing pause/reprice; Intents quotes (Base, Solana) + simulated arrival; NEAR AI draft with a verified receipt; relayer and admin guards. Any browser console error fails the test.
 
 ---
 
@@ -134,7 +142,7 @@ A headless-browser run of exactly these steps (sign-up, AI draft, publish, Inten
 - **Relayer allowlist** ([`relayer.ts`](server/near/relayer.ts), tests in `relayer.test.ts`): only function calls to the escrow (a fixed method list, zero deposit) or `ft_transfer_call` on USDC (exactly 1 yocto) whose `receiver_id` is the escrow; at most 2 actions; gas cap; per-sender and per-IP rate limits and a daily budget (`RELAYER_DAILY_TX`). The relayer is a separate low-balance account. A leaked endpoint can't make the relayer pay for anything else.
 - **Keys**: user keys are generated in the browser and never leave it. Server keys (relayer, account creator, verifier) live only in `.env`, which is git-ignored.
 - **Contract**: pull payments; balance restored on failed `ft_transfer`; the `total_held` invariant is checked against the real token balance in sandbox tests; minimum rent of 1 USDC limits storage spam; no upgrade method.
-- **Known limits**: the contract pays storage for listings and leases so people never need NEAR. Spam is limited by the minimum rent, 50 listings per landlord, and relayer rate limits, not by deposits. The keeper and relayer are a single server. Device keys sit in browser storage, protected only by the device: back up the phrase.
+- **Known limits**: the contract pays storage for listings and leases so people never need NEAR. Spam is limited by the minimum rent, 3 listings for unverified landlords (50 once verified), and relayer rate limits and budget, not by deposits. The keeper and relayer are a single server. Device keys sit in browser storage, protected only by the device: back up the phrase.
 
 ---
 
@@ -145,9 +153,9 @@ A headless-browser run of exactly these steps (sign-up, AI draft, publish, Inten
 | Rust escrow with every rule above, lease NFT holding the caution, dynamic metadata, events | ✅ built, tested (unit + sandbox), live on testnet |
 | Gasless relayer (NEP-366) with allowlist | ✅ built, used by every step of the demo |
 | Named accounts with device keys + recovery phrase; NEAR Connect for existing wallets | ✅ built |
-| Pay from any chain (NEAR Intents 1Click) | ✅ quotes, deposit address, status polling, auto-pay into escrow. Live deposits need mainnet; on testnet the app shows a live dry quote and simulates arrival |
+| Pay from any chain (NEAR Intents 1Click) | ⚠️ built but **not run live**: quotes, deposit address, status polling and auto-pay into escrow are coded; Intents is mainnet-only, so on testnet the app shows a live dry quote and **simulates** the deposit arriving |
 | NEAR AI voice note → listing, with checked TEE receipt | ✅ built |
-| NEAR AI document pre-check | ✅ API built; admin screen planned |
+| NEAR AI document pre-check | ⚠️ API only; no admin screen yet |
 | Timeout keeper | ✅ built |
 | Mainnet deployment and a real (small) rent payment | ⏳ planned (needs the team's go-ahead and funds) |
 | WhatsApp bot on NEAR AI (Arc version used Groq/OpenAI) | ⏳ planned |
