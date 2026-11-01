@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+submission*.json
+node_modules/
+target/
+*.wasm
+dist/
+server/data/
+server/uploads/
+.DS_Store

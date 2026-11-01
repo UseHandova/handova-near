@@ -1,0 +1,17 @@
+node_modules
+.env
+.env.*
+!.env.example
+dist
+contracts
+lib
+src
+!src/lib/arc-rpc.ts
+!src/lib/savings-math.ts
+!src/lib/network.ts
+public
+server/data
+server/uploads
+*.log
+console.jsonl
+traces.jsonl
