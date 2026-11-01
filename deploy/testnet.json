@@ -1,0 +1,12 @@
+{
+  "network": "testnet",
+  "rpc": "https://rpc.testnet.near.org",
+  "explorer": "https://testnet.nearblocks.io",
+  "escrow": "escrow.handova.testnet",
+  "token": "usdc.handova.testnet",
+  "tokenDecimals": 6,
+  "tokenOpenMint": true,
+  "accountParent": "handova.testnet",
+  "verifier": "verifier.handova.testnet",
+  "arbiter": "handova.testnet"
+}
