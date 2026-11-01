@@ -15,6 +15,7 @@
 
 mod escrow;
 mod events;
+mod market;
 mod nft;
 mod svg;
 
@@ -27,6 +28,7 @@ use near_sdk::store::{IterableMap, LookupMap};
 use near_sdk::{env, near, require, AccountId, BorshStorageKey, PanicOnDefault};
 
 pub use escrow::{Dispute, Lease, LeaseStatus, PayMsg};
+pub use market::{RentalRecord, Takeover};
 
 pub const DAY_SECS: u64 = 86_400;
 /// A lease month (365/12 days), so a 12-month lease ends after exactly 365 days.
@@ -50,6 +52,7 @@ enum StorageKey {
     ListingCounts,
     NftOwners,
     NftTokensPerOwner,
+    NftApprovals,
 }
 
 /// How long each waiting period lasts, in seconds. Fixed at deployment so the rules a tenant
@@ -183,7 +186,7 @@ impl Contract {
                 env::current_account_id(),
                 None::<StorageKey>,
                 Some(StorageKey::NftTokensPerOwner),
-                None::<StorageKey>,
+                Some(StorageKey::NftApprovals),
             ),
         }
     }

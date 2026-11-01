@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { Loader2, X } from 'lucide-react';
 import type { LeaseStatus } from '../lib/types';
+import { useT } from '../lib/i18n';
 
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   useEffect(() => {
@@ -41,7 +42,8 @@ const STATUS: Record<LeaseStatus, { label: string; cls: string }> = {
 
 export function StatusPill({ status }: { status: LeaseStatus }) {
   const s = STATUS[status];
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${s.cls}`}>{s.label}</span>;
+  const { t } = useT();
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${s.cls}`}>{t(s.label)}</span>;
 }
 
 export function Empty({ icon, title, children }: { icon: ReactNode; title: string; children?: ReactNode }) {

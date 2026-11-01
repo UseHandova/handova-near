@@ -495,3 +495,76 @@ fn arbiter_capped_at_claim() {
     t.as_("landlord.near").dispute_caution(1, U128(20 * USDC), "Scuffed wall".into());
     t.as_("arbiter.near").resolve_dispute(1, U128(21 * USDC));
 }
+
+#[test]
+fn lease_takeover_needs_landlord_consent_then_moves_nft_and_pays_holder() {
+    let mut t = T::new();
+    t.active_lease();
+    let price = 300 * USDC;
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.as_("landlord.near").offer_takeover(1, U128(price))));
+    assert!(r.is_err(), "only the holder offers");
+    t.as_("tenant.near").offer_takeover(1, U128(price));
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.pay("newtenant.near", price, r#"{"take_over":1}"#)));
+    assert!(r.is_err(), "landlord hasn't consented");
+    t.as_("landlord.near").consent_takeover(1);
+    let unused = t.pay("newtenant.near", price + 2 * USDC, r#"{"take_over":1}"#);
+    assert_eq!(unused, 2 * USDC);
+    let lease = t.lease(1);
+    assert_eq!(lease.tenant, acc("newtenant.near"));
+    assert_eq!(lease.nft_holder, Some(acc("newtenant.near")));
+    assert!(lease.takeover.is_none());
+    assert_eq!(t.bal("tenant.near"), price, "seller paid");
+    // The caution now belongs to the buyer.
+    t.as_("newtenant.near").move_out(1);
+    t.as_("landlord.near").approve_move_out(1);
+    assert_eq!(t.bal("newtenant.near"), CAUTION);
+    assert_eq!(t.c.get_config().total_held.0, RENT + CAUTION + price);
+}
+
+#[test]
+fn takeover_offer_ends_when_nft_moves_another_way() {
+    let mut t = T::new();
+    t.active_lease();
+    t.as_("tenant.near").offer_takeover(1, U128(USDC));
+    t.ctx("tenant.near", 1);
+    t.c.nft_transfer(acc("friend.near"), "1".into(), None, None);
+    assert!(t.lease(1).takeover.is_none());
+}
+
+#[test]
+fn rental_passport_counts_finished_leases() {
+    let mut t = T::new();
+    t.active_lease();
+    t.as_("tenant.near").move_out(1);
+    t.as_("landlord.near").approve_move_out(1);
+    // Second lease on the same home: caution partly kept.
+    t.pay("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#);
+    t.as_("tenant.near").confirm_move_in(2);
+    t.as_("tenant.near").move_out(2);
+    t.as_("landlord.near").dispute_caution(2, U128(10 * USDC), "Stain".into());
+    t.as_("arbiter.near").resolve_dispute(2, U128(10 * USDC));
+    let r = t.c.rental_record(acc("tenant.near"));
+    assert_eq!(r.leases_completed, 2);
+    assert_eq!(r.caution_returned_in_full, 1);
+    assert_eq!(r.caution_partly_kept, 1);
+    assert_eq!(r.caution_returned_total.0, 2 * CAUTION - 10 * USDC);
+    assert_eq!(r.leases_moved_in, 2);
+    assert_eq!(r.months_rented, 24);
+    assert_eq!(r.rent_paid_total.0, 2 * RENT);
+    assert_eq!(r.active_leases, 0);
+}
+
+#[test]
+fn approvals_only_while_active() {
+    let mut t = T::new();
+    t.active_lease();
+    t.ctx("tenant.near", 10_000_000_000_000_000_000_000);
+    use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApproval;
+    let _ = t.c.nft_approve("1".into(), acc("market.near"), None);
+    assert!(t.c.nft_is_approved("1".into(), acc("market.near"), None));
+    // The marketplace moves it for the holder.
+    t.ctx("market.near", 1);
+    t.c.nft_transfer(acc("buyer.near"), "1".into(), None, None);
+    assert_eq!(t.lease(1).nft_holder, Some(acc("buyer.near")));
+    assert!(!t.c.nft_is_approved("1".into(), acc("market.near"), None), "approvals cleared on transfer");
+}

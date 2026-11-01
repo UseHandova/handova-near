@@ -8,5 +8,5 @@
   "tokenOpenMint": true,
   "accountParent": "handova.testnet",
   "verifier": "verifier.handova.testnet",
-  "arbiter": "handova.testnet"
+  "arbiter": "handova-council.sputnikv2.testnet"
 }

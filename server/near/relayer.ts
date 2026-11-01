@@ -32,6 +32,9 @@ export const ESCROW_METHODS = new Set([
   'settle_dispute_timeout',
   'withdraw',
   'settle_move_in_timeout',
+  'offer_takeover',
+  'cancel_takeover',
+  'consent_takeover',
   // Arbiter rulings: relayed only when the sender is the escrow's arbiter (checked below).
   'resolve_move_in',
   'resolve_dispute',

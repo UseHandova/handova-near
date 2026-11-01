@@ -12,7 +12,7 @@ import { NearConnector } from '@hot-labs/near-connect';
 import { gaslessCall } from '../../../shared/gasless';
 import { summarize, type TxSummary } from '../../../shared/outcome';
 import { API_BASE, api } from './api';
-import { getProvider, nearConfig } from './near';
+import { getProvider, getSigningProvider, nearConfig } from './near';
 
 const STORE = 'handova:device-account';
 
@@ -68,7 +68,7 @@ function saveDevice(d: DeviceAccount | null) {
 }
 
 function deviceSession(d: DeviceAccount): Session {
-  const account = new Account(d.accountId, getProvider(), d.secretKey as KeyPairString);
+  const account = new Account(d.accountId, getSigningProvider(), d.secretKey as KeyPairString);
   return {
     accountId: d.accountId,
     kind: 'device',

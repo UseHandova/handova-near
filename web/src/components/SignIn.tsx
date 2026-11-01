@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useT } from '../lib/i18n';
 import { Check, KeyRound, Smartphone, Wallet } from 'lucide-react';
 import { api } from '../lib/api';
 import { nearConfig } from '../lib/near';
@@ -18,6 +19,7 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
   const [busy, setBusy] = useState(false);
   const [phrase, setPhrase] = useState('');
   const [restoreId, setRestoreId] = useState('');
+  const { t } = useT();
 
   useEffect(() => { if (!open) { setMode('choose'); setName(''); setCheck(null); } }, [open]);
 
@@ -41,14 +43,14 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title={mode === 'create' ? 'Create your Handova account' : mode === 'restore' ? 'Restore your account' : 'Get started'}>
+    <Sheet open={open} onClose={onClose} title={mode === 'create' ? 'Create your Handova account' : mode === 'restore' ? 'Restore your account' : t('Get started')}>
       {mode === 'choose' && (
         <div className="space-y-3">
           {cfg.accountCreation && (
             <button onClick={() => setMode('create')} className="card flex w-full items-start gap-3 p-4 text-left hover:border-accent">
               <Smartphone className="mt-0.5 h-6 w-6 text-accent" />
               <span>
-                <span className="block font-semibold">New to crypto? Create an account</span>
+                <span className="block font-semibold">{t('New to crypto? Create an account')}</span>
                 <span className="text-sm text-sub">Pick a name like <b>ada.{cfg.accountParent}</b>. Your key is made on this phone — no app to install, no gas to pay.</span>
               </span>
             </button>
@@ -56,11 +58,11 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
           <button onClick={() => run(connectWallet, 'Wallet connected')} disabled={busy} className="card flex w-full items-start gap-3 p-4 text-left hover:border-accent">
             <Wallet className="mt-0.5 h-6 w-6 text-accent" />
             <span>
-              <span className="block font-semibold">I have a NEAR wallet</span>
+              <span className="block font-semibold">{t('I have a NEAR wallet')}</span>
               <span className="text-sm text-sub">HOT, Meteor, MyNearWallet, Intear and more via NEAR Connect.</span>
             </span>
           </button>
-          <button onClick={() => setMode('restore')} className="w-full py-2 text-sm font-semibold text-accent">I have a recovery phrase</button>
+          <button onClick={() => setMode('restore')} className="w-full py-2 text-sm font-semibold text-accent">{t('I have a recovery phrase')}</button>
         </div>
       )}
 
@@ -75,7 +77,7 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
             {check && <p className={`mt-1.5 text-sm ${check.available ? 'text-ok' : 'text-danger'}`}>{check.available ? <><Check className="inline h-4 w-4" /> {check.accountId} is free</> : check.reason}</p>}
           </div>
           <p className="rounded-xl bg-muted p-3 text-sm text-sub">This is a real NEAR account that only you control. Next you'll see a 12-word recovery phrase — write it down; it's the only way back in if you lose this phone.</p>
-          <button className="btn-primary w-full" disabled={!check?.available || busy}><Busy busy={busy}>Create account</Busy></button>
+          <button className="btn-primary w-full" disabled={!check?.available || busy}><Busy busy={busy}>{t('Create account')}</Busy></button>
         </form>
       )}
 

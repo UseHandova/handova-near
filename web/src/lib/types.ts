@@ -35,7 +35,23 @@ export interface Lease {
   closed_at_ms: number | null;
   caution_to_landlord: string;
   caution_to_holder: string;
+  closed_holder: string | null;
+  takeover: { price: string; landlord_consent: boolean; offered_at_ms: number } | null;
   nft_holder: string | null;
+}
+
+export interface RentalRecord {
+  account_id: string;
+  leases_completed: number;
+  caution_returned_in_full: number;
+  caution_partly_kept: number;
+  caution_returned_total: string;
+  caution_kept_total: string;
+  leases_moved_in: number;
+  months_rented: number;
+  rent_paid_total: string;
+  active_leases: number;
+  first_move_in_ms: number | null;
 }
 
 export interface Timeouts {

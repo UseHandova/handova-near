@@ -10,6 +10,7 @@
 
 use std::collections::HashMap;
 
+use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApproval;
 use near_contract_standards::non_fungible_token::core::{NonFungibleTokenCore, NonFungibleTokenResolver};
 use near_contract_standards::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
 use near_contract_standards::non_fungible_token::metadata::{
@@ -18,7 +19,7 @@ use near_contract_standards::non_fungible_token::metadata::{
 use near_contract_standards::non_fungible_token::{Token, TokenId};
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
-use near_sdk::{env, near, require, AccountId, PromiseOrValue};
+use near_sdk::{env, near, require, AccountId, Promise, PromiseOrValue};
 
 use crate::{svg, Contract, ContractExt, LeaseStatus};
 
@@ -29,6 +30,7 @@ impl NonFungibleTokenCore for Contract {
         let lease_id = self.assert_transferable(&token_id);
         self.nft.nft_transfer(receiver_id.clone(), token_id, approval_id, memo);
         self.index_lease(&receiver_id, lease_id);
+        self.drop_takeover(lease_id);
     }
 
     #[payable]
@@ -64,9 +66,35 @@ impl NonFungibleTokenResolver for Contract {
         if kept {
             if let Ok(lease_id) = token_id.parse::<u64>() {
                 self.index_lease(&receiver_id, lease_id);
+                self.drop_takeover(lease_id);
             }
         }
         kept
+    }
+}
+
+/// NEP-178: let a marketplace move the lease for its holder. Only while the lease is active;
+/// every approval is cleared when the NFT changes hands.
+#[near]
+impl NonFungibleTokenApproval for Contract {
+    #[payable]
+    fn nft_approve(&mut self, token_id: TokenId, account_id: AccountId, msg: Option<String>) -> Option<Promise> {
+        self.assert_transferable(&token_id);
+        self.nft.nft_approve(token_id, account_id, msg)
+    }
+
+    #[payable]
+    fn nft_revoke(&mut self, token_id: TokenId, account_id: AccountId) {
+        self.nft.nft_revoke(token_id, account_id)
+    }
+
+    #[payable]
+    fn nft_revoke_all(&mut self, token_id: TokenId) {
+        self.nft.nft_revoke_all(token_id)
+    }
+
+    fn nft_is_approved(&self, token_id: TokenId, approved_account_id: AccountId, approval_id: Option<u64>) -> bool {
+        self.nft.nft_is_approved(token_id, approved_account_id, approval_id)
     }
 }
 
@@ -109,6 +137,13 @@ impl NonFungibleTokenMetadataProvider for Contract {
 }
 
 impl Contract {
+    /// An offer to hand the lease over ends when the NFT moves another way.
+    fn drop_takeover(&mut self, lease_id: u64) {
+        if let Some(l) = self.leases.get_mut(&lease_id) {
+            l.takeover = None;
+        }
+    }
+
     fn assert_transferable(&self, token_id: &TokenId) -> u64 {
         let lease_id: u64 = token_id.parse().unwrap_or_else(|_| env::panic_str("Token not found"));
         let lease = self.leases.get(&lease_id).unwrap_or_else(|| env::panic_str("Token not found"));
@@ -176,6 +211,7 @@ impl Contract {
                     "ends_at_ms": lease.ends_at_ms,
                     "caution_to_holder": lease.caution_to_holder,
                     "caution_to_landlord": lease.caution_to_landlord,
+                    "takeover_price": lease.takeover.as_ref().map(|t| t.price),
                 })
                 .to_string(),
             ),

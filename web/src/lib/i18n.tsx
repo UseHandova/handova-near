@@ -1,0 +1,285 @@
+/**
+ * Five languages for the main screens: English, Naijá (Pidgin), Yorùbá, Hausa, Igbo.
+ * The English text is the key; anything without a translation shows in English. Wording follows
+ * the translations the team wrote for the Arc version of Handova; new lines still need a review by
+ * native speakers.
+ */
+import { createContext, useContext, useState, type ReactNode } from 'react';
+
+export type Lang = 'en' | 'pcm' | 'yo' | 'ha' | 'ig';
+
+export const LANGS: Array<{ code: Lang; name: string }> = [
+  { code: 'en', name: 'English' },
+  { code: 'pcm', name: 'Naijá' },
+  { code: 'yo', name: 'Yorùbá' },
+  { code: 'ha', name: 'Hausa' },
+  { code: 'ig', name: 'Igbo' },
+];
+
+type Dict = Record<string, string>;
+
+const PCM: Dict = {
+  Homes: 'Houses',
+  'My rentals': 'My rent',
+  Landlord: 'Landlord',
+  Account: 'Account',
+  'Get started': 'Start',
+  'Rent straight from the landlord.': 'Rent direct from landlord.',
+  'No agent fee.': 'No agent money.',
+  'Your rent waits in escrow on NEAR until you move in. Your caution fee comes back when you leave. Family abroad can pay from any chain.':
+    'Your rent go wait for escrow for NEAR till you enter house. Your caution go come back when you comot. Family for abroad fit pay from any chain.',
+  'Rent held until move-in': 'Rent dey wait till you enter',
+  'Caution comes back': 'Caution go return',
+  'Pay from any chain': 'Pay from any chain',
+  'Take over a lease': 'Collect person lease',
+  'Agent fee': 'Agent money',
+  'You pay': 'You go pay',
+  'Caution fee (refundable)': 'Caution (e go return)',
+  'How your money is protected': 'How your money dey safe',
+  'Pay into escrow': 'Pay enter escrow',
+  'Who will live here?': 'Who go live here?',
+  Me: 'Me',
+  'Someone else': 'Another person',
+  'How do you want to pay?': 'How you wan pay?',
+  'USDC on NEAR': 'USDC for NEAR',
+  'Any other chain': 'Any other chain',
+  Total: 'Total',
+  Taken: 'E don go',
+  'Paused by the landlord': 'Landlord pause am',
+  'In escrow · waiting for move-in': 'For escrow · dey wait make you enter',
+  'Moved in': 'Don enter',
+  'Move-out review': 'Landlord dey check house',
+  'Caution disputed': 'Wahala for caution',
+  Finished: 'E don finish',
+  'Cancelled · refunded': 'Cancel · money don return',
+  'Paid into escrow': 'Money don enter escrow',
+  'Keys handed over': 'Key don change hand',
+  'Moved in · rent paid to landlord': 'Don enter · landlord don collect rent',
+  'Moved out': 'Don comot',
+  'Caution returned': 'Caution don return',
+  "I've handed over the keys": 'I don give the key',
+  'I have the keys — confirm move-in': 'I don collect key — confirm say I don enter',
+  "I didn't get the keys": 'I no collect key',
+  "I'm moving out": 'I dey comot',
+  'Home is fine — return the caution': 'House dey fine — return the caution',
+  'Withdraw to my account': 'Bring am enter my account',
+  'My rental passport': 'My rent passport',
+  'Rental passport': 'Rent passport',
+  'Leases finished': 'Lease wey finish',
+  'Caution returned in full': 'Full caution don return',
+  'List a home': 'List house',
+  'Publish on NEAR': 'Put am for NEAR',
+  'Draft with NEAR AI': 'Make NEAR AI write am',
+  'Sign out': 'Comot',
+  'New to crypto? Create an account': 'You new for crypto? Make account',
+  'I have a NEAR wallet': 'I get NEAR wallet',
+  'I have a recovery phrase': 'I get recovery phrase',
+  'Create account': 'Make account',
+  Language: 'Language',
+};
+
+const YO: Dict = {
+  Homes: 'Àwọn ilé',
+  'My rentals': 'Àwọn ilé tí mo gbà',
+  Landlord: 'Onílé',
+  Account: 'Àkọọ́lẹ̀',
+  'Get started': 'Bẹ̀rẹ̀',
+  'Rent straight from the landlord.': 'Gba ilé taara lọ́wọ́ onílé.',
+  'No agent fee.': 'Kò sí owó aṣojú.',
+  'Your rent waits in escrow on NEAR until you move in. Your caution fee comes back when you leave. Family abroad can pay from any chain.':
+    'Owó ilé rẹ dúró sínú escrow lórí NEAR títí o fi wọlé. Owó ìdógò rẹ yóò padà nígbà tí o bá kúrò. Ẹbí ní òkè òkun lè sanwó láti chain èyíkéyìí.',
+  'Rent held until move-in': 'Owó ilé dúró títí o fi wọlé',
+  'Caution comes back': 'Ìdógò yóò padà',
+  'Pay from any chain': 'Sanwó láti chain èyíkéyìí',
+  'Take over a lease': 'Gba àdéhùn ilé ẹlòmíràn',
+  'Agent fee': 'Owó aṣojú',
+  'You pay': 'O máa san',
+  'Caution fee (refundable)': 'Ìdógò ààbò (yóò padà)',
+  'How your money is protected': 'Bí owó rẹ ṣe wà láàbò',
+  'Pay into escrow': 'San sínú escrow',
+  'Who will live here?': 'Ta ni yóò gbé ibí?',
+  Me: 'Èmi',
+  'Someone else': 'Ẹlòmíràn',
+  'How do you want to pay?': 'Báwo lo ṣe fẹ́ sanwó?',
+  'USDC on NEAR': 'USDC lórí NEAR',
+  'Any other chain': 'Chain mìíràn',
+  Total: 'Àpapọ̀',
+  Taken: 'Wọ́n ti gbà á',
+  'Paused by the landlord': 'Onílé dá a dúró',
+  'In escrow · waiting for move-in': 'Nínú escrow · ń dúró de wíwọlé',
+  'Moved in': 'Ti wọlé',
+  'Move-out review': 'Onílé ń yẹ ilé wò',
+  'Caution disputed': 'Àríyànjiyàn lórí ìdógò',
+  Finished: 'Ti parí',
+  'Cancelled · refunded': 'Ti fagilé · owó ti padà',
+  'Paid into escrow': 'Ti san sínú escrow',
+  'Keys handed over': 'Ti fi kọ́kọ́rọ́ lé e lọ́wọ́',
+  'Moved in · rent paid to landlord': 'Ti wọlé · onílé ti gba owó ilé',
+  'Moved out': 'Ti kúrò',
+  'Caution returned': 'Ìdógò ti padà',
+  "I've handed over the keys": 'Mo ti fi kọ́kọ́rọ́ lé e lọ́wọ́',
+  'I have the keys — confirm move-in': 'Mo ti gba kọ́kọ́rọ́ — jẹ́rìí sí wíwọlé',
+  "I didn't get the keys": 'Mi ò gba kọ́kọ́rọ́',
+  "I'm moving out": 'Mo ń kúrò',
+  'Home is fine — return the caution': 'Ilé dára — dá ìdógò padà',
+  'Withdraw to my account': 'Gbé e sí àkọọ́lẹ̀ mi',
+  'My rental passport': 'Ìwé ìtàn ilé gbígbà mi',
+  'Rental passport': 'Ìwé ìtàn ilé gbígbà',
+  'Leases finished': 'Àdéhùn tí ó parí',
+  'Caution returned in full': 'Ìdógò padà ní kíkún',
+  'List a home': 'Ṣe àtòkọ ilé',
+  'Publish on NEAR': 'Gbé e jáde lórí NEAR',
+  'Draft with NEAR AI': 'Jẹ́ kí NEAR AI kọ ọ́',
+  'Sign out': 'Jáde',
+  'New to crypto? Create an account': 'Tuntun sí crypto? Ṣẹ̀dá àkọọ́lẹ̀',
+  'I have a NEAR wallet': 'Mo ní àpò NEAR',
+  'I have a recovery phrase': 'Mo ní gbólóhùn ìmúpadàbọ̀sípò',
+  'Create account': 'Ṣẹ̀dá àkọọ́lẹ̀',
+  Language: 'Èdè',
+};
+
+const HA: Dict = {
+  Homes: 'Gidaje',
+  'My rentals': 'Hayar da nake yi',
+  Landlord: 'Mai gida',
+  Account: 'Asusu',
+  'Get started': 'Fara',
+  'Rent straight from the landlord.': 'Kai tsaye daga mai gida.',
+  'No agent fee.': 'Babu kuɗin wakili.',
+  'Your rent waits in escrow on NEAR until you move in. Your caution fee comes back when you leave. Family abroad can pay from any chain.':
+    'Kuɗin hayarka yana jira a escrow a NEAR har sai ka shiga. Kuɗin tsaronka zai dawo idan ka tashi. Iyali a ƙasashen waje za su iya biya daga kowace chain.',
+  'Rent held until move-in': 'Ana riƙe haya har sai ka shiga',
+  'Caution comes back': 'Kuɗin tsaro zai dawo',
+  'Pay from any chain': 'Biya daga kowace chain',
+  'Take over a lease': 'Karɓi hayar wani',
+  'Agent fee': 'Kuɗin wakili',
+  'You pay': 'Za ka biya',
+  'Caution fee (refundable)': 'Kuɗin tsaro (zai dawo)',
+  'How your money is protected': 'Yadda kuɗinka ke cikin aminci',
+  'Pay into escrow': 'Biya cikin escrow',
+  'Who will live here?': 'Wa zai zauna a nan?',
+  Me: 'Ni',
+  'Someone else': 'Wani daban',
+  'How do you want to pay?': 'Ta yaya kake son biya?',
+  'USDC on NEAR': 'USDC a NEAR',
+  'Any other chain': 'Wata chain',
+  Total: 'Jimla',
+  Taken: 'An karɓe shi',
+  'Paused by the landlord': 'Mai gida ya dakatar',
+  'In escrow · waiting for move-in': 'A escrow · ana jiran shiga',
+  'Moved in': 'An shiga',
+  'Move-out review': 'Mai gida yana duba gida',
+  'Caution disputed': 'Jayayya kan kuɗin tsaro',
+  Finished: 'An gama',
+  'Cancelled · refunded': 'An soke · an mayar da kuɗi',
+  'Paid into escrow': 'An biya cikin escrow',
+  'Keys handed over': 'An miƙa makullai',
+  'Moved in · rent paid to landlord': 'An shiga · an biya mai gida',
+  'Moved out': 'An tashi',
+  'Caution returned': 'An mayar da kuɗin tsaro',
+  "I've handed over the keys": 'Na miƙa makullai',
+  'I have the keys — confirm move-in': 'Na karɓi makullai — tabbatar da shiga',
+  "I didn't get the keys": 'Ban karɓi makullai ba',
+  "I'm moving out": 'Ina tashi',
+  'Home is fine — return the caution': 'Gidan lafiya — mayar da kuɗin tsaro',
+  'Withdraw to my account': 'Cire zuwa asusuna',
+  'My rental passport': 'Fasfo na hayata',
+  'Rental passport': 'Fasfo na haya',
+  'Leases finished': 'Hayar da aka gama',
+  'Caution returned in full': 'An mayar da kuɗin tsaro gaba ɗaya',
+  'List a home': 'Lissafa gida',
+  'Publish on NEAR': 'Wallafa a NEAR',
+  'Draft with NEAR AI': 'Bari NEAR AI ya rubuta',
+  'Sign out': 'Fita',
+  'New to crypto? Create an account': 'Sabo ga crypto? Ƙirƙiri asusu',
+  'I have a NEAR wallet': 'Ina da walat na NEAR',
+  'I have a recovery phrase': 'Ina da kalmomin dawo da asusu',
+  'Create account': 'Ƙirƙiri asusu',
+  Language: 'Harshe',
+};
+
+const IG: Dict = {
+  Homes: 'Ụlọ',
+  'My rentals': 'Ụlọ m gbaziri',
+  Landlord: 'Onye nwe ụlọ',
+  Account: 'Akaụntụ',
+  'Get started': 'Malite',
+  'Rent straight from the landlord.': 'Gbazite ụlọ ozugbo n’aka onye nwe ya.',
+  'No agent fee.': 'Ọ dịghị ụgwọ onye nnọchite.',
+  'Your rent waits in escrow on NEAR until you move in. Your caution fee comes back when you leave. Family abroad can pay from any chain.':
+    'Ụgwọ ụlọ gị na-echere na escrow na NEAR ruo mgbe ị batara. Ego nchekwa gị ga-alọghachi mgbe ị pụrụ. Ezinụlọ nọ ná mba ọzọ nwere ike ịkwụ ụgwọ site na chain ọ bụla.',
+  'Rent held until move-in': 'A na-ejide ụgwọ ruo mgbe ị batara',
+  'Caution comes back': 'Ego nchekwa ga-alọghachi',
+  'Pay from any chain': 'Kwụọ site na chain ọ bụla',
+  'Take over a lease': 'Weghara nkwekọrịta mmadụ',
+  'Agent fee': 'Ụgwọ onye nnọchite',
+  'You pay': 'Ị ga-akwụ',
+  'Caution fee (refundable)': 'Ego nchekwa (ọ ga-alọghachi)',
+  'How your money is protected': 'Otú e si echekwa ego gị',
+  'Pay into escrow': 'Kwụọ n’ime escrow',
+  'Who will live here?': 'Onye ga-ebi ebe a?',
+  Me: 'Mụ',
+  'Someone else': 'Onye ọzọ',
+  'How do you want to pay?': 'Kedu ka ị chọrọ isi kwụọ?',
+  'USDC on NEAR': 'USDC na NEAR',
+  'Any other chain': 'Chain ọzọ',
+  Total: 'Ngụkọta',
+  Taken: 'E wegharala ya',
+  'Paused by the landlord': 'Onye nwe ụlọ kwụsịrị ya',
+  'In escrow · waiting for move-in': 'Na escrow · na-eche ka ị bata',
+  'Moved in': 'Abatala',
+  'Move-out review': 'Onye nwe ụlọ na-enyocha ụlọ',
+  'Caution disputed': 'Esemokwu banyere ego nchekwa',
+  Finished: 'Emechaala',
+  'Cancelled · refunded': 'Kagburu · e weghachila ego',
+  'Paid into escrow': 'Akwụọla n’ime escrow',
+  'Keys handed over': 'E nyefeela igodo',
+  'Moved in · rent paid to landlord': 'Abatala · onye nwe ụlọ nwetara ụgwọ',
+  'Moved out': 'Apụọla',
+  'Caution returned': 'E weghachila ego nchekwa',
+  "I've handed over the keys": 'Enyefeela m igodo',
+  'I have the keys — confirm move-in': 'Enwetala m igodo — kwado na m batara',
+  "I didn't get the keys": 'Enwetaghị m igodo',
+  "I'm moving out": 'Ana m apụ',
+  'Home is fine — return the caution': 'Ụlọ dị mma — weghachi ego nchekwa',
+  'Withdraw to my account': 'Wepụta gaa n’akaụntụ m',
+  'My rental passport': 'Paspọtụ mgbazite m',
+  'Rental passport': 'Paspọtụ mgbazite',
+  'Leases finished': 'Nkwekọrịta emechara',
+  'Caution returned in full': 'E weghachiri ego nchekwa niile',
+  'List a home': 'Dee ụlọ',
+  'Publish on NEAR': 'Bipụta na NEAR',
+  'Draft with NEAR AI': 'Ka NEAR AI dee ya',
+  'Sign out': 'Pụọ',
+  'New to crypto? Create an account': 'Ị bụ onye ọhụrụ na crypto? Mepụta akaụntụ',
+  'I have a NEAR wallet': 'Enwere m obere akpa NEAR',
+  'I have a recovery phrase': 'Enwere m okwu mweghachi',
+  'Create account': 'Mepụta akaụntụ',
+  Language: 'Asụsụ',
+};
+
+const DICTS: Record<Lang, Dict> = { en: {}, pcm: PCM, yo: YO, ha: HA, ig: IG };
+const STORE = 'handova:lang';
+
+const Ctx = createContext<{ lang: Lang; setLang: (l: Lang) => void; t: (s: string) => string }>({ lang: 'en', setLang: () => {}, t: (s) => s });
+
+function initial(): Lang {
+  try {
+    const v = localStorage.getItem(STORE) as Lang | null;
+    if (v && v in DICTS) return v;
+  } catch { /* storage blocked */ }
+  return 'en';
+}
+
+export function LangProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<Lang>(initial);
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    try { localStorage.setItem(STORE, l); } catch { /* fine */ }
+    document.documentElement.lang = l;
+  };
+  const t = (s: string) => DICTS[lang][s] ?? s;
+  return <Ctx.Provider value={{ lang, setLang, t }}>{children}</Ctx.Provider>;
+}
+
+export const useT = () => useContext(Ctx);

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '../lib/i18n';
 import { ImagePlus, Mic, ShieldCheck, Sparkles, Square, X } from 'lucide-react';
 import { teraToGas } from 'near-api-js';
 import { API_BASE, api } from '../lib/api';
@@ -26,6 +27,7 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
   const toast = useToast();
   const rate = useNgnRate();
   const cfg = nearConfig();
+  const { t } = useT();
 
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
@@ -147,7 +149,7 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
 
   return (
     <div className="space-y-5 pt-2">
-      <h1 className="font-display text-2xl font-bold">List a home</h1>
+      <h1 className="font-display text-2xl font-bold">{t('List a home')}</h1>
 
       {cfg.ai && (
         <section className="card space-y-3 p-4">
@@ -162,7 +164,7 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
             <span className="text-sm text-faint">or type below</span>
           </div>
           <textarea className="input min-h-20" value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. 2 bedroom flat for Yaba near Unilag, prepaid meter, borehole. Rent 1.8m per year, caution 200k." />
-          <button className="btn-ghost w-full" disabled={drafting || text.trim().length < 10} onClick={() => draft({ text })}><Busy busy={drafting}><Sparkles className="h-4 w-4" /> Draft with NEAR AI</Busy></button>
+          <button className="btn-ghost w-full" disabled={drafting || text.trim().length < 10} onClick={() => draft({ text })}><Busy busy={drafting}><Sparkles className="h-4 w-4" /> {t('Draft with NEAR AI')}</Busy></button>
           {transcript && <p className="rounded-xl bg-muted p-3 text-sm"><b>We heard:</b> {transcript}</p>}
           {receipt && (
             <details className="rounded-xl bg-accent-soft p-3 text-sm">
@@ -225,7 +227,7 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
       </section>
 
       <button className="btn-primary w-full" disabled={!ready || publishing} onClick={publish}>
-        <Busy busy={publishing}>Publish on NEAR{session.kind === 'device' ? ' — free' : ''}</Busy>
+        <Busy busy={publishing}>{t('Publish on NEAR')}{session.kind === 'device' ? ' — free' : ''}</Busy>
       </button>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useT } from '../lib/i18n';
 import { BadgeCheck, CheckCircle2, ExternalLink, Globe2, KeyRound, Lock, RotateCcw, Wallet } from 'lucide-react';
 import { teraToGas } from 'near-api-js';
 import { api } from '../lib/api';
@@ -19,6 +20,7 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
   const { session } = useSession();
   const [l, setL] = useState<Listing | null | undefined>(undefined);
   const [paying, setPaying] = useState(false);
+  const { t } = useT();
   const reload = () => chain.listing(id).then(setL).catch(() => setL(null));
   useEffect(() => {
     reload();
@@ -52,10 +54,10 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
 
       <div className="card p-4">
         <Row k={`Rent (${l.term_months === 12 ? '1 year' : `${l.term_months} months`})`} v={<>{naira(rent, rate)} <span className="text-faint">· {usd(rent)}</span></>} />
-        <Row k="Caution fee (refundable)" v={<>{naira(caution, rate)} <span className="text-faint">· {usd(caution)}</span></>} />
-        <Row k="Agent fee" v={<span className="font-semibold text-ok">₦0</span>} />
+        <Row k={t('Caution fee (refundable)')} v={<>{naira(caution, rate)} <span className="text-faint">· {usd(caution)}</span></>} />
+        <Row k={t('Agent fee')} v={<span className="font-semibold text-ok">₦0</span>} />
         <div className="my-2 border-t border-line" />
-        <Row k="You pay" v={naira(rent + caution, rate)} strong />
+        <Row k={t('You pay')} v={naira(rent + caution, rate)} strong />
         <a href={accountUrl(l.landlord)} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-2 rounded-xl bg-muted p-3 text-sm">
           {l.landlord_verified ? <BadgeCheck className="h-5 w-5 text-accent" /> : <KeyRound className="h-5 w-5 text-faint" />}
           <span className="flex-1">Landlord <b>{shortAccount(l.landlord)}</b>{l.landlord_verified ? ' · ID verified' : ' · not verified yet'}</span>
@@ -64,7 +66,7 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
       </div>
 
       <div className="card space-y-3 p-4">
-        <h2 className="font-display font-bold">How your money is protected</h2>
+        <h2 className="font-display font-bold">{t('How your money is protected')}</h2>
         {[
           [Lock, 'Pay into escrow', 'Rent and caution wait in a NEAR smart contract — not with the landlord, not with Handova.'],
           [KeyRound, 'Move in, then confirm', 'The landlord is paid only when you confirm you have the keys. No handover in 7 days? Full refund.'],
@@ -83,7 +85,7 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
         {mine ? null : open ? (
           <button className="btn-primary w-full shadow-card" onClick={() => (session ? setPaying(true) : onNeedSignIn())}>Pay {naira(rent + caution, rate)} into escrow</button>
         ) : (
-          <button className="btn-ghost w-full" disabled>{l.active_lease !== null ? 'Taken' : 'Paused by the landlord'}</button>
+          <button className="btn-ghost w-full" disabled>{l.active_lease !== null ? t('Taken') : t('Paused by the landlord')}</button>
         )}
       </div>
 
@@ -103,6 +105,7 @@ function PaySheet({ open, onClose, listing }: { open: boolean; onClose: () => vo
   const [method, setMethod] = useState<'near' | 'intents'>('near');
   const [balance, setBalance] = useState<bigint | null>(null);
   const [busy, setBusy] = useState(false);
+  const { t } = useT();
 
   const refresh = () => session && chain.usdcBalance(session.accountId).then(setBalance).catch(() => setBalance(0n));
   useEffect(() => { if (open) refresh(); }, [open, session?.accountId]);
@@ -140,13 +143,13 @@ function PaySheet({ open, onClose, listing }: { open: boolean; onClose: () => vo
   const enough = balance !== null && balance >= total;
 
   return (
-    <Sheet open={open} onClose={onClose} title="Pay into escrow">
+    <Sheet open={open} onClose={onClose} title={t('Pay into escrow')}>
       <div className="space-y-5">
         <div>
-          <p className="label">Who will live here?</p>
+          <p className="label">{t('Who will live here?')}</p>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => setForOther(false)} className={`btn-ghost !py-2.5 ${!forOther ? '!border-accent !text-accent' : ''}`}>Me</button>
-            <button onClick={() => setForOther(true)} className={`btn-ghost !py-2.5 ${forOther ? '!border-accent !text-accent' : ''}`}>Someone else</button>
+            <button onClick={() => setForOther(false)} className={`btn-ghost !py-2.5 ${!forOther ? '!border-accent !text-accent' : ''}`}>{t('Me')}</button>
+            <button onClick={() => setForOther(true)} className={`btn-ghost !py-2.5 ${forOther ? '!border-accent !text-accent' : ''}`}>{t('Someone else')}</button>
           </div>
           {forOther && (
             <div className="mt-2">
@@ -157,21 +160,21 @@ function PaySheet({ open, onClose, listing }: { open: boolean; onClose: () => vo
         </div>
 
         <div>
-          <p className="label">How do you want to pay?</p>
+          <p className="label">{t('How do you want to pay?')}</p>
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => setMethod('near')} className={`card flex flex-col items-start gap-1 p-3 text-left ${method === 'near' ? '!border-accent' : ''}`}>
-              <Wallet className="h-5 w-5 text-accent" /><span className="text-sm font-semibold">USDC on NEAR</span>
+              <Wallet className="h-5 w-5 text-accent" /><span className="text-sm font-semibold">{t('USDC on NEAR')}</span>
               <span className="text-xs text-sub">{balance === null ? '…' : `Balance ${usd(usdc(balance))}`}</span>
             </button>
             <button onClick={() => setMethod('intents')} className={`card flex flex-col items-start gap-1 p-3 text-left ${method === 'intents' ? '!border-accent' : ''}`}>
-              <Globe2 className="h-5 w-5 text-accent" /><span className="text-sm font-semibold">Any other chain</span>
+              <Globe2 className="h-5 w-5 text-accent" /><span className="text-sm font-semibold">{t('Any other chain')}</span>
               <span className="text-xs text-sub">Base, Solana, Ethereum, Arbitrum… via NEAR Intents</span>
             </button>
           </div>
         </div>
 
         <div className="rounded-xl bg-muted p-3">
-          <Row k="Total" v={<>{usd(usdc(total))} <span className="text-faint">≈ {naira(usdc(total), rate)}</span></>} strong />
+          <Row k={t('Total')} v={<>{usd(usdc(total))} <span className="text-faint">≈ {naira(usdc(total), rate)}</span></>} strong />
           <p className="text-xs text-sub">{session!.kind === 'device' ? 'No gas fee — Handova pays the NEAR network fee for you.' : 'Your wallet pays a tiny NEAR network fee (under ₦10).'}</p>
         </div>
 

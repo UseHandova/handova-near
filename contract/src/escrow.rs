@@ -73,6 +73,10 @@ pub struct Lease {
     /// At close: how the caution was split.
     pub caution_to_landlord: U128,
     pub caution_to_holder: U128,
+    /// Who held the lease NFT when the caution was paid out (for the rental passport).
+    pub closed_holder: Option<AccountId>,
+    /// The holder's offer to hand the lease over to a new tenant (see market.rs).
+    pub takeover: Option<crate::market::Takeover>,
     /// Current lease NFT holder. Filled in by views; not stored.
     #[borsh(skip)]
     pub nft_holder: Option<AccountId>,
@@ -94,6 +98,10 @@ impl FungibleTokenReceiver for Contract {
     /// fails and the token contract refunds the whole amount.
     fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> PromiseOrValue<U128> {
         require!(env::predecessor_account_id() == self.token, "Only the configured USDC token is accepted");
+        // `{"take_over": <lease id>}` buys a lease a holder offered (see market.rs).
+        if let Ok(t) = near_sdk::serde_json::from_str::<crate::market::TakeoverMsg>(&msg) {
+            return PromiseOrValue::Value(U128(self.buy_takeover(sender_id, amount.0, t.take_over)));
+        }
         let req: PayMsg = near_sdk::serde_json::from_str(&msg)
             .unwrap_or_else(|_| env::panic_str(r#"Invalid msg. Expected {"listing_id": <id>, "tenant": "<optional account>"}"#));
         let tenant = req.tenant.unwrap_or_else(|| sender_id.clone());
@@ -129,6 +137,8 @@ impl FungibleTokenReceiver for Contract {
             closed_at_ms: None,
             caution_to_landlord: U128(0),
             caution_to_holder: U128(0),
+            closed_holder: None,
+            takeover: None,
             nft_holder: None,
         };
         let landlord = lease.landlord.clone();
@@ -448,6 +458,8 @@ impl Contract {
         lease.closed_at_ms = Some(now);
         lease.caution_to_landlord = U128(to_landlord);
         lease.caution_to_holder = U128(to_holder);
+        lease.closed_holder = Some(holder.clone());
+        lease.takeover = None;
         let (landlord, listing_id) = (lease.landlord.clone(), lease.listing_id);
         self.credit(&landlord, to_landlord);
         self.credit(&holder, to_holder);

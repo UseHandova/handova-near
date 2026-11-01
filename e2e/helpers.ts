@@ -17,6 +17,7 @@ export const chain = {
   usdc: async (acc: string) => BigInt(await view<string>('ft_balance_of', { account_id: acc }, deploy.token)),
   nft: (id: number) => view<any>('nft_token', { token_id: String(id) }),
   config: () => view<any>('get_config'),
+  passport: (acc: string) => view<any>('rental_record', { account_id: acc }),
 };
 
 export function arbiter(): { accountId: string; seedPhrase: string } {

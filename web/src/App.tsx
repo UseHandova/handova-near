@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useT } from './lib/i18n';
 import { Building2, Home, KeyRound, UserRound } from 'lucide-react';
 import { api, type NearConfig } from './lib/api';
 import { initNear } from './lib/near';
 import { go, useRoute } from './lib/router';
 import { SessionProvider, useSession } from './lib/session';
 import { ToastProvider } from './lib/toast';
+import { LANGS, LangProvider, type Lang } from './lib/i18n';
 import { Spinner } from './components/ui';
 import { SignInSheet } from './components/SignIn';
 import { Browse } from './components/Browse';
@@ -15,6 +17,7 @@ import { Landlord } from './components/Landlord';
 import { ListHome } from './components/ListHome';
 import { AccountPage } from './components/AccountPage';
 import { ArbiterDesk } from './components/ArbiterDesk';
+import { Passport } from './components/Passport';
 
 export default function App() {
   const [cfg, setCfg] = useState<NearConfig | null>(null);
@@ -27,11 +30,13 @@ export default function App() {
   if (err) return <div className="mx-auto max-w-md p-8 text-center text-sub">{err}</div>;
   if (!cfg) return <div className="flex h-dvh items-center justify-center text-sub"><Spinner className="h-6 w-6" /></div>;
   return (
-    <ToastProvider>
-      <SessionProvider>
-        <Shell cfg={cfg} />
-      </SessionProvider>
-    </ToastProvider>
+    <LangProvider>
+      <ToastProvider>
+        <SessionProvider>
+          <Shell cfg={cfg} />
+        </SessionProvider>
+      </ToastProvider>
+    </LangProvider>
   );
 }
 
@@ -39,6 +44,8 @@ function Shell({ cfg }: { cfg: NearConfig }) {
   const route = useRoute();
   const { session } = useSession();
   const [signIn, setSignIn] = useState(false);
+  const { t, lang, setLang } = useT();
+  const tr = t;
   const need = () => setSignIn(true);
   const [page, id] = route;
 
@@ -50,6 +57,7 @@ function Shell({ cfg }: { cfg: NearConfig }) {
   else if (page === 'list') body = <ListHome onNeedSignIn={need} />;
   else if (page === 'account') body = <AccountPage onNeedSignIn={need} />;
   else if (page === 'arbiter') body = <ArbiterDesk />;
+  else if (page === 'passport' && id) body = <Passport accountId={decodeURIComponent(id)} />;
   else body = <Browse />;
 
   const tabs = [
@@ -67,19 +75,24 @@ function Shell({ cfg }: { cfg: NearConfig }) {
           <span className="font-display text-lg font-bold">Handova</span>
           {cfg.network === 'testnet' && <span className="chip !py-0.5 !text-[10px] uppercase tracking-wide">testnet</span>}
         </a>
-        {session ? (
-          <button onClick={() => go('/account')} className="chip max-w-[45%] truncate !bg-accent-soft !text-accent">{session.accountId}</button>
-        ) : (
-          <button onClick={need} className="rounded-xl bg-accent px-3.5 py-2 text-sm font-semibold text-white">Get started</button>
-        )}
+        <div className="flex min-w-0 items-center gap-2">
+          <select aria-label={t('Language')} value={lang} onChange={(e) => setLang(e.target.value as Lang)} className="rounded-lg border border-line bg-surface px-1.5 py-1.5 text-xs font-semibold text-ink2">
+            {LANGS.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
+          </select>
+          {session ? (
+            <button onClick={() => go('/account')} className="chip max-w-[40vw] truncate !bg-accent-soft !text-accent">{session.accountId}</button>
+          ) : (
+            <button onClick={need} className="rounded-xl bg-accent px-3.5 py-2 text-sm font-semibold text-white">{t('Get started')}</button>
+          )}
+        </div>
       </header>
       <main className="px-4">{body}</main>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="mx-auto grid max-w-md grid-cols-4">
-          {tabs.map((t) => (
-            <a key={t.label} href={`#/${t.path}`} className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold ${t.active ? 'text-accent' : 'text-faint'}`}>
-              <t.icon className="h-5 w-5" />
-              {t.label}
+          {tabs.map((tab) => (
+            <a key={tab.label} href={`#/${tab.path}`} className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold ${tab.active ? 'text-accent' : 'text-faint'}`}>
+              <tab.icon className="h-5 w-5" />
+              {tr(tab.label)}
             </a>
           ))}
         </div>

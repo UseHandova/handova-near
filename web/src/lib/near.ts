@@ -1,7 +1,7 @@
 /** Read-only chain access for the web app. */
 import { FailoverRpcProvider, JsonRpcProvider } from 'near-api-js';
 import { API_BASE, type NearConfig } from './api';
-import type { EscrowConfig, Lease, Listing } from './types';
+import type { EscrowConfig, Lease, Listing, RentalRecord } from './types';
 
 let provider: FailoverRpcProvider | null = null;
 
@@ -18,6 +18,27 @@ export function initNear(c: NearConfig) {
   const proxy = new URL(`${API_BASE}/api/rpc`, location.origin).toString();
   const urls = [proxy, c.rpc, ...(FALLBACK[c.network] ?? [])].filter((u, i, a) => a.indexOf(u) === i);
   provider = new FailoverRpcProvider(urls.map((url) => new JsonRpcProvider({ url }, { retries: 2, backoff: 2, wait: 500 })));
+}
+
+let signing: FailoverRpcProvider | null = null;
+
+/** Reads fail over; transactions go to one RPC so their real errors (and nonce retries) survive. */
+export function getSigningProvider(): FailoverRpcProvider {
+  if (!signing) {
+    const reads = getProvider();
+    const primary = new JsonRpcProvider({ url: new URL(`${API_BASE}/api/rpc`, location.origin).toString() }, { retries: 3, backoff: 2, wait: 500 });
+    signing = new Proxy(reads, {
+      get(target, prop, receiver) {
+        if (prop === 'sendTransactionUntil' || prop === 'sendTransaction' || prop === 'sendTransactionAsync') {
+          const fn = (primary as any)[prop];
+          return typeof fn === 'function' ? fn.bind(primary) : fn;
+        }
+        const v = Reflect.get(target, prop, receiver);
+        return typeof v === 'function' ? v.bind(target) : v;
+      },
+    }) as FailoverRpcProvider;
+  }
+  return signing;
 }
 
 export function getProvider(): FailoverRpcProvider {
@@ -51,6 +72,7 @@ export const chain = {
     }
   },
   leasesFor: (accountId: string) => escrow<Lease[]>('get_leases_for', { account_id: accountId }),
+  passport: (accountId: string) => escrow<RentalRecord>('rental_record', { account_id: accountId }),
   balance: async (accountId: string) => BigInt(await escrow<string>('balance_of', { account_id: accountId })),
   nftToken: (id: number) => escrow<{ token_id: string; owner_id: string; metadata: { title: string; description: string; media: string; extra: string } } | null>('nft_token', { token_id: String(id) }),
   usdcBalance: async (accountId: string) => BigInt((await view<string>(nearConfig().token, 'ft_balance_of', { account_id: accountId })) ?? '0'),

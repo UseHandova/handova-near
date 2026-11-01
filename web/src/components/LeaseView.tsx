@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useT } from '../lib/i18n';
 import { ArrowLeft, Check, ExternalLink } from 'lucide-react';
 import { teraToGas } from 'near-api-js';
 import { decodeDetails } from '../lib/listing';
 import { naira, usd, usdc, useNgnRate } from '../lib/money';
+import { api } from '../lib/api';
 import { accountUrl, chain, getProvider, nearConfig, shortAccount, txUrl } from '../lib/near';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 import type { Lease, Listing, Timeouts } from '../lib/types';
 import { Busy, fmtDate, Row, Spinner, StatusPill, timeLeft } from './ui';
+import { PassportSummary } from './Passport';
+import { DaoRulings } from './DaoRulings';
 
 type Nft = Awaited<ReturnType<typeof chain.nftToken>>;
 
@@ -21,6 +25,7 @@ export function LeaseView({ id }: { id: number }) {
   const [t, setT] = useState<Timeouts | null>(null);
   const [arbiter, setArbiter] = useState('');
   const [to, setTo] = useState('');
+  const { t: tr } = useT();
   const [busy, setBusy] = useState('');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
@@ -73,6 +78,26 @@ export function LeaseView({ id }: { id: number }) {
     }
   }
 
+  /** Pay the holder's price into the escrow; the contract moves the lease to us. */
+  async function buyTakeover(price: bigint) {
+    if (!session) return;
+    const cfg = nearConfig();
+    setBusy('take_over');
+    try {
+      const bal = await chain.usdcBalance(session.accountId);
+      if (bal < price && cfg.tokenOpenMint) await api('/api/faucet', { accountId: session.accountId });
+      const r = await session.call(cfg.token, 'ft_transfer_call', { receiver_id: cfg.escrow, amount: price.toString(), msg: JSON.stringify({ take_over: lease!.id }) }, { deposit: 1n, gas: teraToGas('150') });
+      if (!r.ok) throw new Error(r.error ?? 'The takeover did not go through. Nothing was taken.');
+      if (!r.events.some((e) => e.event === 'lease_taken_over')) throw new Error('The escrow sent your money back — the offer may have just changed.');
+      toast('ok', 'You took over the lease. The home and its caution right are now yours.', txUrl(r.hash));
+      await load();
+    } catch (e) {
+      toast('error', (e as Error).message);
+    } finally {
+      setBusy('');
+    }
+  }
+
   /** NEP-171 transfer needs 1 yoctoNEAR, which the relayer never pays — so the holder signs it directly. */
   async function transferLease() {
     if (!session) return;
@@ -107,7 +132,7 @@ export function LeaseView({ id }: { id: number }) {
     const claimAt = (lease.handover_at_ms ?? 0) + s(t.handover_claim_secs);
     const verifiedLandlord = !!listing?.landlord_verified;
     if (isTenant) {
-      actions.push(btn('confirm_move_in', 'I have the keys — confirm move-in', 'Moved in! The landlord is paid and your lease NFT holds your caution fee.'));
+      actions.push(btn('confirm_move_in', tr('I have the keys — confirm move-in'), 'Moved in! The landlord is paid and your lease NFT holds your caution fee.'));
       if (lease.handover_at_ms && !lease.move_in_dispute) {
         notes.push(verifiedLandlord
           ? `The landlord says they handed over the keys. If you don't respond in ${timeLeft(claimAt - now)}, the landlord can claim the rent.`
@@ -115,7 +140,7 @@ export function LeaseView({ id }: { id: number }) {
         actions.push(
           <div key="dmi" className="space-y-2 rounded-xl border border-line p-3">
             <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="What happened? e.g. no keys, house locked" maxLength={500} />
-            <button className="btn-danger w-full" disabled={!!busy || reason.length < 5} onClick={() => act('dispute_move_in', { reason }, 'Dispute sent. The landlord can no longer claim the rent; the arbiter will decide.')}><Busy busy={busy === 'dispute_move_in'}>I didn't get the keys</Busy></button>
+            <button className="btn-danger w-full" disabled={!!busy || reason.length < 5} onClick={() => act('dispute_move_in', { reason }, 'Dispute sent. The landlord can no longer claim the rent; the arbiter will decide.')}><Busy busy={busy === 'dispute_move_in'}>{tr("I didn't get the keys")}</Busy></button>
           </div>,
         );
       }
@@ -135,7 +160,7 @@ export function LeaseView({ id }: { id: number }) {
       actions.push(btn('resolve_move_in', 'Rule: no handover — refund the payer', 'Ruled: refund. The payer got everything back.', { moved_in: false }, 'btn-danger'));
     }
     if (isLandlord) {
-      if (!lease.handover_at_ms) actions.push(btn('mark_handover', "I've handed over the keys", 'Handover marked. The tenant has 3 days to confirm.'));
+      if (!lease.handover_at_ms) actions.push(btn('mark_handover', tr("I've handed over the keys"), 'Handover marked. The tenant has 3 days to confirm.'));
       else if (lease.move_in_dispute) notes.push(`The tenant disputed the handover: "${lease.move_in_dispute}". The arbiter decides; you can also decline and refund.`);
       else if (!verifiedLandlord) {
         notes.push("Waiting for the tenant to confirm. Only ID-verified landlords can collect if the tenant stays silent — if they moved in and won't confirm, ask the arbiter.");
@@ -153,7 +178,7 @@ export function LeaseView({ id }: { id: number }) {
   }
   if (lease.status === 'Active') {
     if (isHolder) {
-      actions.push(btn('move_out', "I'm moving out", 'Move-out started. The landlord has 7 days to review.', {}, 'btn-ghost'));
+      actions.push(btn('move_out', tr("I'm moving out"), 'Move-out started. The landlord has 7 days to review.', {}, 'btn-ghost'));
       actions.push(
         <div key="nft" className="space-y-2 rounded-xl border border-line p-3">
           <p className="text-sm font-semibold">Pass this lease to someone else</p>
@@ -163,12 +188,35 @@ export function LeaseView({ id }: { id: number }) {
         </div>,
       );
     }
+    const offer = lease.takeover;
+    if (isHolder && !offer) {
+      actions.push(
+        <div key="offer" className="space-y-2 rounded-xl border border-line p-3">
+          <p className="text-sm font-semibold">Leaving early? Offer your lease to a new tenant</p>
+          <p className="text-xs text-sub">They pay you the price you set and take over the home and the caution right. The landlord must agree first.</p>
+          <input className="input" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="Price in USDC" aria-label="Takeover price" />
+          <button className="btn-ghost w-full" disabled={!!busy || !amount || Number(amount) <= 0} onClick={() => act('offer_takeover', { price: String(Math.round(Number(amount) * 1e6)) }, 'Offer published. The landlord has been asked to agree.')}><Busy busy={busy === 'offer_takeover'}>Offer for takeover</Busy></button>
+        </div>,
+      );
+    }
+    if (offer) {
+      notes.push(`Offered for takeover at ${usd(usdc(offer.price))}. ${offer.landlord_consent ? 'The landlord has agreed — anyone can take it over now.' : 'Waiting for the landlord to agree.'}`);
+      if (isHolder) actions.push(btn('cancel_takeover', 'Withdraw the takeover offer', 'Offer withdrawn.', {}, 'btn-ghost'));
+      if (isLandlord && !offer.landlord_consent) actions.push(btn('consent_takeover', 'Agree to this takeover', 'Agreed. The next tenant can take over the lease.'));
+      if (session && !isHolder && !isLandlord && offer.landlord_consent) {
+        actions.push(
+          <button key="buy" className="btn-primary w-full" disabled={!!busy} onClick={() => buyTakeover(BigInt(offer.price))}>
+            <Busy busy={busy === 'take_over'}>Take over this lease for {usd(usdc(offer.price))}</Busy>
+          </button>,
+        );
+      }
+    }
     if (isLandlord && lease.ends_at_ms && now >= lease.ends_at_ms) actions.push(btn('move_out', 'Lease term ended — start move-out', 'Move-out started.', {}, 'btn-ghost'));
   }
   if (lease.status === 'Ending' && t) {
     const until = (lease.move_out_at_ms ?? 0) + s(t.move_out_review_secs);
     if (isLandlord && now < until) {
-      actions.push(btn('approve_move_out', 'Home is fine — return the caution', `Approved. ${usd(caution)} returned to ${shortAccount(holder)}.`));
+      actions.push(btn('approve_move_out', tr('Home is fine — return the caution'), `Approved. ${usd(caution)} returned to ${shortAccount(holder)}.`));
       actions.push(
         <div key="dc" className="space-y-2 rounded-xl border border-line p-3">
           <p className="text-sm font-semibold">Keep part of the caution for damage</p>
@@ -215,11 +263,11 @@ export function LeaseView({ id }: { id: number }) {
   }
 
   const steps: Array<[string, number | null, string?]> = [
-    ['Paid into escrow', lease.paid_at_ms, lease.payer !== lease.tenant ? `by ${shortAccount(lease.payer)} for ${shortAccount(lease.tenant)}` : undefined],
-    ['Keys handed over', lease.handover_at_ms ?? lease.moved_in_at_ms],
-    ['Moved in · rent paid to landlord', lease.moved_in_at_ms],
-    ['Moved out', lease.move_out_at_ms],
-    [lease.status === 'Cancelled' ? 'Cancelled · payer refunded' : 'Caution returned', lease.closed_at_ms, lease.status === 'Closed' ? `${usd(usdc(lease.caution_to_holder))} to holder${BigInt(lease.caution_to_landlord) > 0n ? `, ${usd(usdc(lease.caution_to_landlord))} to landlord` : ''}` : undefined],
+    [tr('Paid into escrow'), lease.paid_at_ms, lease.payer !== lease.tenant ? `by ${shortAccount(lease.payer)} for ${shortAccount(lease.tenant)}` : undefined],
+    [tr('Keys handed over'), lease.handover_at_ms ?? lease.moved_in_at_ms],
+    [tr('Moved in · rent paid to landlord'), lease.moved_in_at_ms],
+    [tr('Moved out'), lease.move_out_at_ms],
+    [lease.status === 'Cancelled' ? 'Cancelled · payer refunded' : tr('Caution returned'), lease.closed_at_ms, lease.status === 'Closed' ? `${usd(usdc(lease.caution_to_holder))} to holder${BigInt(lease.caution_to_landlord) > 0n ? `, ${usd(usdc(lease.caution_to_landlord))} to landlord` : ''}` : undefined],
   ];
 
   return (
@@ -263,6 +311,8 @@ export function LeaseView({ id }: { id: number }) {
         </div>
       )}
 
+      {isLandlord && (lease.status === 'Pending' || !!lease.takeover) && <PassportSummary accountId={lease.tenant} />}
+      {arbiter && <DaoRulings lease={lease} arbiter={arbiter} onChange={load} />}
       {notes.map((n) => <p key={n} className="rounded-xl bg-muted p-3 text-sm text-ink2">{n}</p>)}
       {actions.length > 0 && <div className="space-y-2">{actions}</div>}
       {!session && <p className="text-center text-sm text-sub">Sign in as the tenant or landlord to act on this lease.</p>}

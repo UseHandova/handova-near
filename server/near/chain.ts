@@ -6,6 +6,23 @@ import { rpcUrls } from './rpc';
 /** The configured RPC first, then fallbacks (see rpc.ts): free public RPCs rate-limit bursts. */
 export const provider = new FailoverRpcProvider(rpcUrls.map((url) => new JsonRpcProvider({ url }, { retries: 2, backoff: 2, wait: 500 })));
 
+/**
+ * For accounts that sign: reads fail over, but transactions go to the main RPC directly. The
+ * failover wrapper turns every error into "exceeded providers", which would hide real errors
+ * (not enough balance) and break near-api-js's automatic retry on a stale nonce.
+ */
+const primary = new JsonRpcProvider({ url: rpcUrls[0] }, { retries: 4, backoff: 2, wait: 500 });
+export const signingProvider = new Proxy(provider, {
+  get(target, prop, receiver) {
+    if (prop === 'sendTransactionUntil' || prop === 'sendTransaction' || prop === 'sendTransactionAsync') {
+      const fn = (primary as any)[prop];
+      return typeof fn === 'function' ? fn.bind(primary) : fn;
+    }
+    const v = Reflect.get(target, prop, receiver);
+    return typeof v === 'function' ? v.bind(target) : v;
+  },
+}) as FailoverRpcProvider;
+
 /** NEAR (in whole units, approximate) available to a server account, or null if it can't be read. */
 export async function nearBalance(account: Account | null): Promise<number | null> {
   if (!account) return null;
@@ -33,7 +50,7 @@ export async function withRetry<T>(fn: () => Promise<T>, tries = 3): Promise<T> 
 function serverAccount(idVar: string, keyVar: string): Account | null {
   const id = env(idVar);
   const key = env(keyVar);
-  return id && key ? new Account(id, provider, key as KeyPairString) : null;
+  return id && key ? new Account(id, signingProvider, key as KeyPairString) : null;
 }
 
 /** Pays gas for users' signed delegate actions (NEP-366) and runs the keeper. */

@@ -13,7 +13,7 @@ set -euo pipefail
 ROOT="${ROOT:-handova.testnet}"
 NET="network-config testnet"
 SIGN="sign-with-legacy-keychain send"
-ESCROW="escrow.$ROOT"
+ESCROW="${ESCROW:-escrow.$ROOT}"
 VERIFIER="verifier.$ROOT"
 TOKEN="${TOKEN:-usdc.$ROOT}"
 ARBITER="${ARBITER:-$ROOT}"
