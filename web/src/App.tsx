@@ -14,6 +14,7 @@ import { LeaseView } from './components/LeaseView';
 import { Landlord } from './components/Landlord';
 import { ListHome } from './components/ListHome';
 import { AccountPage } from './components/AccountPage';
+import { ArbiterDesk } from './components/ArbiterDesk';
 
 export default function App() {
   const [cfg, setCfg] = useState<NearConfig | null>(null);
@@ -48,6 +49,7 @@ function Shell({ cfg }: { cfg: NearConfig }) {
   else if (page === 'landlord') body = <Landlord onNeedSignIn={need} />;
   else if (page === 'list') body = <ListHome onNeedSignIn={need} />;
   else if (page === 'account') body = <AccountPage onNeedSignIn={need} />;
+  else if (page === 'arbiter') body = <ArbiterDesk />;
   else body = <Browse />;
 
   const tabs = [

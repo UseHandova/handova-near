@@ -15,12 +15,14 @@ cd "$(dirname "$0")/.."
 ROOT="${ROOT:-handova-$(openssl rand -hex 4).testnet}"
 NET="network-config testnet"
 CREDS="$HOME/.near-credentials/testnet"
+OUT="${OUT:-deploy/testnet.local.json}"
+ENV_OUT="${ENV_OUT:-.env.local}"
 
 echo "▶ Creating $ROOT from the testnet faucet"
 near account create-account sponsor-by-faucet-service "$ROOT" autogenerate-new-keypair save-to-legacy-keychain $NET create
 
 echo "▶ Deploying contracts"
-ROOT="$ROOT" OUT=deploy/testnet.local.json ./scripts/deploy-testnet.sh
+ROOT="$ROOT" OUT="$OUT" ./scripts/deploy-testnet.sh
 
 RELAYER="relayer.$ROOT"
 echo "▶ Creating the relayer $RELAYER"
@@ -39,8 +41,8 @@ key() { python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['private_
   echo "ADMIN_SECRET=$(openssl rand -hex 16)"
   echo "# Optional: NEAR AI Cloud key for voice-note listings (https://cloud.near.ai)"
   echo "NEARAI_API_KEY=${NEARAI_API_KEY:-}"
-} > .env.local
-chmod 600 .env.local
+} > "$ENV_OUT"
+chmod 600 "$ENV_OUT"
 
 echo
 echo "✔ Your Handova is live on testnet:"

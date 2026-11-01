@@ -18,6 +18,11 @@ VERIFIER="verifier.$ROOT"
 TOKEN="${TOKEN:-usdc.$ROOT}"
 ARBITER="${ARBITER:-$ROOT}"
 OUT="${OUT:-deploy/testnet.json}"
+# Optional: one waiting period (seconds) for every rule, e.g. TIMEOUT_SECS=20 for end-to-end tests.
+TIMEOUTS_JSON=""
+if [ -n "${TIMEOUT_SECS:-}" ]; then
+  TIMEOUTS_JSON=",\"timeouts\":{\"handover_claim_secs\":$TIMEOUT_SECS,\"cancel_after_secs\":$TIMEOUT_SECS,\"move_out_review_secs\":$TIMEOUT_SECS,\"dispute_secs\":$TIMEOUT_SECS}"
+fi
 cd "$(dirname "$0")/.."
 
 exists() {
@@ -56,7 +61,7 @@ sub "$ESCROW" 5
 
 echo "▶ Deploying Handova to $ESCROW"
 near contract deploy "$ESCROW" use-file contract/target/near/handova.wasm \
-  with-init-call new json-args "{\"owner\":\"$ROOT\",\"verifier\":\"$VERIFIER\",\"arbiter\":\"$ARBITER\",\"token\":\"$TOKEN\"}" \
+  with-init-call new json-args "{\"owner\":\"$ROOT\",\"verifier\":\"$VERIFIER\",\"arbiter\":\"$ARBITER\",\"token\":\"$TOKEN\"$TIMEOUTS_JSON}" \
   prepaid-gas '100 Tgas' attached-deposit '0 NEAR' $NET $SIGN
 
 echo "▶ Registering the escrow with the token"

@@ -34,6 +34,8 @@ export interface Session {
   /** Recovery phrase not yet confirmed as written down. */
   needsBackup: boolean;
   call(receiverId: string, method: string, args: object, opts?: CallOpts): Promise<TxSummary>;
+  /** Signed and paid by the account itself — for calls the relayer won't pay for (e.g. 1-yocto `nft_transfer`). */
+  callDirect(receiverId: string, method: string, args: object, opts?: CallOpts): Promise<TxSummary>;
 }
 
 interface SessionCtx {
@@ -72,6 +74,14 @@ function deviceSession(d: DeviceAccount): Session {
     kind: 'device',
     needsBackup: !!d.seedPhrase && !d.backedUp,
     call: (receiverId, method, args, opts = {}) => gaslessCall(API_BASE, account, receiverId, method, args, opts),
+    callDirect: async (receiverId, method, args, opts = {}) => {
+      const outcome = await account.signAndSendTransaction({
+        receiverId,
+        actions: [actions.functionCall(method, args, opts.gas ?? teraToGas('100'), opts.deposit ?? 0n)],
+        throwOnFailure: false,
+      });
+      return summarize(outcome);
+    },
   };
 }
 
@@ -101,19 +111,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const session = useMemo<Session | null>(() => {
     if (device) return deviceSession(device);
     if (!walletAccount) return null;
-    return {
-      accountId: walletAccount,
-      kind: 'wallet',
-      needsBackup: false,
-      call: async (receiverId, method, args, opts = {}) => {
-        const wallet = await getConnector().wallet();
-        const outcome = await wallet.signAndSendTransaction({
-          receiverId,
-          actions: [actions.functionCall(method, args, opts.gas ?? teraToGas('100'), opts.deposit ?? 0n) as any],
-        });
-        return summarize(outcome);
-      },
+    const viaWallet = async (receiverId: string, method: string, args: object, opts: CallOpts = {}) => {
+      const wallet = await getConnector().wallet();
+      const outcome = await wallet.signAndSendTransaction({
+        receiverId,
+        actions: [actions.functionCall(method, args, opts.gas ?? teraToGas('100'), opts.deposit ?? 0n) as any],
+      });
+      return summarize(outcome);
     };
+    return { accountId: walletAccount, kind: 'wallet', needsBackup: false, call: viaWallet, callDirect: viaWallet };
   }, [device, walletAccount, getConnector]);
 
   const value: SessionCtx = {

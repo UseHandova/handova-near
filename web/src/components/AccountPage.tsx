@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowDownToLine, ExternalLink, Eye, LogOut, ShieldAlert, UserRound } from 'lucide-react';
+import { ArrowDownToLine, ExternalLink, Eye, LogOut, Scale, ShieldAlert, UserRound } from 'lucide-react';
 import { api } from '../lib/api';
 import { naira, usd, usdc, useNgnRate } from '../lib/money';
 import { accountUrl, chain, nearConfig, txUrl } from '../lib/near';
@@ -16,6 +16,7 @@ export function AccountPage({ onNeedSignIn }: { onNeedSignIn: () => void }) {
   const [escrow, setEscrow] = useState<bigint | null>(null);
   const [busy, setBusy] = useState('');
   const [showPhrase, setShowPhrase] = useState(false);
+  const [isArbiter, setIsArbiter] = useState(false);
 
   const load = useCallback(() => {
     if (!session) return;
@@ -23,6 +24,7 @@ export function AccountPage({ onNeedSignIn }: { onNeedSignIn: () => void }) {
     chain.balance(session.accountId).then(setEscrow).catch(() => setEscrow(0n));
   }, [session]);
   useEffect(load, [load]);
+  useEffect(() => { if (session) chain.config().then((c) => setIsArbiter(c.arbiter === session.accountId)).catch(() => {}); }, [session]);
 
   if (!session) return <div className="pt-6"><Empty icon={<UserRound className="h-6 w-6" />} title="No account yet"><button className="btn-primary mt-3" onClick={onNeedSignIn}>Get started</button></Empty></div>;
 
@@ -76,6 +78,8 @@ export function AccountPage({ onNeedSignIn }: { onNeedSignIn: () => void }) {
           )}
         </div>
       )}
+
+      {isArbiter && <a href="#/arbiter" className="btn-ghost w-full"><Scale className="h-4 w-4" /> Arbiter desk</a>}
 
       <div className="card p-4">
         <Row k="USDC in your account" v={wallet === null ? '…' : <>{usd(usdc(wallet))} <span className="text-faint">≈ {naira(usdc(wallet), rate)}</span></>} />

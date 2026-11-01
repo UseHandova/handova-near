@@ -7,7 +7,7 @@ import type { Lease } from '../lib/types';
 import { Empty, Spinner, StatusPill } from './ui';
 
 export function LeaseRow({ l, me }: { l: Lease; me: string }) {
-  const role = l.landlord === me ? 'You are the landlord' : l.tenant === me ? (l.payer === me ? 'You pay and live here' : `Paid by ${shortAccount(l.payer)}`) : l.payer === me ? `You paid for ${shortAccount(l.tenant)}` : 'You hold this lease NFT';
+  const role = l.landlord === me ? 'You are the landlord' : l.tenant === me ? (l.payer === me ? 'You pay and live here' : `Paid by ${shortAccount(l.payer)}`) : l.payer === me ? `You paid for ${shortAccount(l.tenant)}` : l.nft_holder === me ? 'You hold this lease NFT' : 'Waiting for your decision';
   return (
     <a href={`#/lease/${l.id}`} className="card flex items-center gap-3 p-4">
       <div className="min-w-0 flex-1 space-y-1">

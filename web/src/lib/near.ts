@@ -32,6 +32,15 @@ export const chain = {
   listings: (onlyOpen = false) => escrow<Listing[]>('get_listings', { from_index: 0, limit: 100, only_open: onlyOpen }),
   listing: (id: number) => escrow<Listing | null>('get_listing', { listing_id: id }),
   lease: (id: number) => escrow<Lease | null>('get_lease', { lease_id: id }),
+  /** Every lease, paged in hundreds. */
+  allLeases: async () => {
+    const out: Lease[] = [];
+    for (let from = 0; ; from += 100) {
+      const page = await escrow<Lease[]>('get_leases', { from_index: from, limit: 100 });
+      out.push(...page);
+      if (page.length < 100) return out;
+    }
+  },
   leasesFor: (accountId: string) => escrow<Lease[]>('get_leases_for', { account_id: accountId }),
   balance: async (accountId: string) => BigInt(await escrow<string>('balance_of', { account_id: accountId })),
   nftToken: (id: number) => escrow<{ token_id: string; owner_id: string; metadata: { title: string; description: string; media: string; extra: string } } | null>('nft_token', { token_id: String(id) }),

@@ -28,7 +28,7 @@ export const NETWORK: Network = process.env.NEAR_NETWORK === 'mainnet' ? 'mainne
 export function loadDeploy(network: Network = NETWORK): Deploy {
   const dir = join(import.meta.dir, '..', '..', 'deploy');
   const local = join(dir, `${network}.local.json`);
-  const file = existsSync(local) ? local : join(dir, `${network}.json`);
+  const file = env('NEAR_DEPLOY_FILE') ?? (existsSync(local) ? local : join(dir, `${network}.json`));
   const d = JSON.parse(readFileSync(file, 'utf8')) as Deploy;
   return { ...d, rpc: process.env.NEAR_RPC_URL || d.rpc };
 }

@@ -10,6 +10,7 @@ import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 import type { Listing } from '../lib/types';
 import { IntentsPay } from './IntentsPay';
+import { ManageListing } from './ManageListing';
 import { Photo } from './ListingCard';
 import { Busy, Row, Sheet, Spinner } from './ui';
 
@@ -18,7 +19,8 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
   const { session } = useSession();
   const [l, setL] = useState<Listing | null | undefined>(undefined);
   const [paying, setPaying] = useState(false);
-  useEffect(() => { chain.listing(id).then(setL).catch(() => setL(null)); }, [id]);
+  const reload = () => chain.listing(id).then(setL).catch(() => setL(null));
+  useEffect(() => { reload(); }, [id]);
 
   if (l === undefined) return <div className="flex justify-center py-16 text-sub"><Spinner className="h-6 w-6" /></div>;
   if (l === null) return <p className="py-16 text-center text-sub">This home doesn't exist. <a href="#/" className="font-semibold text-accent">See all homes</a></p>;
@@ -70,13 +72,13 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
         ))}
       </div>
 
+      {mine && <ManageListing listing={l} onChanged={reload} />}
+
       <div className="sticky bottom-20 z-30">
-        {mine ? (
-          <a href="#/landlord" className="btn-ghost w-full">This is your listing — manage it</a>
-        ) : open ? (
+        {mine ? null : open ? (
           <button className="btn-primary w-full shadow-card" onClick={() => (session ? setPaying(true) : onNeedSignIn())}>Pay {naira(rent + caution, rate)} into escrow</button>
         ) : (
-          <button className="btn-ghost w-full" disabled>Taken</button>
+          <button className="btn-ghost w-full" disabled>{l.active_lease !== null ? 'Taken' : 'Paused by the landlord'}</button>
         )}
       </div>
 

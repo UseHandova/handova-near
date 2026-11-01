@@ -8,6 +8,7 @@ import { mountAi } from './ai';
 import { mountFx } from './fx';
 import { mountIntents } from './intents';
 import { mountRelayer } from './relayer';
+import { runKeeperOnce } from './keeper';
 
 export function mountNear(app: Express) {
   /** What the web app needs to talk to the chain. Public. */
@@ -47,6 +48,19 @@ export function mountNear(app: Express) {
       res.json({ ok: true, hash: (outcome as any).transaction?.hash });
     } catch (e) {
       res.status(502).json({ error: (e as Error).message.slice(0, 300) });
+    }
+  });
+
+  /** Run the timeout keeper now (it also runs every 10 minutes). Admin-only. */
+  app.post('/api/near/keeper/run', async (req, res) => {
+    const secret = env('ADMIN_SECRET');
+    if (!secret || req.headers.authorization !== `Bearer ${secret}`) return res.status(401).json({ error: 'Admin only' });
+    const log: string[] = [];
+    try {
+      const done = await runKeeperOnce((l) => log.push(l));
+      res.json({ done, log });
+    } catch (e) {
+      res.status(502).json({ error: (e as Error).message, log });
     }
   });
 

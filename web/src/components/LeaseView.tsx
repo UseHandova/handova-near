@@ -3,7 +3,7 @@ import { ArrowLeft, Check, ExternalLink } from 'lucide-react';
 import { teraToGas } from 'near-api-js';
 import { decodeDetails } from '../lib/listing';
 import { naira, usd, usdc, useNgnRate } from '../lib/money';
-import { accountUrl, chain, nearConfig, shortAccount, txUrl } from '../lib/near';
+import { accountUrl, chain, getProvider, nearConfig, shortAccount, txUrl } from '../lib/near';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 import type { Lease, Listing, Timeouts } from '../lib/types';
@@ -19,6 +19,8 @@ export function LeaseView({ id }: { id: number }) {
   const [listing, setListing] = useState<Listing | null>(null);
   const [nft, setNft] = useState<Nft>(null);
   const [t, setT] = useState<Timeouts | null>(null);
+  const [arbiter, setArbiter] = useState('');
+  const [to, setTo] = useState('');
   const [busy, setBusy] = useState('');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
@@ -32,7 +34,7 @@ export function LeaseView({ id }: { id: number }) {
     chain.nftToken(id).then(setNft).catch(() => setNft(null));
   }, [id]);
 
-  useEffect(() => { load(); chain.config().then((c) => setT(c.timeouts)).catch(() => {}); }, [load]);
+  useEffect(() => { load(); chain.config().then((c) => { setT(c.timeouts); setArbiter(c.arbiter); }).catch(() => {}); }, [load]);
 
   if (lease === undefined) return <div className="flex justify-center py-16 text-sub"><Spinner className="h-6 w-6" /></div>;
   if (lease === null) return <p className="py-16 text-center text-sub">Lease #{id} doesn't exist.</p>;
@@ -43,6 +45,7 @@ export function LeaseView({ id }: { id: number }) {
   const isHolder = me === holder;
   const isLandlord = me === lease.landlord;
   const isPayer = me === lease.payer;
+  const isArbiter = !!me && me === arbiter;
   const details = listing ? decodeDetails(listing.property_ref, listing.id) : null;
   const caution = usdc(lease.caution);
   const s = (secs?: number) => (secs ?? 0) * 1000;
@@ -55,6 +58,26 @@ export function LeaseView({ id }: { id: number }) {
       if (!r.ok) throw new Error(r.error ?? 'That did not go through. Try again.');
       toast('ok', label, txUrl(r.hash));
       setAmount(''); setReason('');
+      await load();
+    } catch (e) {
+      toast('error', (e as Error).message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  /** NEP-171 transfer needs 1 yoctoNEAR, which the relayer never pays — so the holder signs it directly. */
+  async function transferLease() {
+    if (!session) return;
+    const cfg = nearConfig();
+    const receiver = to.includes('.') || to.length === 64 ? to : `${to}.${cfg.accountParent}`;
+    setBusy('nft_transfer');
+    try {
+      await getProvider().viewAccount({ accountId: receiver }).catch(() => { throw new Error(`${receiver} doesn't exist. Check the name.`); });
+      const r = await session.callDirect(cfg.escrow, 'nft_transfer', { receiver_id: receiver, token_id: String(lease!.id) }, { deposit: 1n, gas: teraToGas('30') });
+      if (!r.ok) throw new Error(r.error ?? 'The transfer did not go through.');
+      toast('ok', `Lease NFT sent to ${receiver}. The caution fee now belongs to them.`, txUrl(r.hash));
+      setTo('');
       await load();
     } catch (e) {
       toast('error', (e as Error).message);
@@ -91,6 +114,11 @@ export function LeaseView({ id }: { id: number }) {
       if (now >= cancelAt) actions.push(btn('cancel_lease', 'Cancel and get a full refund', `Cancelled. ${usd(usdc(BigInt(lease.rent) + BigInt(lease.caution)))} is back in ${lease.payer}'s Handova balance.`, {}, 'btn-danger'));
       else notes.push(`If the landlord doesn't hand over within ${timeLeft(cancelAt - now)}, ${isPayer && !isTenant ? 'you' : 'the payer'} can cancel for a full refund.`);
     }
+    if (isArbiter && lease.move_in_dispute) {
+      notes.push(`Handover disputed by the tenant: "${lease.move_in_dispute}". You are the arbiter.`);
+      actions.push(btn('resolve_move_in', 'Rule: the tenant moved in — pay the landlord', 'Ruled: moved in. Rent paid to the landlord, lease NFT minted.', { moved_in: true }, 'btn-ghost'));
+      actions.push(btn('resolve_move_in', 'Rule: no handover — refund the payer', 'Ruled: refund. The payer got everything back.', { moved_in: false }, 'btn-danger'));
+    }
     if (isLandlord) {
       if (!lease.handover_at_ms) actions.push(btn('mark_handover', "I've handed over the keys", 'Handover marked. The tenant has 3 days to confirm.'));
       else if (lease.move_in_dispute) notes.push(`The tenant disputed the handover: "${lease.move_in_dispute}". The arbiter decides; you can also decline and refund.`);
@@ -100,7 +128,17 @@ export function LeaseView({ id }: { id: number }) {
     }
   }
   if (lease.status === 'Active') {
-    if (isHolder) actions.push(btn('move_out', "I'm moving out", 'Move-out started. The landlord has 7 days to review.', {}, 'btn-ghost'));
+    if (isHolder) {
+      actions.push(btn('move_out', "I'm moving out", 'Move-out started. The landlord has 7 days to review.', {}, 'btn-ghost'));
+      actions.push(
+        <div key="nft" className="space-y-2 rounded-xl border border-line p-3">
+          <p className="text-sm font-semibold">Pass this lease to someone else</p>
+          <p className="text-xs text-sub">They become the lease holder: they can move out and the caution fee goes to them. Costs a tiny NEAR network fee.</p>
+          <input className="input" value={to} onChange={(e) => setTo(e.target.value.toLowerCase().trim())} placeholder={`name  or  name.${nearConfig().accountParent}`} autoCapitalize="none" />
+          <button className="btn-ghost w-full" disabled={!!busy || !to} onClick={transferLease}><Busy busy={busy === 'nft_transfer'}>Send lease NFT</Busy></button>
+        </div>,
+      );
+    }
     if (isLandlord && lease.ends_at_ms && now >= lease.ends_at_ms) actions.push(btn('move_out', 'Lease term ended — start move-out', 'Move-out started.', {}, 'btn-ghost'));
   }
   if (lease.status === 'Ending' && t) {
@@ -133,6 +171,17 @@ export function LeaseView({ id }: { id: number }) {
           <input className="input" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder={`USDC, 0 to ${caution}`} />
           <button className="btn-primary w-full" disabled={!!busy || amount === '' || Number(amount) > caution} onClick={() => act('propose_split', { landlord_amount: String(Math.round(Number(amount) * 1e6)) }, 'Proposal sent.')}>
             <Busy busy={busy === 'propose_split'}>Propose</Busy>
+          </button>
+        </div>,
+      );
+    }
+    if (isArbiter) {
+      actions.push(
+        <div key="rd" className="space-y-2 rounded-xl border border-line p-3">
+          <p className="text-sm font-semibold">Arbiter: decide how much the landlord keeps</p>
+          <input className="input" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder={`USDC, 0 to ${caution}`} aria-label="Arbiter amount" />
+          <button className="btn-primary w-full" disabled={!!busy || amount === '' || Number(amount) > caution} onClick={() => act('resolve_dispute', { landlord_amount: String(Math.round(Number(amount) * 1e6)) }, 'Decision recorded. Caution split and paid out.')}>
+            <Busy busy={busy === 'resolve_dispute'}>Decide</Busy>
           </button>
         </div>,
       );
