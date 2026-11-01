@@ -106,7 +106,7 @@ export async function receiptFor(chatId: string, model: string, requestText: str
 }
 
 /** One JSON-mode chat completion with its verification receipt. */
-export async function verifiedJson<T>(model: string, messages: unknown[], maxTokens = 800): Promise<{ data: T; receipt: Receipt }> {
+export async function verifiedJson<T>(model: string, messages: unknown[], maxTokens = 2000): Promise<{ data: T; receipt: Receipt }> {
   try {
     return await verifiedJsonOnce<T>(model, messages, maxTokens);
   } catch (e) {
@@ -117,7 +117,8 @@ export async function verifiedJson<T>(model: string, messages: unknown[], maxTok
 }
 
 async function verifiedJsonOnce<T>(model: string, messages: unknown[], maxTokens: number): Promise<{ data: T; receipt: Receipt }> {
-  const requestText = JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0, response_format: { type: 'json_object' } });
+  // Reasoning models spend output tokens thinking; keep it short so the JSON isn't cut off.
+  const requestText = JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0, reasoning_effort: 'low', response_format: { type: 'json_object' } });
   const r = await nearai('/chat/completions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: requestText });
   const responseText = await r.text();
   if (!r.ok) throw new Error(`NEAR AI ${r.status}: ${responseText.slice(0, 200)}`);
