@@ -103,7 +103,7 @@ try {
   const after: any = await view(deploy.escrow, 'nft_token', { token_id: String(leaseId) });
   console.log(`\n✔ Done. Lease NFT now reads: "${after.metadata.title}"`);
   const spent = BigInt(nurseNearBefore) - BigInt(nurseNearAfter);
-  console.log(`  The nurse spent ${spent} yoctoNEAR (only the 1-yocto deposit NEP-141 requires) — the relayer paid all gas.`);
+  console.log(`  Gas: the relayer paid all of it. The nurse's NEAR balance changed by ${spent} yoctoNEAR.`);
   console.log(`  Lease: near contract call-function as-read-only ${deploy.escrow} get_lease json-args '{"lease_id":${leaseId}}' network-config testnet now\n`);
 } catch (e) {
   console.error('\n✗', (e as Error).message);
