@@ -84,7 +84,7 @@ Needs: [Bun](https://bun.sh), [near CLI](https://github.com/near/near-cli-rs) (`
 ```sh
 bun install
 bun run setup:testnet   # creates handova-<random>.testnet from the faucet, deploys test USDC + escrow + a relayer
-bun run demo            # the whole story through the real API, on testnet
+bun run demo:testnet    # the whole story through the real API, on testnet
 ```
 You'll see: three new named accounts (landlord, nurse, mum), then each step with its explorer link:
 `create_listing` → nurse pays for mum with one gasless `ft_transfer_call` → `lease_paid` → handover → mum's `confirm_move_in` emits `nft_mint` + `moved_in` → landlord withdraws **1,200.00 USDC** → move-out → approve → mum withdraws **150.00 USDC**. It ends with `Lease NFT now reads: "Handova lease #1 · Closed"`. Nobody in the story pays gas.
@@ -131,7 +131,7 @@ A headless-browser run of exactly these steps (sign-up, AI draft, publish, Inten
 | `src/`, `server/*.ts` (top level) | The Arc-era app and server, imported as baseline (see below) |
 
 ### Security notes
-- **Relayer allowlist** ([`relayer.ts`](server/near/relayer.ts), tests in `relayer.test.ts`): only function calls to the escrow (a fixed method list; deposit 0, or exactly 1 yocto for `nft_transfer`) or `ft_transfer_call` on USDC whose `receiver_id` is the escrow; at most 2 actions; gas cap; per-sender and per-IP rate limits. A leaked endpoint can't make the relayer pay for anything else.
+- **Relayer allowlist** ([`relayer.ts`](server/near/relayer.ts), tests in `relayer.test.ts`): only function calls to the escrow (a fixed method list, zero deposit) or `ft_transfer_call` on USDC (exactly 1 yocto) whose `receiver_id` is the escrow; at most 2 actions; gas cap; per-sender and per-IP rate limits and a daily budget (`RELAYER_DAILY_TX`). The relayer is a separate low-balance account. A leaked endpoint can't make the relayer pay for anything else.
 - **Keys**: user keys are generated in the browser and never leave it. Server keys (relayer, account creator, verifier) live only in `.env`, which is git-ignored.
 - **Contract**: pull payments; balance restored on failed `ft_transfer`; the `total_held` invariant is checked against the real token balance in sandbox tests; minimum rent of 1 USDC limits storage spam; no upgrade method.
 - **Known limits**: the contract pays storage for listings and leases so people never need NEAR. Spam is limited by the minimum rent, 50 listings per landlord, and relayer rate limits, not by deposits. The keeper and relayer are a single server. Device keys sit in browser storage, protected only by the device: back up the phrase.

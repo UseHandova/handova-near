@@ -14,7 +14,7 @@ import { deploy } from './config';
 import { relayer, summarize } from './chain';
 import { RateLimit } from './rate-limit';
 
-/** Escrow methods a user may call gaslessly. Deposit must be 0 unless listed in ONE_YOCTO. */
+/** Escrow methods a user may call gaslessly, always with zero deposit. */
 export const ESCROW_METHODS = new Set([
   'create_listing',
   'update_listing',
@@ -30,9 +30,7 @@ export const ESCROW_METHODS = new Set([
   'propose_split',
   'settle_dispute_timeout',
   'withdraw',
-  'nft_transfer',
 ]);
-const ONE_YOCTO_METHODS = new Set(['nft_transfer']);
 const MAX_GAS_PER_ACTION = 300_000_000_000_000n;
 const MAX_ACTIONS = 2;
 
@@ -70,8 +68,7 @@ export function checkDelegate(sd: SignedDelegate, policy: Policy): CheckedDelega
     if (gas > MAX_GAS_PER_ACTION) throw new Error('Too much gas requested');
     if (receiver === policy.escrow) {
       if (!ESCROW_METHODS.has(fc.methodName)) throw new Error(`${fc.methodName} can't be sent gaslessly`);
-      const allowed = ONE_YOCTO_METHODS.has(fc.methodName) ? 1n : 0n;
-      if (deposit !== allowed) throw new Error(`Wrong deposit for ${fc.methodName}`);
+      if (deposit !== 0n) throw new Error(`Gasless calls can't attach NEAR (${fc.methodName})`);
     } else {
       // Token: only paying into the escrow.
       if (fc.methodName !== 'ft_transfer_call') throw new Error('Only payments into the Handova escrow are gasless');
@@ -91,6 +88,8 @@ export function checkDelegate(sd: SignedDelegate, policy: Policy): CheckedDelega
 
 const perSender = new RateLimit(60, 60 * 60_000);
 const perIp = new RateLimit(120, 60 * 60_000);
+/** Daily budget for the whole relayer (each relayed call costs it roughly 0.001 NEAR or less). */
+const daily = new RateLimit(Number(process.env.RELAYER_DAILY_TX ?? 2000), 24 * 60 * 60_000);
 
 export function mountRelayer(app: Express) {
   app.post('/api/relay', async (req, res) => {
@@ -105,6 +104,9 @@ export function mountRelayer(app: Express) {
     }
     if (!perIp.take(req.ip ?? 'ip') || !perSender.take(checked.senderId)) {
       return res.status(429).json({ error: 'Too many requests. Wait a few minutes and try again.' });
+    }
+    if (!daily.take('all')) {
+      return res.status(503).json({ error: "Handova's free-gas budget for today is used up. Try tomorrow, or use a NEAR wallet (you pay a tiny fee)." });
     }
     try {
       const outcome = await relayer.signAndSendTransaction({

@@ -41,8 +41,8 @@ describe('relayer policy', () => {
 
   test('refuses unknown escrow methods and deposits', () => {
     expect(() => checkDelegate(roundTrip(signed(policy.escrow, [call('set_owner', { owner: 'x' })])), policy)).toThrow(/can't be sent gaslessly/);
-    expect(() => checkDelegate(roundTrip(signed(policy.escrow, [call('withdraw', {}, 5n)])), policy)).toThrow(/Wrong deposit/);
-    expect(checkDelegate(roundTrip(signed(policy.escrow, [call('nft_transfer', { receiver_id: 'a', token_id: '1' }, 1n)])), policy).methods).toEqual(['nft_transfer']);
+    expect(() => checkDelegate(roundTrip(signed(policy.escrow, [call('withdraw', {}, 5n)])), policy)).toThrow(/can't attach NEAR/);
+    expect(() => checkDelegate(roundTrip(signed(policy.escrow, [call('nft_transfer', { receiver_id: 'a', token_id: '1' }, 1n)])), policy)).toThrow(/can't be sent gaslessly/);
   });
 
   test('refuses non-call actions', () => {

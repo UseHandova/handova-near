@@ -22,7 +22,8 @@
     "deploy:testnet": "./scripts/deploy-testnet.sh",
     "build": "vite build --config web/vite.config.ts",
     "typecheck:arc": "tsc --noEmit",
-    "setup:testnet": "./scripts/setup-testnet.sh"
+    "setup:testnet": "./scripts/setup-testnet.sh",
+    "demo:testnet": "bun run scripts/demo-testnet.ts"
   },
   "dependencies": {
     "@circle-fin/adapter-viem-v2": "^1.18.0",
