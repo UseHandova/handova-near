@@ -392,3 +392,15 @@ fn withdraw_takes_balance_and_failed_transfer_restores_it() {
     assert_eq!(t.bal("landlord.near"), RENT);
     assert_eq!(t.c.get_config().total_held.0, RENT + CAUTION);
 }
+
+#[test]
+fn keeper_can_page_through_leases() {
+    let mut t = T::new();
+    t.list();
+    t.pay("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#);
+    t.as_("landlord.near").cancel_lease(1);
+    t.pay("other.near", RENT + CAUTION, r#"{"listing_id":1}"#);
+    let all = t.c.get_leases(None, None);
+    assert_eq!(all.iter().map(|l| l.id).collect::<Vec<_>>(), vec![1, 2]);
+    assert_eq!(t.c.get_leases(Some(1), Some(10))[0].id, 2);
+}

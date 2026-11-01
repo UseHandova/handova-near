@@ -332,6 +332,16 @@ impl Contract {
         self.leases.get(&lease_id).map(|l| self.with_holder(l))
     }
 
+    /// Leases in id order. Used by the keeper that triggers timeouts nobody acted on.
+    pub fn get_leases(&self, from_index: Option<u64>, limit: Option<u64>) -> Vec<Lease> {
+        self.leases
+            .values()
+            .skip(from_index.unwrap_or(0) as usize)
+            .take(limit.unwrap_or(50).min(100) as usize)
+            .map(|l| self.with_holder(l))
+            .collect()
+    }
+
     /// Every lease the account is part of (as tenant, landlord or payer), newest first.
     pub fn get_leases_for(&self, account_id: AccountId) -> Vec<Lease> {
         self.leases_by_account
