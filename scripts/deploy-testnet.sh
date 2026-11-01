@@ -69,7 +69,7 @@ fi
 cat > deploy/testnet.json <<JSON
 {
   "network": "testnet",
-  "rpc": "https://rpc.testnet.near.org",
+  "rpc": "https://test.rpc.fastnear.com",
   "explorer": "https://testnet.nearblocks.io",
   "escrow": "$ESCROW",
   "token": "$TOKEN",

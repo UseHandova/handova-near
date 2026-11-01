@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --config web/vite.config.ts",
     "lint": "oxlint --type-aware src --fix; s=$?; oxlint --fix .; exit $((s>0?s:$?))",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p web/tsconfig.json",
     "check": "bash scripts/check.sh",
     "server": "bun run server/index.ts",
     "start": "bun run server/index.ts",
@@ -19,7 +19,9 @@
     "test:near": "bun test server/near/",
     "contract:build": "cd contract && cargo near build non-reproducible-wasm",
     "contract:test": "cd contract && cargo test",
-    "deploy:testnet": "./scripts/deploy-testnet.sh"
+    "deploy:testnet": "./scripts/deploy-testnet.sh",
+    "build": "vite build --config web/vite.config.ts",
+    "typecheck:arc": "tsc --noEmit"
   },
   "dependencies": {
     "@circle-fin/adapter-viem-v2": "^1.18.0",
@@ -29,6 +31,7 @@
     "@circle-fin/smart-contract-platform": "^10.8.0",
     "@circle-fin/user-controlled-wallets": "^10.8.0",
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
+    "@hot-labs/near-connect": "0.12.0",
     "@openzeppelin/contracts": "5.1.0",
     "@openzeppelin/contracts-upgradeable": "5.1.0",
     "@radix-ui/react-dialog": "^1.2.0",
@@ -53,6 +56,7 @@
     "multer": "^2.4.0",
     "near-api-js": "7.4.0",
     "openai": "^7.28.0",
+    "qrcode": "1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-leaflet": "^4.2.1",
@@ -71,6 +75,7 @@
     "@types/express": "^5.0.6",
     "@types/multer": "^2.3.0",
     "@types/node": "^24.0.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",

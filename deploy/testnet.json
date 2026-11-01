@@ -1,6 +1,6 @@
 {
   "network": "testnet",
-  "rpc": "https://rpc.testnet.near.org",
+  "rpc": "https://test.rpc.fastnear.com",
   "explorer": "https://testnet.nearblocks.io",
   "escrow": "escrow.handova.testnet",
   "token": "usdc.handova.testnet",

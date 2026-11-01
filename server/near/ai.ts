@@ -96,6 +96,16 @@ export async function receiptFor(chatId: string, model: string, requestText: str
 
 /** One JSON-mode chat completion with its verification receipt. */
 export async function verifiedJson<T>(model: string, messages: unknown[], maxTokens = 800): Promise<{ data: T; receipt: Receipt }> {
+  try {
+    return await verifiedJsonOnce<T>(model, messages, maxTokens);
+  } catch (e) {
+    // Models occasionally time out or return broken JSON; one retry fixes most of it.
+    console.warn(`NEAR AI retry (${model}):`, (e as Error).message.slice(0, 200));
+    return verifiedJsonOnce<T>(model, messages, maxTokens);
+  }
+}
+
+async function verifiedJsonOnce<T>(model: string, messages: unknown[], maxTokens: number): Promise<{ data: T; receipt: Receipt }> {
   const requestText = JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0, response_format: { type: 'json_object' } });
   const r = await nearai('/chat/completions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: requestText });
   const responseText = await r.text();
@@ -205,6 +215,7 @@ export function mountAi(app: Express) {
       const { data, receipt } = await draftListing(text);
       res.json({ transcript, draft: data, receipt });
     } catch (e) {
+      console.error('listing-draft:', (e as Error).message);
       res.status(502).json({ error: 'The AI could not read that. Try again or fill the form by hand.', detail: (e as Error).message.slice(0, 300) });
     }
   });

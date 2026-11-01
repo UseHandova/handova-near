@@ -4,12 +4,9 @@
  */
 import { actions, encodeSignedDelegate, teraToGas, type Account } from 'near-api-js';
 
-export interface RelayResult {
-  hash: string;
-  ok: boolean;
-  events: Array<{ standard: string; event: string; data: any[] }>;
-  error?: string;
-}
+import type { TxSummary } from './outcome';
+
+export type RelayResult = TxSummary;
 
 function toBase64(bytes: Uint8Array): string {
   let s = '';
