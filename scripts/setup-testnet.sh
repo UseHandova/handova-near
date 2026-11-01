@@ -12,7 +12,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-ROOT="${ROOT:-handova-$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 8).testnet}"
+ROOT="${ROOT:-handova-$(openssl rand -hex 4).testnet}"
 NET="network-config testnet"
 CREDS="$HOME/.near-credentials/testnet"
 
@@ -36,7 +36,7 @@ key() { python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['private_
   echo "CREATOR_PRIVATE_KEY=$(key "$ROOT")"
   echo "VERIFIER_ACCOUNT_ID=verifier.$ROOT"
   echo "VERIFIER_NEAR_PRIVATE_KEY=$(key "verifier.$ROOT")"
-  echo "ADMIN_SECRET=$(LC_ALL=C tr -dc 'a-zA-Z0-9' </dev/urandom | head -c 24)"
+  echo "ADMIN_SECRET=$(openssl rand -hex 16)"
   echo "# Optional: NEAR AI Cloud key for voice-note listings (https://cloud.near.ai)"
   echo "NEARAI_API_KEY=${NEARAI_API_KEY:-}"
 } > .env.local
