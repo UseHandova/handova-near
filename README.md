@@ -6,13 +6,15 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 
 **Built at NEAR HACKATHON (1–14 Nov 2026).** Tracks: `realworld`, `nfts`. Built on an earlier Arc version of Handova; only the NEAR work is the entry — see [Built before / during the hackathon](#built-before--during-the-hackathon).
 
-- 🎬 **Demo video (3 min, real testnet):** [`docs/media/handova-demo.mp4`](docs/media/handova-demo.mp4)
+- 🎬 **Demo video (4 min, real testnet, four phones):** [`docs/media/handova-demo.mp4`](docs/media/handova-demo.mp4)
 - 🧪 **Reproduce it yourself:** [`REPRODUCE.md`](REPRODUCE.md) — three commands, your own testnet accounts, no keys from us
 - 📜 **Contract:** [`contract/src/`](contract/src) · **Server:** [`server/near/`](server/near) · **Web app:** [`web/src/`](web/src) · **Browser tests:** [`e2e/`](e2e)
 
 | ![Home](docs/screenshots/01-home.png) | ![NEAR AI listing draft](docs/screenshots/02-ai-draft.png) | ![Pay from any chain](docs/screenshots/04-intents-quote.png) | ![Lease NFT](docs/screenshots/06-lease-nft.png) |
 |---|---|---|---|
 | Homes, priced in Naira | Voice note → listing (NEAR AI, verified TEE) | Pay from Base, Solana… (NEAR Intents) | Lease NFT holding the caution fee |
+| ![Landlord consents to a takeover](docs/screenshots/10-landlord-consent.png) | ![Take over a lease](docs/screenshots/11-takeover-offers.png) | ![DAO arbiter](docs/screenshots/12-dao-arbiter.png) | ![Rental passport](docs/screenshots/13-passport.png) |
+| Landlord sees the passport and consents to a takeover | Leases offered for takeover | Disputes go to a 2-of-3 DAO council | The tenant's rental passport |
 
 ---
 
@@ -58,7 +60,7 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 | 6 | Ade withdraws the full rent | pull-based `withdraw` |
 | 7 | Mum moves out; Ade approves; the caution goes to the NFT holder | `move_out`, `approve_move_out` |
 
-Every step is in the [demo video](docs/media/handova-demo.mp4) (three phones side by side, recorded from the real app on testnet with [`scripts/record-demo.mjs`](scripts/record-demo.mjs)) and in [`bun run demo:testnet`](scripts/demo-testnet.ts).
+Every step is in the [demo video](docs/media/handova-demo.mp4) (four phones side by side — landlord, nurse abroad, mum, next tenant — recorded from the real app on testnet with [`scripts/record-demo.mjs`](scripts/record-demo.mjs)) and in [`bun run demo:testnet`](scripts/demo-testnet.ts).
 
 ## How NEAR is used
 
@@ -108,7 +110,7 @@ Offers show on the home page under **Take over a lease**. An offer ends if the N
 
 ### Rental passport
 
-`rental_record(account_id)` turns the lease NFTs an account held into a record nobody can edit: leases finished, how many times the caution came back in full, caution kept for damage, months rented, rent paid. Tenants see it under **Account → My rental passport** (`#/passport/<account>`); a landlord sees a summary of the tenant's record on every lease waiting for a handover or a takeover.
+`rental_record(account_id)` turns the lease NFTs an account held into a record nobody can edit: leases finished, how many times the caution came back in full, caution kept for damage, homes lived in, months rented and the rent of those leases (after a takeover the buyer counts as the tenant, so the lease's rent is attributed to them). Tenants see it under **Account → My rental passport** (`#/passport/<account>`); a landlord sees a summary of the tenant's record on every lease waiting for a handover or a takeover.
 
 ## Escrow rules and lease states
 

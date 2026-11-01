@@ -66,16 +66,17 @@ const intro = card(
 // Main section: three phones.
 const video = (who) => join(REC, who, readdirSync(join(REC, who)).find((f) => f.endsWith('.webm')));
 const total = tl.total / 1000;
-const PH = 820;
+const phones = tl.phones ?? ['landlord', 'nurse', 'mum'];
+const PH = phones.length > 3 ? 740 : 820;
 const PW = Math.round((PH * 390) / 664); // iPhone 13 profile: visible page is 390×664
-const xs = { landlord: 400 - PW / 2, nurse: 960 - PW / 2, mum: 1520 - PW / 2 };
-const label = { landlord: 'Ade · landlord · Lagos', nurse: 'Daughter · nurse · London', mum: 'Mum · tenant · Lagos' };
+const xs = Object.fromEntries(phones.map((who, i) => [who, Math.round((1920 * (i + 0.5)) / phones.length - PW / 2)]));
+const label = { landlord: 'Ade · landlord · Lagos', nurse: 'Daughter · nurse · London', mum: 'Mum · tenant · Lagos', tolu: 'Tolu · next tenant' };
 const Y = 70;
 let f = `color=c=${BG}:s=1920x1080:d=${total}:r=30[bg];`;
-['landlord', 'nurse', 'mum'].forEach((who, i) => { f += `[${i}:v]crop=390:664:0:0,scale=${PW}:${PH}:flags=lanczos,setsar=1[p${i}];`; });
-f += `[bg][p0]overlay=${xs.landlord}:${Y}[o0];[o0][p1]overlay=${xs.nurse}:${Y}[o1];[o1][p2]overlay=${xs.mum}:${Y}[o2];`;
+phones.forEach((who, i) => { f += `[${i}:v]crop=390:664:0:0,scale=${PW}:${PH}:flags=lanczos,setsar=1[p${i}];`; });
+phones.forEach((who, i) => { f += `${i === 0 ? '[bg]' : `[o${i - 1}]`}[p${i}]overlay=${xs[who]}:${Y}:shortest=0[o${i}];`; });
 const draws = [];
-for (const who of ['landlord', 'nurse', 'mum']) {
+for (const who of phones) {
   draws.push(`drawtext=fontfile='${BOLD}':textfile='${textfile('label-' + who, label[who])}':fontsize=26:fontcolor=0xd2d8d4:x=${xs[who] + PW / 2}-text_w/2:y=28`);
 }
 tl.captions.forEach((c, i) => {
@@ -86,26 +87,29 @@ tl.captions.forEach((c, i) => {
   draws.push(`drawtext=fontfile='${FONT}':textfile='${textfile('cap' + i, wrap(c.text, 95))}':fontsize=30:line_spacing=8:fontcolor=white:box=1:boxcolor=0x000000@0.55:boxborderw=14:x=(w-text_w)/2:y=h-text_h-26:enable='between(t,${a},${b})'`);
 });
 draws.push(`drawtext=fontfile='${FONT}':text='NEAR testnet · real transactions':fontsize=20:fontcolor=0x6c7671:x=w-text_w-24:y=h-40`);
-f += `[o2]${draws.join(',')}[v];`;
+f += `[o${phones.length - 1}]${draws.join(',')}[v];`;
 // Narration clips placed at their caption times.
 const audioInputs = tl.captions.map((c) => join(REC, c.audio));
-audioInputs.forEach((_, i) => { f += `[${3 + i}:a]adelay=${tl.captions[i].start}|${tl.captions[i].start},aresample=48000[a${i}];`; });
+audioInputs.forEach((_, i) => { f += `[${phones.length + i}:a]adelay=${tl.captions[i].start}|${tl.captions[i].start},aresample=48000[a${i}];`; });
 f += `${audioInputs.map((_, i) => `[a${i}]`).join('')}amix=inputs=${audioInputs.length}:normalize=0,apad,atrim=0:${total}[a]`;
 const main = join(TMP, 'main.mp4');
-ff(['-i', video('landlord'), '-i', video('nurse'), '-i', video('mum'), ...audioInputs.flatMap((p) => ['-i', p]), '-filter_complex', f, '-map', '[v]', '-map', '[a]', ...ENC, '-t', String(total), main]);
+ff([...phones.flatMap((who) => ['-i', video(who)]), ...audioInputs.flatMap((p) => ['-i', p]), '-filter_complex', f, '-map', '[v]', '-map', '[a]', ...ENC, '-t', String(total), main]);
 
 const outro = card(
   'outro',
   'Built on NEAR',
   [
     'Rust escrow + NEP-171 lease NFT that holds the caution fee',
+    'Lease takeover market · NEP-178 approvals · on-chain rental passport',
+    'Disputes decided by a 2-of-3 Sputnik DAO council',
     'Gasless: NEP-366 relayer · named accounts with device keys',
     'Pay from any chain: NEAR Intents 1Click (simulated deposit on testnet)',
     'NEAR AI Cloud: voice note → listing, verified TEE receipt',
-    '31 contract tests · 3 sandbox tests · 20 browser end-to-end tests',
+    'English · Naijá · Yorùbá · Hausa · Igbo',
+    '35 contract tests · 3 sandbox · 24 browser end-to-end tests',
     'github.com/UseHandova/handova-near',
   ],
-  'Everything you saw ran on NEAR testnet: a Rust escrow and lease NFT, gasless transactions, NEAR Intents, and NEAR AI. Handova. Rent without the agent, and without the fear.',
+  'Everything you saw ran on NEAR testnet: a Rust escrow and a lease NFT you can hand on, gasless transactions, NEAR Intents, NEAR AI, and a council DAO. Handova. Rent without the agent, and without the fear.',
   12,
 );
 

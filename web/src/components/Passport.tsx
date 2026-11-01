@@ -45,9 +45,9 @@ export function Passport({ accountId }: { accountId: string }) {
         <Row k="Caution returned" v={usd(usdc(r.caution_returned_total))} />
         <Row k="Caution kept for damage" v={usd(usdc(r.caution_kept_total))} />
         <div className="my-2 border-t border-line" />
-        <Row k="Homes moved into" v={r.leases_moved_in} />
+        <Row k="Homes lived in (as tenant, including takeovers)" v={r.leases_moved_in} />
         <Row k="Months rented" v={r.months_rented} />
-        <Row k="Rent paid through Handova" v={usd(usdc(r.rent_paid_total))} />
+        <Row k="Rent of those leases" v={usd(usdc(r.rent_paid_total))} />
         <Row k="Leases active now" v={r.active_leases} />
         <Row k="Renting since" v={fmtDate(r.first_move_in_ms)} />
       </div>

@@ -1,7 +1,8 @@
 /**
- * Records the demo video's raw footage from the real app on NEAR testnet: three phones (landlord,
- * nurse abroad, mum) going through the whole story. Writes per-phone videos, a caption timeline,
- * narration clips (macOS `say`) and README screenshots. scripts/compose-demo.mjs turns it into the MP4.
+ * Records the demo video's raw footage from the real app on NEAR testnet: four phones (landlord,
+ * nurse abroad, mum, next tenant) going through the whole story. Writes per-phone videos, a caption
+ * timeline, narration clips (macOS `say`) and README screenshots. scripts/compose-demo.mjs turns it
+ * into the MP4.
  *
  *   bun run server & bun run dev        # the app on :5188 (main testnet deployment)
  *   node scripts/record-demo.mjs <out-dir>
@@ -15,6 +16,7 @@ const OUT = process.argv[2] ?? 'demo-out';
 const URL = process.env.DEMO_URL ?? 'http://localhost:5188/';
 const VOICE = process.env.DEMO_VOICE ?? 'Daniel';
 const SHOTS = 'docs/screenshots';
+const PHONES = ['landlord', 'nurse', 'mum', 'tolu'];
 mkdirSync(join(OUT, 'audio'), { recursive: true });
 mkdirSync(SHOTS, { recursive: true });
 
@@ -30,10 +32,17 @@ const SCRIPT = {
   ll4: 'Ade hands over the keys, and marks the handover.',
   mm1: 'Mum confirms she has moved in. Only now is the landlord paid.',
   mm2: 'Mum now holds a lease NFT. It holds her caution fee. Its picture and status are drawn on chain, and change with the lease.',
+  mm3: 'Handova speaks Yoruba, Hausa, Igbo and Pidgin, as well as English.',
   ll5: 'Ade withdraws his rent. The full amount.',
-  mm3: 'A year later, mum moves out. Ade has seven days to review the home.',
-  ll6: 'He approves. The caution fee goes back to whoever holds the lease NFT.',
-  mm4: 'Mum withdraws her caution. If the landlord had disputed it, they could agree a split, or the arbiter decides, or it splits fifty fifty after seven days.',
+  mm4: 'Months later, mum has to move to Abuja. Instead of losing her rent, she offers the rest of her lease to a new tenant.',
+  ll6: "Ade can see the tenant's rental passport. A lease never changes hands without him, so he agrees.",
+  to1: 'Tolu needs a flat. He finds the lease on the home page.',
+  to2: 'He takes it over in one payment. Mum is paid, and the lease NFT, with its caution right, moves to Tolu.',
+  to3: 'At the end of his stay, Tolu moves out.',
+  ll7: 'Ade claims part of the caution for a broken door.',
+  to4: 'If they cannot agree, a council DAO on NEAR decides. Two of three votes, no single judge. Tolu offers to settle instead.',
+  ll8: 'Ade agrees. The split is paid out by the contract.',
+  to5: 'Tolu withdraws the rest of his caution. His finished lease now shows on his rental passport, for his next landlord to see.',
 };
 
 // Narration first, so each step can wait until its line has been spoken.
@@ -47,7 +56,7 @@ for (const [id, text] of Object.entries(SCRIPT)) {
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME_BIN || undefined });
 const phones = {};
-for (const who of ['landlord', 'nurse', 'mum']) {
+for (const who of PHONES) {
   const ctx = await browser.newContext({ ...devices['iPhone 13'], recordVideo: { dir: join(OUT, who), size: { width: 390, height: 664 } } });
   phones[who] = await ctx.newPage();
 }
@@ -66,6 +75,7 @@ async function step(id, who, fn) {
 }
 const shot = (p, name) => p.screenshot({ path: join(SHOTS, `${name}.png`) });
 const toast = (p, re) => p.getByRole('status').filter({ hasText: re }).first().waitFor({ timeout: 90_000 });
+const openLease = async (p, id) => { await p.goto(`${URL}#/lease/${id}`); await p.reload(); await p.waitForTimeout(1200); };
 const uid = Date.now().toString(36).slice(-5);
 
 async function signUp(p, name) {
@@ -77,6 +87,12 @@ async function signUp(p, name) {
   await p.getByText(/is free/).waitFor();
   await p.getByRole('button', { name: 'Create account' }).click();
   await toast(p, /Welcome! Your account is/);
+}
+
+async function withdraw(p) {
+  await p.goto(`${URL}#/account`);
+  await p.getByRole('button', { name: /Withdraw to my account/ }).click();
+  await toast(p, /Withdrawn/);
 }
 
 try {
@@ -109,8 +125,6 @@ try {
 
   await step('nr1', 'nurse', async (p) => {
     await signUp(p, `nurse-${uid}`);
-    await p.goto(URL);
-    await p.waitForTimeout(1200);
     await p.goto(`${URL}#/home/${listingId}`);
     await p.waitForTimeout(1500);
     await shot(p, '03-listing');
@@ -141,13 +155,12 @@ try {
   });
 
   await step('ll4', 'landlord', async (p) => {
-    await p.goto(`${URL}#/lease/${leaseId}`);
+    await openLease(p, leaseId);
     await p.getByRole('button', { name: /handed over the keys/ }).click();
     await toast(p, /Handover marked/);
   });
   await step('mm1', 'mum', async (p) => {
-    await p.goto(`${URL}#/lease/${leaseId}`);
-    await p.waitForTimeout(800);
+    await openLease(p, leaseId);
     await p.getByRole('button', { name: /confirm move-in/ }).click();
     await toast(p, /Moved in!/);
   });
@@ -158,32 +171,84 @@ try {
     await p.waitForTimeout(800);
     await shot(p, '06-lease-nft');
   });
+  await step('mm3', 'mum', async (p) => {
+    await p.goto(URL);
+    await p.getByLabel('Language').selectOption('yo');
+    await p.waitForTimeout(2500);
+    await shot(p, '09-yoruba');
+    await p.getByLabel('Èdè').selectOption('en');
+  });
   await step('ll5', 'landlord', async (p) => {
-    await p.goto(`${URL}#/account`);
-    await p.getByRole('button', { name: /Withdraw to my account/ }).click();
-    await toast(p, /Withdrawn/);
-    await p.waitForTimeout(1500);
+    await withdraw(p);
+    await p.waitForTimeout(1200);
     await shot(p, '07-landlord-paid');
   });
-  await step('mm3', 'mum', async (p) => {
+
+  // Chapter two: the lease changes hands.
+  await step('mm4', 'mum', async (p) => {
+    await openLease(p, leaseId);
+    await p.getByLabel('Takeover price').pressSequentially('600', { delay: 80 });
+    await p.getByRole('button', { name: 'Offer for takeover' }).click();
+    await toast(p, /Offer published/);
+  });
+  await step('ll6', 'landlord', async (p) => {
+    await openLease(p, leaseId);
+    await p.getByText(/Rental passport:/).scrollIntoViewIfNeeded();
+    await p.waitForTimeout(1500);
+    await shot(p, '10-landlord-consent');
+    await p.getByRole('button', { name: 'Agree to this takeover' }).click();
+    await toast(p, /Agreed/);
+  });
+  await step('to1', 'tolu', async (p) => {
+    await signUp(p, `tolu-${uid}`);
+    await p.goto(URL);
+    await p.reload();
+    await p.getByText('Take over a lease').first().scrollIntoViewIfNeeded();
+    await p.waitForTimeout(1500);
+    await shot(p, '11-takeover-offers');
+  });
+  await step('to2', 'tolu', async (p) => {
+    await p.getByText(`Lease #${leaseId} · listing`).click();
+    await p.getByRole('button', { name: /Take over this lease/ }).click();
+    await toast(p, /You took over the lease/);
+    await p.waitForTimeout(1200);
+  });
+  await step('to3', 'tolu', async (p) => {
+    await openLease(p, leaseId);
     await p.getByRole('button', { name: /moving out/ }).click();
     await toast(p, /Move-out started/);
   });
-  await step('ll6', 'landlord', async (p) => {
-    await p.goto(`${URL}#/lease/${leaseId}`);
-    await p.getByRole('button', { name: /return the caution/ }).click();
-    await toast(p, /Approved/);
+  await step('ll7', 'landlord', async (p) => {
+    await openLease(p, leaseId);
+    await p.getByPlaceholder(/Amount in USDC/).pressSequentially('20', { delay: 80 });
+    await p.getByPlaceholder('What was damaged?').pressSequentially('Broken kitchen door', { delay: 40 });
+    await p.getByRole('button', { name: 'Open a dispute' }).click();
+    await toast(p, /Dispute opened/);
   });
-  await step('mm4', 'mum', async (p) => {
-    await p.goto(`${URL}#/account`);
-    await p.getByRole('button', { name: /Withdraw to my account/ }).click();
-    await toast(p, /Withdrawn/);
-    await p.goto(`${URL}#/lease/${leaseId}`);
+  await step('to4', 'tolu', async (p) => {
+    await openLease(p, leaseId);
+    await p.getByText('Decided by the arbiter DAO').scrollIntoViewIfNeeded();
+    await p.waitForTimeout(1500);
+    await shot(p, '12-dao-arbiter');
+    await p.getByPlaceholder(/USDC, 0 to/).first().pressSequentially('10', { delay: 80 });
+    await p.getByRole('button', { name: 'Propose', exact: true }).click();
+    await toast(p, /Proposal sent/);
+  });
+  await step('ll8', 'landlord', async (p) => {
+    await openLease(p, leaseId);
+    await p.getByPlaceholder(/USDC, 0 to/).first().pressSequentially('10', { delay: 80 });
+    await p.getByRole('button', { name: 'Propose', exact: true }).click();
+    await toast(p, /Proposal sent/);
+  });
+  await step('to5', 'tolu', async (p) => {
+    await withdraw(p);
+    const tolu = (await p.locator('header button').last().innerText()).trim();
+    await p.goto(`${URL}#/passport/${tolu}`);
     await p.waitForTimeout(2500);
-    await shot(p, '08-lease-closed');
+    await shot(p, '13-passport');
   });
   await pause(1500);
-  writeFileSync(join(OUT, 'timeline.json'), JSON.stringify({ total: Date.now() - t0, listingId, leaseId, captions }, null, 2));
+  writeFileSync(join(OUT, 'timeline.json'), JSON.stringify({ total: Date.now() - t0, phones: PHONES, listingId, leaseId, captions }, null, 2));
   console.log(`recorded ${Math.round((Date.now() - t0) / 1000)}s — listing ${listingId}, lease ${leaseId}`);
 } finally {
   for (const p of Object.values(phones)) await p.context().close(); // flushes the videos
