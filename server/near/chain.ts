@@ -1,14 +1,10 @@
 /** RPC access and the server's own NEAR accounts (relayer, account creator, verifier). */
 import { Account, FailoverRpcProvider, JsonRpcProvider, type KeyPairString } from 'near-api-js';
-import { deploy, env } from './config';
+import { env } from './config';
+import { rpcUrls } from './rpc';
 
-/** The configured RPC first, then fallbacks: free public RPCs rate-limit bursts. */
-const FALLBACK_RPC: Record<string, string[]> = {
-  testnet: ['https://rpc.testnet.near.org', 'https://rpc.testnet.fastnear.com'],
-  mainnet: ['https://rpc.mainnet.near.org', 'https://free.rpc.fastnear.com'],
-};
-const urls = [deploy.rpc, ...(env('NEAR_RPC_FALLBACKS')?.split(',') ?? FALLBACK_RPC[deploy.network] ?? [])].filter((u, i, a) => a.indexOf(u) === i);
-export const provider = new FailoverRpcProvider(urls.map((url) => new JsonRpcProvider({ url }, { retries: 2, backoff: 2, wait: 500 })));
+/** The configured RPC first, then fallbacks (see rpc.ts): free public RPCs rate-limit bursts. */
+export const provider = new FailoverRpcProvider(rpcUrls.map((url) => new JsonRpcProvider({ url }, { retries: 2, backoff: 2, wait: 500 })));
 
 /** NEAR (in whole units, approximate) available to a server account, or null if it can't be read. */
 export async function nearBalance(account: Account | null): Promise<number | null> {

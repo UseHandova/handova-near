@@ -6,6 +6,7 @@ import { creator, relayer, verifier } from './chain';
 import { mountAccounts } from './accounts';
 import { mountAi } from './ai';
 import { mountFx } from './fx';
+import { mountRpc } from './rpc';
 import { mountIntents } from './intents';
 import { mountRelayer } from './relayer';
 import { runKeeperOnce } from './keeper';
@@ -69,4 +70,5 @@ export function mountNear(app: Express) {
   mountIntents(app);
   mountAi(app);
   mountFx(app);
+  mountRpc(app);
 }

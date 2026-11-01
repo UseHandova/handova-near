@@ -1,6 +1,6 @@
 /** Read-only chain access for the web app. */
 import { FailoverRpcProvider, JsonRpcProvider } from 'near-api-js';
-import type { NearConfig } from './api';
+import { API_BASE, type NearConfig } from './api';
 import type { EscrowConfig, Lease, Listing } from './types';
 
 let provider: FailoverRpcProvider | null = null;
@@ -14,7 +14,9 @@ let cfg: NearConfig | null = null;
 
 export function initNear(c: NearConfig) {
   cfg = c;
-  const urls = [c.rpc, ...(FALLBACK[c.network] ?? [])].filter((u, i, a) => a.indexOf(u) === i);
+  // Our own /api/rpc first (fails over across providers server-side), then direct public RPCs.
+  const proxy = new URL(`${API_BASE}/api/rpc`, location.origin).toString();
+  const urls = [proxy, c.rpc, ...(FALLBACK[c.network] ?? [])].filter((u, i, a) => a.indexOf(u) === i);
   provider = new FailoverRpcProvider(urls.map((url) => new JsonRpcProvider({ url }, { retries: 2, backoff: 2, wait: 500 })));
 }
 

@@ -22,10 +22,15 @@ export async function gaslessCall(
   args: object,
   opts: { deposit?: bigint; gas?: bigint } = {},
 ): Promise<RelayResult> {
-  const { signedDelegate } = await account.createSignedMetaTransaction({
-    receiverId,
-    actions: [actions.functionCall(methodName, args, opts.gas ?? teraToGas('100'), opts.deposit ?? 0n)],
-  });
+  let signedDelegate;
+  try {
+    ({ signedDelegate } = await account.createSignedMetaTransaction({
+      receiverId,
+      actions: [actions.functionCall(methodName, args, opts.gas ?? teraToGas('100'), opts.deposit ?? 0n)],
+    }));
+  } catch {
+    throw new Error('Could not reach the NEAR network to prepare this step. Check your connection and try again.');
+  }
   const r = await fetch(`${apiBase}/api/relay`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

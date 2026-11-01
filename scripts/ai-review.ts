@@ -62,9 +62,9 @@ async function review(model: string) {
       { role: 'system', content: PROMPT },
       { role: 'user', content: packet },
     ],
-    max_tokens: 12000,
+    max_tokens: Number(process.env.REVIEW_MAX_TOKENS ?? 24000),
   };
-  if (!model.startsWith('google/')) body.reasoning_effort = 'medium';
+  if (!model.startsWith('google/')) body.reasoning_effort = process.env.REVIEW_REASONING ?? 'medium';
   const t0 = Date.now();
   let r = await fetch('https://cloud-api.near.ai/v1/chat/completions', {
     method: 'POST',
