@@ -11,7 +11,7 @@ For judges and AI screeners. Every step says what to run and what you should see
 ```sh
 cd contract && cargo test
 ```
-Expect `test result: ok. 31 passed` (unit) and `test result: ok. 3 passed` (sandbox: a local NEAR node with a real NEP-141 token).
+Expect `test result: ok. 35 passed` (unit) and `test result: ok. 3 passed` (sandbox: a local NEAR node with a real NEP-141 token).
 
 ## 2. Your own deployment (about 2 minutes)
 ```sh
@@ -83,4 +83,4 @@ bun run setup:e2e
 bunx playwright install chromium
 bun run test:e2e
 ```
-Expect `20 passed`. Each test drives a phone-sized browser through the web app against your own testnet deployment with 20-second waiting periods, and checks balances on-chain.
+Expect `24 passed`. Each test drives a phone-sized browser through the web app against your own testnet deployment with 20-second waiting periods, and checks balances on-chain.
