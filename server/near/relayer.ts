@@ -9,9 +9,10 @@
  */
 import type { Express } from 'express';
 import { deserialize } from 'borsh';
-import { actions, SCHEMA, type SignedDelegate } from 'near-api-js';
+import { createHash } from 'node:crypto';
+import { actions, baseEncode, encodeDelegateAction, PublicKey, SCHEMA, type SignedDelegate } from 'near-api-js';
 import { deploy } from './config';
-import { nearBalance, relayer, summarize, view, withRetry } from './chain';
+import { nearBalance, provider, relayer, summarize, view, withRetry } from './chain';
 import { RateLimit } from './rate-limit';
 
 /** Escrow methods a user may call gaslessly, always with zero deposit. */
@@ -45,7 +46,8 @@ async function currentArbiter(): Promise<string> {
   }
   return arbiterCache.id;
 }
-const MAX_GAS_PER_ACTION = 300_000_000_000_000n;
+/** NEAR's per-transaction gas limit; the actions together may not exceed it. */
+const MAX_GAS_TOTAL = 300_000_000_000_000n;
 const MAX_ACTIONS = 2;
 
 export interface Policy {
@@ -74,12 +76,14 @@ export function checkDelegate(sd: SignedDelegate, policy: Policy): CheckedDelega
   }
   if (!d.actions?.length || d.actions.length > MAX_ACTIONS) throw new Error('Expected 1–2 actions');
   const methods: string[] = [];
+  let totalGas = 0n;
   for (const a of d.actions) {
     const fc = a.functionCall;
     if (!fc) throw new Error('Only contract calls can be sent gaslessly');
     const deposit = BigInt(fc.deposit.toString());
     const gas = BigInt(fc.gas.toString());
-    if (gas > MAX_GAS_PER_ACTION) throw new Error('Too much gas requested');
+    totalGas += gas;
+    if (totalGas > MAX_GAS_TOTAL) throw new Error('Too much gas requested');
     if (receiver === policy.escrow) {
       if (!ESCROW_METHODS.has(fc.methodName)) throw new Error(`${fc.methodName} can't be sent gaslessly`);
       if (deposit !== 0n) throw new Error(`Gasless calls can't attach NEAR (${fc.methodName})`);
@@ -100,6 +104,23 @@ export function checkDelegate(sd: SignedDelegate, policy: Policy): CheckedDelega
   return { senderId: d.senderId, receiverId: receiver, methods };
 }
 
+/**
+ * Check offline that the delegate is really signed by `senderId`: the ed25519 signature over
+ * sha256(NEP-461 encoded delegate) must match its public key, and that key must be on the account.
+ * Forged or garbage requests are refused before the relayer spends any gas, and nobody can use up
+ * another person's rate limit by putting their name in a request.
+ */
+export function signatureValid(sd: SignedDelegate): { ok: boolean; publicKey: string } {
+  const d: any = sd.delegateAction;
+  const s: any = sd.signature;
+  const keyBytes = d.publicKey?.ed25519Key?.data;
+  const sigBytes = s?.ed25519Signature?.data;
+  if (!keyBytes || !sigBytes) return { ok: false, publicKey: '' };
+  const publicKey = `ed25519:${baseEncode(new Uint8Array(keyBytes))}`;
+  const hash = createHash('sha256').update(encodeDelegateAction(d)).digest();
+  return { ok: PublicKey.from(publicKey).verify(new Uint8Array(hash), new Uint8Array(sigBytes)), publicKey };
+}
+
 const perSender = new RateLimit(60, 60 * 60_000);
 const perIp = new RateLimit(120, 60 * 60_000);
 /** Daily budget for the whole relayer (each relayed call costs it roughly 0.001 NEAR or less). */
@@ -116,6 +137,10 @@ export function mountRelayer(app: Express) {
     } catch (e) {
       return res.status(400).json({ error: (e as Error).message || 'Could not read the signed request. Refresh and try again.' });
     }
+    const sig = signatureValid(sd);
+    if (!sig.ok) return res.status(400).json({ error: 'The request signature is not valid. Sign in again and retry.' });
+    const key = await provider.viewAccessKey({ accountId: checked.senderId, publicKey: sig.publicKey }).catch(() => null);
+    if (!key) return res.status(400).json({ error: `This device's key is not on ${checked.senderId}. Sign in again.` });
     if (checked.methods.some((m) => ARBITER_METHODS.has(m)) && checked.senderId !== (await currentArbiter().catch(() => ''))) {
       return res.status(403).json({ error: 'Only the arbiter can make this ruling.' });
     }

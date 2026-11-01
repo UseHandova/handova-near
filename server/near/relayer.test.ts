@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { actions, encodeSignedDelegate, KeyPair, buildDelegateAction, Signature, type SignedDelegate } from 'near-api-js';
-import { checkDelegate, decodeSignedDelegate } from './relayer';
+import { checkDelegate, decodeSignedDelegate, signatureValid } from './relayer';
+import { KeyPairSigner } from 'near-api-js';
 
 const policy = { escrow: 'escrow.handova.testnet', token: 'usdc.handova.testnet' };
 const key = KeyPair.fromRandom('ed25519');
@@ -44,6 +45,24 @@ describe('relayer policy', () => {
     expect(checkDelegate(roundTrip(signed(policy.escrow, [call('resolve_dispute', { lease_id: 1, landlord_amount: '0' })])), policy).methods).toEqual(['resolve_dispute']);
     expect(() => checkDelegate(roundTrip(signed(policy.escrow, [call('withdraw', {}, 5n)])), policy)).toThrow(/can't attach NEAR/);
     expect(() => checkDelegate(roundTrip(signed(policy.escrow, [call('nft_transfer', { receiver_id: 'a', token_id: '1' }, 1n)])), policy)).toThrow(/can't be sent gaslessly/);
+  });
+
+  test('verifies the delegate signature offline', async () => {
+    const delegateAction = buildDelegateAction({
+      senderId: 'mum.handova.testnet', receiverId: policy.escrow, actions: [call('withdraw')], nonce: 1n, maxBlockHeight: 100n, publicKey: key.getPublicKey(),
+    });
+    const { signedDelegate } = await new KeyPairSigner(key).signDelegateAction(delegateAction);
+    const real = roundTrip(signedDelegate);
+    expect(signatureValid(real)).toEqual({ ok: true, publicKey: key.getPublicKey().toString() });
+    expect(signatureValid(roundTrip(signed(policy.escrow, [call('withdraw')]))).ok).toBe(false); // zero signature
+    const tampered: any = roundTrip(signedDelegate);
+    tampered.delegateAction.senderId = 'someone-else.testnet';
+    expect(signatureValid(tampered).ok).toBe(false);
+  });
+
+  test('refuses more gas than one transaction allows', () => {
+    const big = actions.functionCall('withdraw', {}, 200_000_000_000_000n, 0n);
+    expect(() => checkDelegate(roundTrip(signed(policy.escrow, [big, big])), policy)).toThrow(/Too much gas/);
   });
 
   test('refuses non-call actions', () => {

@@ -189,17 +189,23 @@ impl Contract {
         self.activate(lease_id);
     }
 
-    /// Tenant: "The landlord marked a handover but I don't have the keys." Stops the automatic
-    /// claim. Ends when the tenant confirms, the landlord cancels, or the arbiter decides.
+    /// Ask the arbiter to decide the move-in. Either side can:
+    /// - tenant: "the landlord marked a handover but I don't have the keys" (stops any claim);
+    /// - landlord: "I handed over the keys and the tenant won't confirm" (the way out for a
+    ///   landlord who isn't ID-verified and so can't claim by silence).
+    /// Ends when the tenant confirms, the landlord cancels, or the arbiter decides; if the arbiter
+    /// is silent for the dispute window, the payer is refunded. It can be opened once.
     pub fn dispute_move_in(&mut self, lease_id: u64, reason: String) {
         require!(reason.len() <= MAX_REASON_LEN, "Reason is too long (max 500 characters)");
+        let caller = env::predecessor_account_id();
         let lease = self.lease_mut(lease_id);
-        require!(env::predecessor_account_id() == lease.tenant, "Only the tenant can dispute the handover");
+        require!(caller == lease.tenant || caller == lease.landlord, "Only the tenant or landlord can ask the arbiter");
         require!(lease.status == LeaseStatus::Pending, "This lease is not waiting for move-in");
         require!(lease.handover_at_ms.is_some(), "There is no handover to dispute");
+        require!(lease.move_in_dispute.is_none(), "The arbiter is already deciding this handover");
         lease.move_in_dispute = Some(reason.clone());
         lease.move_in_dispute_at_ms = Some(env::block_timestamp_ms());
-        events::emit("move_in_disputed", json!({ "lease_id": lease_id, "reason": reason }));
+        events::emit("move_in_disputed", json!({ "lease_id": lease_id, "by": caller, "reason": reason }));
     }
 
     /// Arbiter: decide a disputed handover. `moved_in = true` pays the landlord as if the tenant
@@ -331,7 +337,8 @@ impl Contract {
         require!(env::predecessor_account_id() == self.arbiter, "Only the arbiter can decide");
         let lease = self.lease_ref(lease_id);
         require!(lease.status == LeaseStatus::Disputed, "This lease has no open dispute");
-        require!(landlord_amount.0 <= lease.caution.0, "Amount can't be more than the caution fee");
+        let claim = lease.dispute.as_ref().unwrap().landlord_claim.0;
+        require!(landlord_amount.0 <= claim, "The arbiter can't award more than the landlord claimed");
         self.close(lease_id, landlord_amount.0, "arbiter");
     }
 
@@ -344,7 +351,8 @@ impl Contract {
             env::block_timestamp_ms() >= opened + self.timeouts.dispute_secs * 1000,
             "The dispute window is still open"
         );
-        let half = lease.caution.0 / 2;
+        // Split 50/50, but never more to the landlord than they claimed.
+        let half = (lease.caution.0 / 2).min(lease.dispute.as_ref().unwrap().landlord_claim.0);
         self.close(lease_id, half, "timeout_split");
     }
 

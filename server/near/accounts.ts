@@ -46,6 +46,11 @@ export async function registerWithToken(accountId: string) {
   }
 }
 
+async function hasKey(accountId: string, publicKey: string): Promise<boolean> {
+  const keys: any = await provider.viewAccessKeyList({ accountId }).catch(() => null);
+  return !!keys?.keys?.some((k: any) => k.public_key === publicKey);
+}
+
 const createPerIp = new RateLimit(5, 60 * 60_000);
 const faucetPerAccount = new RateLimit(3, 24 * 60 * 60_000);
 const faucetPerIp = new RateLimit(10, 60 * 60_000);
@@ -76,8 +81,7 @@ export function mountAccounts(app: Express) {
     if (await accountExists(accountId)) {
       // A first attempt may have created the account and then failed to register it with USDC.
       // If this device's key is already on the account, finish the job instead of saying "taken".
-      const keys: any = await provider.viewAccessKeyList({ accountId }).catch(() => null);
-      if (keys?.keys?.some((k: any) => k.public_key === publicKey.toString())) {
+      if (await hasKey(accountId, publicKey.toString())) {
         try {
           await withRetry(() => registerWithToken(accountId));
           return res.json({ accountId, network: NETWORK, resumed: true });
@@ -102,7 +106,11 @@ export function mountAccounts(app: Express) {
         }),
       );
       const s = summarize(outcome);
-      if (!s.ok) return res.status(422).json({ error: 'NEAR could not create the account. Try another name.', detail: s.error });
+      // With RPC failover the same signed transaction can land twice: the first creates the
+      // account, the copy fails with "already exists". What matters is whether our key is on it.
+      if (!s.ok && !(await hasKey(accountId, publicKey.toString()))) {
+        return res.status(422).json({ error: 'NEAR could not create the account. Try another name.', detail: s.error });
+      }
       await withRetry(() => registerWithToken(accountId));
       res.json({ accountId, hash: s.hash, network: NETWORK });
     } catch (e) {

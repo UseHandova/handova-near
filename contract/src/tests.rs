@@ -459,3 +459,39 @@ fn twelve_month_lease_lasts_365_days() {
     let l = t.lease(1);
     assert_eq!(l.ends_at_ms.unwrap() - l.moved_in_at_ms.unwrap(), 365 * DAY_MS);
 }
+
+#[test]
+fn unverified_landlord_escalates_to_arbiter_when_tenant_wont_confirm() {
+    let mut t = T::new();
+    let l = t.list();
+    t.pay("tenant.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l}}}"#));
+    t.as_("landlord.near").mark_handover(1);
+    t.as_("landlord.near").dispute_move_in(1, "Tenant moved in but won't confirm".into());
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.as_("tenant.near").dispute_move_in(1, "again".into())));
+    assert!(r.is_err(), "a dispute can be opened only once");
+    t.as_("arbiter.near").resolve_move_in(1, true);
+    assert_eq!(t.lease(1).status, LeaseStatus::Active);
+    assert_eq!(t.bal("landlord.near"), RENT);
+}
+
+#[test]
+fn timeout_split_never_gives_landlord_more_than_claimed() {
+    let mut t = T::new();
+    t.active_lease();
+    t.as_("tenant.near").move_out(1);
+    t.as_("landlord.near").dispute_caution(1, U128(20 * USDC), "Scuffed wall".into());
+    t.wait_days(7);
+    t.as_("anyone.near").settle_dispute_timeout(1);
+    assert_eq!(t.bal("landlord.near"), RENT + 20 * USDC);
+    assert_eq!(t.bal("tenant.near"), CAUTION - 20 * USDC);
+}
+
+#[test]
+#[should_panic(expected = "can't award more than the landlord claimed")]
+fn arbiter_capped_at_claim() {
+    let mut t = T::new();
+    t.active_lease();
+    t.as_("tenant.near").move_out(1);
+    t.as_("landlord.near").dispute_caution(1, U128(20 * USDC), "Scuffed wall".into());
+    t.as_("arbiter.near").resolve_dispute(1, U128(21 * USDC));
+}

@@ -122,7 +122,8 @@ export function mountIntents(app: Express) {
     try {
       res.json(await oneClick(`/v0/status?depositAddress=${encodeURIComponent(depositAddress)}${memo}`));
     } catch (e) {
-      res.status((e as any).status === 404 ? 404 : 502).json({ error: 'No payment seen at this address yet.' });
+      if ((e as any).status === 404) return res.status(404).json({ error: 'No payment seen at this address yet.' });
+      res.status(502).json({ error: "Can't reach NEAR Intents to check this payment right now. Your money is safe; check again in a minute." });
     }
   });
 

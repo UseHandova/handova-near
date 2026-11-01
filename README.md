@@ -50,12 +50,13 @@ Renting in Lagos usually means paying a year of rent up front, plus agent and ag
 | Tenant (or anyone for them) pays | Rent + caution locked, status `Pending`. Overpayment is refunded; a bad `msg` refunds everything |
 | Tenant confirms move-in | Rent credited to the landlord; lease NFT minted to the tenant, holding the caution (`Active`) |
 | Landlord marked the handover, tenant silent 3 days | **Only for ID-verified landlords:** anyone can trigger `claim_move_in` (same as the tenant confirming). An unverified landlord always needs the tenant's confirmation, so a fake listing can't collect rent by silence |
-| Tenant disputes the handover, arbiter silent 7 days | Anyone can trigger `settle_move_in_timeout`: the payer is refunded in full. No state can lock money waiting for the arbiter |
+| Tenant moved in but won't confirm (unverified landlord) | The landlord asks the arbiter (`dispute_move_in` works for either side, once) |
+| Handover disputed, arbiter silent 7 days | Anyone can trigger `settle_move_in_timeout`: the payer is refunded in full. No state can lock money waiting for the arbiter |
 | Tenant says the handover never happened | `dispute_move_in` blocks the claim; the arbiter decides (move-in or full refund) |
 | No handover within 7 days of payment | Tenant or payer cancels; the **payer** is refunded in full. The landlord can decline any time before move-in |
 | Tenant moves out | 7-day landlord review (`Ending`): approve → full caution to the NFT holder; or dispute part of it |
 | Landlord silent for the review window | Anyone can trigger `claim_caution`: full caution to the NFT holder |
-| Dispute | Both propose the same split → settles; or the arbiter decides; nobody settles in 7 days → 50/50 |
+| Dispute | Both propose the same split → settles; or the arbiter decides (never more than the landlord claimed); nobody settles in 7 days → 50/50, capped at the landlord's claim |
 | Payouts | Pull-based `withdraw`. If the token transfer fails, the balance is restored |
 
 The owner can change the verifier and arbiter but **cannot move anyone's money**. There is no upgrade method. Waiting periods are fixed at deployment.

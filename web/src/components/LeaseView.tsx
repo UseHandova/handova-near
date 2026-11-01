@@ -137,7 +137,15 @@ export function LeaseView({ id }: { id: number }) {
     if (isLandlord) {
       if (!lease.handover_at_ms) actions.push(btn('mark_handover', "I've handed over the keys", 'Handover marked. The tenant has 3 days to confirm.'));
       else if (lease.move_in_dispute) notes.push(`The tenant disputed the handover: "${lease.move_in_dispute}". The arbiter decides; you can also decline and refund.`);
-      else if (!verifiedLandlord) notes.push('Waiting for the tenant to confirm. Only ID-verified landlords can collect if the tenant stays silent.');
+      else if (!verifiedLandlord) {
+        notes.push("Waiting for the tenant to confirm. Only ID-verified landlords can collect if the tenant stays silent — if they moved in and won't confirm, ask the arbiter.");
+        actions.push(
+          <div key="ldm" className="space-y-2 rounded-xl border border-line p-3">
+            <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="What happened? e.g. tenant moved in but won't confirm" maxLength={500} />
+            <button className="btn-ghost w-full" disabled={!!busy || reason.length < 5} onClick={() => act('dispute_move_in', { reason }, 'Sent to the arbiter. They decide whether the tenant moved in.')}><Busy busy={busy === 'dispute_move_in'}>Ask the arbiter</Busy></button>
+          </div>,
+        );
+      }
       else if (now >= claimAt) actions.push(btn('claim_move_in', 'Claim the rent (tenant silent)', 'Move-in claimed. Rent added to your balance.'));
       else notes.push(`Waiting for the tenant to confirm. If they stay silent, you can claim in ${timeLeft(claimAt - now)}.`);
       actions.push(btn('cancel_lease', 'Decline and refund the tenant', 'Declined. The payer was refunded in full.', {}, 'btn-danger'));

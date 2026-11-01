@@ -50,7 +50,7 @@ Answer in Markdown with exactly these sections:
 7. **Top 10 improvements for the remaining days**, ranked by impact on winning, each with effort (S/M/L).
 8. **What would make you vote for it as the winner** (the one or two things that would change your mind).`;
 
-const outDir = `docs/ai-review-${new Date().toISOString().slice(0, 10)}`;
+const outDir = `docs/ai-review-${new Date().toISOString().slice(0, 10)}${process.env.REVIEW_TAG ? `-${process.env.REVIEW_TAG}` : ""}`;
 mkdirSync(outDir, { recursive: true });
 writeFileSync(`${outDir}/packet.md`, packet);
 console.log(`Packet: ~${Math.round(packet.length / 4).toLocaleString()} tokens → ${MODELS.length} models`);

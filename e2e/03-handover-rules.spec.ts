@@ -96,3 +96,24 @@ test('unverified landlord cannot collect by silence; an arbiter who stays silent
   const l = await chain.lease(lease2);
   expect(await chain.escrowBalance(tenant)).toBe(BigInt(l.rent) + BigInt(l.caution));
 });
+
+test("unverified landlord whose tenant won't confirm asks the arbiter, who rules moved in", async ({ phone }) => {
+  const ll = await phone('landlord');
+  const tn = await phone('tenant');
+  const ar = await phone('arbiter');
+  const landlord = await signUp(ll, 'll');
+  const tenant = await signUp(tn, 'tn');
+  const a = arbiter();
+  await signInWithPhrase(ar, a.accountId, a.seedPhrase);
+  const listingId = await listHome(ll, { title: 'Silent tenant, unverified', rentNgn: 20_000, cautionNgn: 5_000 });
+  await faucet(tenant);
+  const leaseId = await pay(tn, listingId);
+  await act(ll, leaseId, /handed over the keys/, /Handover marked/);
+  await ll.getByPlaceholder(/tenant moved in but won't confirm/).fill("Tenant moved in but won't confirm");
+  await ll.getByRole('button', { name: 'Ask the arbiter' }).click();
+  await toast(ll, /Sent to the arbiter/);
+  expect((await chain.lease(leaseId)).move_in_dispute).toContain("won't confirm");
+  await act(ar, leaseId, /the tenant moved in/, /Ruled: moved in/);
+  await expectLease(leaseId, 'Active');
+  expect(await chain.escrowBalance(landlord)).toBe(BigInt((await chain.lease(leaseId)).rent));
+});

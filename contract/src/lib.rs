@@ -201,7 +201,7 @@ impl Contract {
         let landlord = env::predecessor_account_id();
         require!(rent.0 >= self.one_token(), "Rent must be at least 1 USDC");
         require!(term_months > 0 && term_months <= 120, "Term must be 1 to 120 months");
-        require!(property_ref.len() <= MAX_REF_LEN, "property_ref is too long (max 1024 characters)");
+        require!(property_ref.len() <= MAX_REF_LEN, "property_ref is too long (max 1024 bytes)");
         let count = self.listing_counts.get(&landlord).copied().unwrap_or(0);
         require!(count < MAX_LISTINGS_PER_LANDLORD, "You have reached the limit of 50 listings");
         require!(
@@ -263,7 +263,7 @@ impl Contract {
             listing.term_months = t;
         }
         if let Some(p) = property_ref {
-            require!(p.len() <= MAX_REF_LEN, "property_ref is too long (max 1024 characters)");
+            require!(p.len() <= MAX_REF_LEN, "property_ref is too long (max 1024 bytes)");
             listing.property_ref = p;
         }
         if let Some(a) = available {

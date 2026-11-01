@@ -18,7 +18,8 @@ export default defineConfig({
   fullyParallel: false,
   timeout: 6 * 60_000,
   expect: { timeout: 60_000 },
-  retries: 0,
+  // The suite runs against public testnet RPCs; one retry absorbs network blips. Playwright reports such tests as "flaky".
+  retries: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
   globalSetup: './e2e/global-setup.ts',
   use: {
