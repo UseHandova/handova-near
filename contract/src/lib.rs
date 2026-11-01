@@ -197,7 +197,7 @@ impl Contract {
         property_ref: String,
     ) -> u64 {
         let landlord = env::predecessor_account_id();
-        require!(rent.0 > 0, "Rent must be more than zero");
+        require!(rent.0 >= self.one_token(), "Rent must be at least 1 USDC");
         require!(term_months > 0 && term_months <= 120, "Term must be 1 to 120 months");
         require!(property_ref.len() <= MAX_REF_LEN, "property_ref is too long (max 1024 characters)");
         let count = self.listing_counts.get(&landlord).copied().unwrap_or(0);
@@ -239,13 +239,14 @@ impl Contract {
         available: Option<bool>,
     ) {
         let caller = env::predecessor_account_id();
+        let one = self.one_token();
         let listing = self.listings.get_mut(&listing_id).unwrap_or_else(|| env::panic_str("Listing not found"));
         require!(listing.landlord == caller, "Only the landlord can change this listing");
         if rent.is_some() || caution.is_some() || term_months.is_some() {
             require!(listing.active_lease.is_none(), "Prices can't change while a lease is open on this home");
         }
         if let Some(r) = rent {
-            require!(r.0 > 0, "Rent must be more than zero");
+            require!(r.0 >= one, "Rent must be at least 1 USDC");
             listing.rent = r;
         }
         if let Some(c) = caution {
@@ -360,6 +361,12 @@ impl Contract {
 }
 
 impl Contract {
+    /// One whole token in base units (1 USDC = 1_000_000). Minimum rent, so near-free listings
+    /// can't be used to fill contract storage with pay/cancel cycles.
+    fn one_token(&self) -> u128 {
+        10u128.pow(self.token_decimals as u32)
+    }
+
     fn assert_owner(&self) {
         require!(env::predecessor_account_id() == self.owner, "Only the owner can do this");
     }

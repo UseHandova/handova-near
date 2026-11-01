@@ -17,14 +17,14 @@ fn data_uri(svg: &str) -> String {
 
 pub fn icon_data_uri() -> String {
     data_uri(
-        r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0F766E"/><path d="M14 32 32 16l18 16v18H38V38H26v12H14z" fill="#fff"/></svg>"##,
+        r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0A6638"/><path d="M14 32 32 16l18 16v18H38V38H26v12H14z" fill="#fff"/></svg>"##,
     )
 }
 
 pub fn lease_data_uri(lease: &Lease, held: u128, decimals: u8) -> String {
     let (label, color) = match lease.status {
         LeaseStatus::Pending => ("Waiting for move-in", "#64748B"),
-        LeaseStatus::Active => ("Active", "#0F766E"),
+        LeaseStatus::Active => ("Active", "#0A6638"),
         LeaseStatus::Ending => ("Move-out review", "#B45309"),
         LeaseStatus::Disputed => ("Caution disputed", "#B91C1C"),
         LeaseStatus::Closed => ("Finished", "#334155"),

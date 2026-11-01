@@ -404,3 +404,10 @@ fn keeper_can_page_through_leases() {
     assert_eq!(all.iter().map(|l| l.id).collect::<Vec<_>>(), vec![1, 2]);
     assert_eq!(t.c.get_leases(Some(1), Some(10))[0].id, 2);
 }
+
+#[test]
+#[should_panic(expected = "Rent must be at least 1 USDC")]
+fn rent_has_a_minimum() {
+    let mut t = T::new();
+    t.as_("landlord.near").create_listing(U128(999_999), U128(0), 12, "x".into());
+}
