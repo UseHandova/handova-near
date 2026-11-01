@@ -21,7 +21,8 @@
     "contract:test": "cd contract && cargo test",
     "deploy:testnet": "./scripts/deploy-testnet.sh",
     "build": "vite build --config web/vite.config.ts",
-    "typecheck:arc": "tsc --noEmit"
+    "typecheck:arc": "tsc --noEmit",
+    "setup:testnet": "./scripts/setup-testnet.sh"
   },
   "dependencies": {
     "@circle-fin/adapter-viem-v2": "^1.18.0",

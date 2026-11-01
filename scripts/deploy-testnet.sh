@@ -17,10 +17,11 @@ ESCROW="escrow.$ROOT"
 VERIFIER="verifier.$ROOT"
 TOKEN="${TOKEN:-usdc.$ROOT}"
 ARBITER="${ARBITER:-$ROOT}"
+OUT="${OUT:-deploy/testnet.json}"
 cd "$(dirname "$0")/.."
 
 exists() {
-  curl -s https://rpc.testnet.near.org -H 'content-type: application/json' \
+  curl -s https://test.rpc.fastnear.com -H 'content-type: application/json' \
     -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"query\",\"params\":{\"request_type\":\"view_account\",\"finality\":\"final\",\"account_id\":\"$1\"}}" \
     | grep -q '"result"'
 }
@@ -66,7 +67,7 @@ else
     prepaid-gas '30 Tgas' attached-deposit '0.0125 NEAR' sign-as "$ROOT" $NET $SIGN
 fi
 
-cat > deploy/testnet.json <<JSON
+cat > "$OUT" <<JSON
 {
   "network": "testnet",
   "rpc": "https://test.rpc.fastnear.com",
@@ -80,5 +81,5 @@ cat > deploy/testnet.json <<JSON
   "arbiter": "$ARBITER"
 }
 JSON
-echo "✔ Done. deploy/testnet.json:"
-cat deploy/testnet.json
+echo "✔ Done. $OUT:"
+cat "$OUT"

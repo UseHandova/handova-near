@@ -2,7 +2,7 @@
  * Network settings: contract IDs come from deploy/<network>.json, secrets from env.
  * Nothing network-specific is hardcoded elsewhere.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export type Network = 'testnet' | 'mainnet';
@@ -24,8 +24,11 @@ export interface Deploy {
 
 export const NETWORK: Network = process.env.NEAR_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
 
+/** deploy/<network>.local.json (your own copy, from scripts/setup-testnet.sh) wins over the shared one. */
 export function loadDeploy(network: Network = NETWORK): Deploy {
-  const file = join(import.meta.dir, '..', '..', 'deploy', `${network}.json`);
+  const dir = join(import.meta.dir, '..', '..', 'deploy');
+  const local = join(dir, `${network}.local.json`);
+  const file = existsSync(local) ? local : join(dir, `${network}.json`);
   const d = JSON.parse(readFileSync(file, 'utf8')) as Deploy;
   return { ...d, rpc: process.env.NEAR_RPC_URL || d.rpc };
 }
