@@ -152,7 +152,7 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
       {cfg.ai && (
         <section className="card space-y-3 p-4">
           <p className="font-semibold">Describe it in a voice note</p>
-          <p className="text-sm text-sub">Say the area, rooms, rent and caution in English, Pidgin, Yorùbá, Igbo or Hausa. NEAR AI drafts the listing privately; you check it before it goes live.</p>
+          <p className="text-sm text-sub">Say the area, rooms, rent and caution in English, Pidgin, Yorùbá or Hausa (or type it). NEAR AI drafts the listing privately; you check it before it goes live.</p>
           <div className="flex items-center gap-3">
             {recording ? (
               <button className="btn-danger" onClick={() => rec.current?.stop()}><Square className="h-4 w-4" /> Stop · {seconds}s</button>

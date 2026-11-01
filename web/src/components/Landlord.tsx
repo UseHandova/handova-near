@@ -51,7 +51,7 @@ export function Landlord({ onNeedSignIn }: { onNeedSignIn: () => void }) {
         {!listings && <div className="flex justify-center py-6 text-sub"><Spinner /></div>}
         {listings?.length === 0 && (
           <Empty icon={<Mic className="h-6 w-6" />} title="List your first home">
-            Send a voice note in English, Pidgin, Yorùbá, Igbo or Hausa — NEAR AI drafts the listing for you to check.
+            Send a voice note in English, Pidgin, Yorùbá or Hausa — NEAR AI drafts the listing for you to check.
             <a href="#/list" className="btn-primary mt-3 w-full">List a home</a>
           </Empty>
         )}
