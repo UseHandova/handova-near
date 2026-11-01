@@ -5,6 +5,7 @@ import { deploy, env, NETWORK } from './config';
 import { creator, relayer, verifier } from './chain';
 import { mountAccounts } from './accounts';
 import { mountAi } from './ai';
+import { mountFx } from './fx';
 import { mountIntents } from './intents';
 import { mountRelayer } from './relayer';
 
@@ -53,4 +54,5 @@ export function mountNear(app: Express) {
   mountRelayer(app);
   mountIntents(app);
   mountAi(app);
+  mountFx(app);
 }

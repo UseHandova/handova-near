@@ -8,6 +8,7 @@
  */
 import express from 'express';
 import cors from 'cors';
+import { mountMedia } from './media';
 import { mountNear } from './near';
 import { deploy, NETWORK } from './near/config';
 import { creator, relayer } from './near/chain';
@@ -21,6 +22,7 @@ app.use(cors({ origin: process.env.APP_ORIGINS?.split(',') ?? '*' }));
 app.use(express.json({ limit: '12mb' })); // voice notes and document photos arrive as base64
 
 mountNear(app);
+mountMedia(app); // listing photos (Arc-era module, reused)
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, network: NETWORK, escrow: deploy.escrow, relayer: relayer?.accountId ?? null, creator: creator?.accountId ?? null });

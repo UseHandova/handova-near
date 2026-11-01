@@ -31,8 +31,8 @@ pub use escrow::{Dispute, Lease, LeaseStatus, PayMsg};
 pub const DAY_SECS: u64 = 86_400;
 /// A lease month, for working out the lease end date.
 pub const MONTH_SECS: u64 = 30 * DAY_SECS;
-/// Longest `property_ref` (a link or ID for the off-chain listing with photos).
-pub const MAX_REF_LEN: usize = 256;
+/// Longest `property_ref`: the listing details as compact JSON (title, area, photo links) or a link.
+pub const MAX_REF_LEN: usize = 1024;
 pub const MAX_REASON_LEN: usize = 500;
 /// Stops one account from filling contract storage with listings.
 pub const MAX_LISTINGS_PER_LANDLORD: u32 = 50;
@@ -86,7 +86,7 @@ pub struct Listing {
     /// Refundable caution fee, in USDC base units.
     pub caution: U128,
     pub term_months: u16,
-    /// Link or ID of the listing details (photos, address) kept off-chain.
+    /// Listing details: compact JSON (title, area, rooms, photo links) or a link to them.
     pub property_ref: String,
     /// The landlord is accepting payments for it.
     pub available: bool,
@@ -199,7 +199,7 @@ impl Contract {
         let landlord = env::predecessor_account_id();
         require!(rent.0 > 0, "Rent must be more than zero");
         require!(term_months > 0 && term_months <= 120, "Term must be 1 to 120 months");
-        require!(property_ref.len() <= MAX_REF_LEN, "property_ref is too long (max 256 characters)");
+        require!(property_ref.len() <= MAX_REF_LEN, "property_ref is too long (max 1024 characters)");
         let count = self.listing_counts.get(&landlord).copied().unwrap_or(0);
         require!(count < MAX_LISTINGS_PER_LANDLORD, "You have reached the limit of 50 listings");
         self.listing_counts.insert(landlord.clone(), count + 1);
@@ -256,7 +256,7 @@ impl Contract {
             listing.term_months = t;
         }
         if let Some(p) = property_ref {
-            require!(p.len() <= MAX_REF_LEN, "property_ref is too long (max 256 characters)");
+            require!(p.len() <= MAX_REF_LEN, "property_ref is too long (max 1024 characters)");
             listing.property_ref = p;
         }
         if let Some(a) = available {
