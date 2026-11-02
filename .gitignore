@@ -18,3 +18,4 @@ playwright-report/
 voice/
 demo-out/
 docs/media/*.mp4
+.vercel
