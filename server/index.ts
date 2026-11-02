@@ -36,10 +36,18 @@ app.get('/api/health', async (_req, res) => {
 });
 
 if (import.meta.main) {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`Handova API on :${PORT} — ${NETWORK}, escrow ${deploy.escrow}, relayer ${relayer?.accountId ?? 'off'}`);
     if (process.env.KEEPER !== 'off') startKeeper();
   });
+  // Hosts (Railway) send SIGTERM when a new deploy replaces this one: finish open requests and exit cleanly,
+  // so the swap isn't reported as a crash.
+  const stop = () => {
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 8000).unref();
+  };
+  process.on('SIGTERM', stop);
+  process.on('SIGINT', stop);
 }
 
 export { app };
