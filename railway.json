@@ -1,5 +1,5 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "build": { "builder": "RAILPACK", "buildCommand": "echo 'API only: the web app is built on Vercel'" },
-  "deploy": { "startCommand": "bun run start", "healthcheckPath": "/api/health", "healthcheckTimeout": 120, "restartPolicyType": "ON_FAILURE" }
+  "deploy": { "startCommand": "bun server/index.ts", "healthcheckPath": "/api/health", "healthcheckTimeout": 120, "restartPolicyType": "ON_FAILURE" }
 }
