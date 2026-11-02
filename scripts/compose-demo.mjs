@@ -1,6 +1,7 @@
 /**
  * Turns the footage from scripts/record-demo.mjs into the demo video (1920×1080 MP4):
- * landing page (who's presenting) → the phones side by side with captions and narration → outro card.
+ * landing page (who is presenting) → the phones side by side with captions and narration, silences
+ * fast-forwarded → closing card.
  *
  *   FFMPEG=/path/to/ffmpeg node scripts/compose-demo.mjs <recording-dir> <out.mp4>
  */
@@ -120,10 +121,37 @@ f += `${audioInputs.map((_, i) => `[a${i}]`).join('')}amix=inputs=${audioInputs.
 const main = join(TMP, 'main.mp4');
 ff([...phones.flatMap((who) => ['-i', video(who)]), ...audioInputs.flatMap((p) => ['-i', p]), '-filter_complex', f, '-map', '[v]', '-map', '[a]', ...ENC, '-t', String(total), main]);
 
+// Tighten the silences: while nobody speaks (a transaction confirming, a page loading) the footage is
+// fast-forwarded so each pause lasts about GAP_SECS, between 1.5× and 8× speed. Narration plays at 1×.
+const GAP_SECS = Number(process.env.DEMO_GAP_SECS ?? 0.6);
+const clipSecs = (p) => Number(execFileSync('afinfo', [p]).toString().match(/estimated duration: ([\d.]+)/)[1]);
+const segments = [];
+let at = 0;
+tl.captions.forEach((c, i) => {
+  const s = c.start / 1000;
+  if (s > at) segments.push({ from: at, to: s, speed: null });
+  const speechEnd = Math.min(s + clipSecs(audioInputs[i]) + 0.25, total);
+  segments.push({ from: s, to: speechEnd, speed: 1 });
+  at = speechEnd;
+});
+if (total > at) segments.push({ from: at, to: total, speed: null });
+for (const g of segments) if (g.speed === null) g.speed = Math.min(8, Math.max(1.5, (g.to - g.from) / GAP_SECS));
+const tight = join(TMP, 'main-tight.mp4');
+const parts = segments.filter((g) => g.to - g.from > 0.05);
+let tf = '';
+parts.forEach((g, i) => {
+  tf += `[0:v]trim=${g.from}:${g.to},setpts=(PTS-STARTPTS)/${g.speed}[v${i}];`;
+  tf += `[0:a]atrim=${g.from}:${g.to},asetpts=PTS-STARTPTS,atempo=${g.speed}[a${i}];`;
+});
+tf += `${parts.map((_, i) => `[v${i}][a${i}]`).join('')}concat=n=${parts.length}:v=1:a=1[v][a]`;
+ff(['-i', main, '-filter_complex', tf, '-map', '[v]', '-map', '[a]', ...ENC, tight]);
+const saved = parts.reduce((t, g) => t + (g.to - g.from) * (1 - 1 / g.speed), 0);
+console.log(`silences tightened: ${Math.round(total)}s → ${Math.round(total - saved)}s`);
+
 const outro = card('outro', 'Handova', ['Rent without the agent. Without the fear.', 'Thank you for watching'], OUTRO, 6);
 
 const list = join(TMP, 'list.txt');
-writeFileSync(list, [intro, main, outro].map((p) => `file '${p}'`).join('\n'));
+writeFileSync(list, [intro, tight, outro].map((p) => `file '${p}'`).join('\n'));
 // Played a little faster (default 1.2×) so it moves briskly; atempo keeps the voice's pitch.
 const SPEED = Number(process.env.DEMO_SPEED ?? 1.2);
 if (SPEED === 1) ff(['-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', OUT]);

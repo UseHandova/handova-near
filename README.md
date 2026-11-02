@@ -7,7 +7,7 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 **Built at NEAR HACKATHON (1–14 Nov 2026).** Tracks: `realworld`, `nfts`. Built on an earlier Arc version of Handova; only the NEAR work is the entry — see [Built before / during the hackathon](#built-before--during-the-hackathon).
 
 - 🌍 **Try it live (testnet, phone-sized):** https://handova-near.vercel.app — web app on Vercel, API (relayer, keeper, accounts) on Railway
-- 🎬 **Demo video (4 min, real testnet, four phones, Nigerian narrator):** YOUTUBE_LINK
+- 🎬 **Demo video (3 min, real testnet, four phones, Nigerian narrator):** YOUTUBE_LINK
 - 🧪 **Reproduce it yourself:** [`REPRODUCE.md`](REPRODUCE.md) — three commands, your own testnet accounts, no keys from us
 - 📜 **Contract:** [`contract/src/`](contract/src) · **Server:** [`server/near/`](server/near) · **Web app:** [`web/src/`](web/src) · **Browser tests:** [`e2e/`](e2e)
 

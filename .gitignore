@@ -19,3 +19,6 @@ voice/
 demo-out/
 docs/media/*.mp4
 .vercel
+voice-old/
+my-voice/
+voice-own/
