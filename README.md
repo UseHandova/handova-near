@@ -6,7 +6,7 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 
 **Built at NEAR HACKATHON (1–14 Nov 2026).** Tracks: `realworld`, `nfts`. Built on an earlier Arc version of Handova; only the NEAR work is the entry — see [Built before / during the hackathon](#built-before--during-the-hackathon).
 
-- 🎬 **Demo video (4 min, real testnet, four phones):** [`docs/media/handova-demo.mp4`](docs/media/handova-demo.mp4)
+- 🎬 **Demo video (4 min, real testnet, four phones, Nigerian narrator):** YOUTUBE_LINK
 - 🧪 **Reproduce it yourself:** [`REPRODUCE.md`](REPRODUCE.md) — three commands, your own testnet accounts, no keys from us
 - 📜 **Contract:** [`contract/src/`](contract/src) · **Server:** [`server/near/`](server/near) · **Web app:** [`web/src/`](web/src) · **Browser tests:** [`e2e/`](e2e)
 
@@ -60,7 +60,7 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 | 6 | Ade withdraws the full rent | pull-based `withdraw` |
 | 7 | Mum moves out; Ade approves; the caution goes to the NFT holder | `move_out`, `approve_move_out` |
 
-Every step is in the [demo video](docs/media/handova-demo.mp4) (four phones side by side — landlord, nurse abroad, mum, next tenant — recorded from the real app on testnet with [`scripts/record-demo.mjs`](scripts/record-demo.mjs)) and in [`bun run demo:testnet`](scripts/demo-testnet.ts).
+Every step is in the [demo video](YOUTUBE_LINK) (four phones side by side — landlord, nurse abroad, mum, next tenant — recorded from the real app on testnet with [`scripts/record-demo.mjs`](scripts/record-demo.mjs)) and in [`bun run demo:testnet`](scripts/demo-testnet.ts).
 
 ## How NEAR is used
 

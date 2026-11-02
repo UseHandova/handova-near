@@ -13,3 +13,8 @@ deploy/*.local.json
 deploy/*.e2e.json
 test-results/
 playwright-report/
+
+# Demo voice-over clips (scripts/voiceover-yarngpt.mjs) and raw footage
+voice/
+demo-out/
+docs/media/*.mp4

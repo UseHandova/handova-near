@@ -1,5 +1,5 @@
 /**
- * Records the demo video's raw footage from the real app on NEAR testnet: four phones (landlord,
+ * Records the demo video's raw footage from the real app on NEAR testnet: the landing page, then four phones (landlord,
  * nurse abroad, mum, next tenant) going through the whole story. Writes per-phone videos, a caption
  * timeline, narration clips (macOS `say`) and README screenshots. scripts/compose-demo.mjs turns it
  * into the MP4.
@@ -9,52 +9,57 @@
  */
 import { chromium, devices } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { HELLO, INTRO, SCRIPT } from './demo-voiceover.mjs';
 
 const OUT = process.argv[2] ?? 'demo-out';
 const URL = process.env.DEMO_URL ?? 'http://localhost:5188/';
 const VOICE = process.env.DEMO_VOICE ?? 'Daniel';
+// Folder of recorded voice clips named <id>.wav/.mp3/.m4a (see docs/media/voiceover-script.md); else macOS `say`.
+const VOICE_DIR = process.env.DEMO_AUDIO;
 const SHOTS = 'docs/screenshots';
 const PHONES = ['landlord', 'nurse', 'mum', 'tolu'];
 mkdirSync(join(OUT, 'audio'), { recursive: true });
 mkdirSync(SHOTS, { recursive: true });
 
-const SCRIPT = {
-  ll1: 'Ade is a landlord in Lagos. He creates a Handova account. The key is made on his phone. No wallet app, no gas.',
-  ll2: 'He describes his flat in Pidgin. NEAR AI drafts the listing inside a secure enclave, and the server checks the enclave signature.',
-  ll3: "He checks every field and publishes it on NEAR. Handova's relayer pays the gas.",
-  mum: 'Mum lives in Lagos. She gets an account too.',
-  nr1: 'Her daughter is a nurse in London. She finds the flat. No agent fee.',
-  nr2: 'She pays for her mum. With USDC on NEAR, or from Base, Solana, or Ethereum through NEAR Intents.',
-  nr3: 'This is a live NEAR Intents quote. On testnet the deposit is simulated, because Intents only runs on mainnet.',
-  nr4: 'One transaction. Rent and caution are now locked in the escrow contract. Not with the landlord, and not with Handova.',
-  ll4: 'Ade hands over the keys, and marks the handover.',
-  mm1: 'Mum confirms she has moved in. Only now is the landlord paid.',
-  mm2: 'Mum now holds a lease NFT. It holds her caution fee. Its picture and status are drawn on chain, and change with the lease.',
-  mm3: 'Handova speaks Yoruba, Hausa, Igbo and Pidgin, as well as English.',
-  ll5: 'Ade withdraws his rent. The full amount.',
-  mm4: 'Months later, mum has to move to Abuja. Instead of losing her rent, she offers the rest of her lease to a new tenant.',
-  ll6: "Ade can see the tenant's rental passport. A lease never changes hands without him, so he agrees.",
-  to1: 'Tolu needs a flat. He finds the lease on the home page.',
-  to2: 'He takes it over in one payment. Mum is paid, and the lease NFT, with its caution right, moves to Tolu.',
-  to3: 'At the end of his stay, Tolu moves out.',
-  ll7: 'Ade claims part of the caution for a broken door.',
-  to4: 'If they cannot agree, a council DAO on NEAR decides. Two of three votes, no single judge. Tolu offers to settle instead.',
-  ll8: 'Ade agrees. The split is paid out by the contract.',
-  to5: 'Tolu withdraws the rest of his caution. His finished lease now shows on his rental passport, for his next landlord to see.',
-};
-
 // Narration first, so each step can wait until its line has been spoken.
 const duration = {};
-for (const [id, text] of Object.entries(SCRIPT)) {
-  const file = join(OUT, 'audio', `${id}.aiff`);
-  execFileSync('say', ['-v', VOICE, '-r', '178', '-o', file, text]);
+const audio = {};
+for (const [id, text] of Object.entries({ hello: HELLO, intro: INTRO, ...SCRIPT })) {
+  const recorded = VOICE_DIR && ['wav', 'mp3', 'm4a', 'aiff'].map((ext) => join(VOICE_DIR, `${id}.${ext}`)).find(existsSync);
+  if (VOICE_DIR && !recorded) throw new Error(`No recorded clip for "${id}" in ${VOICE_DIR} (expected ${id}.wav, .mp3 or .m4a)`);
+  audio[id] = `audio/${id}.${recorded ? recorded.split('.').pop() : 'aiff'}`;
+  const file = join(OUT, audio[id]);
+  if (recorded) copyFileSync(recorded, file);
+  else execFileSync('say', ['-v', VOICE, '-r', '178', '-o', file, text]);
   const info = execFileSync('afinfo', [file]).toString();
   duration[id] = Number(info.match(/estimated duration: ([\d.]+)/)[1]) * 1000;
 }
 
 const browser = await chromium.launch({ executablePath: process.env.CHROME_BIN || undefined });
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Opening scene: the landing page full screen, scrolled slowly while HELLO and INTRO are spoken.
+const landingCtx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, recordVideo: { dir: join(OUT, 'landing'), size: { width: 1920, height: 1080 } } });
+const landingT0 = Date.now();
+const landingPage = await landingCtx.newPage();
+await landingPage.goto(URL);
+await landingPage.getByRole('heading', { name: 'Homes' }).waitFor();
+await pause(2500); // listings and fonts settle
+const landing = { start: Date.now() - landingT0, hello: duration.hello, intro: duration.intro, gap: 600 };
+await pause(landing.gap + duration.hello + landing.gap);
+const scrollMs = duration.intro;
+const height = await landingPage.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+for (let t = 0; t < scrollMs; t += 50) {
+  await landingPage.evaluate((y) => scrollTo(0, y), Math.round((height * t) / scrollMs));
+  await pause(50);
+}
+await pause(landing.gap);
+landing.end = Date.now() - landingT0;
+await landingCtx.close();
+writeFileSync(join(OUT, 'landing.json'), JSON.stringify({ ...landing, hello_audio: audio.hello, intro_audio: audio.intro }, null, 2));
+
 const phones = {};
 for (const who of PHONES) {
   const ctx = await browser.newContext({ ...devices['iPhone 13'], recordVideo: { dir: join(OUT, who), size: { width: 390, height: 664 } } });
@@ -62,12 +67,11 @@ for (const who of PHONES) {
 }
 const t0 = Date.now();
 const captions = [];
-const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Show a caption on a phone and make sure the step lasts as long as its narration. */
 async function step(id, who, fn) {
   const start = Date.now() - t0;
-  captions.push({ id, who, text: SCRIPT[id], start, audio: `audio/${id}.aiff` });
+  captions.push({ id, who, text: SCRIPT[id], start, audio: audio[id] });
   await fn(phones[who]);
   const left = duration[id] + 700 - (Date.now() - t0 - start);
   if (left > 0) await pause(left);
