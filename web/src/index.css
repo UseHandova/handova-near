@@ -60,3 +60,19 @@ body {
   .chip { @apply inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-ink2; }
   .mono { @apply font-mono text-[12px] break-all; }
 }
+
+/* Motion: cards rise in one after another; loading cards shimmer. Off for reduced-motion users. */
+@keyframes fade-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes shimmer { to { transform: translateX(100%); } }
+.animate-fade-up { animation: fade-up .55s cubic-bezier(.2, .7, .2, 1) both; }
+.skeleton { position: relative; overflow: hidden; background: var(--surface-muted); }
+.skeleton::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent);
+  animation: shimmer 1.4s infinite;
+}
+.dark .skeleton::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .06), transparent); }
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up, .skeleton::after { animation: none; }
+  * { scroll-behavior: auto !important; }
+}

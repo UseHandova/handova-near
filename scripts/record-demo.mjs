@@ -20,6 +20,7 @@ const VOICE = process.env.DEMO_VOICE ?? 'Daniel';
 const VOICE_DIR = process.env.DEMO_AUDIO;
 const SHOTS = 'docs/screenshots';
 const PHONES = ['landlord', 'nurse', 'mum', 'tolu'];
+const PHOTOS = (process.env.DEMO_PHOTOS ?? 'listings/yaba-1.jpg,listings/yaba-3.jpg').split(',');
 mkdirSync(join(OUT, 'audio'), { recursive: true });
 mkdirSync(SHOTS, { recursive: true });
 
@@ -108,7 +109,7 @@ try {
   await step('ll1', 'landlord', (p) => signUp(p, `ade-${uid}`));
   await step('ll2', 'landlord', async (p) => {
     await p.goto(`${URL}#/list`);
-    await p.getByPlaceholder(/2 bedroom flat for Yaba/).pressSequentially('I get 2 bedroom flat for Yaba near Unilag. Prepaid meter, borehole, tiles. Rent na 1.8m per year, caution 200k.', { delay: 18 });
+    await p.getByPlaceholder(/2 bedroom flat for Yaba/).pressSequentially('I get flat for Yaba. AC for the rooms, POP ceiling with downlights. Rent na 2 million per year, caution 200k.', { delay: 18 });
     await p.getByRole('button', { name: /Draft with NEAR AI/ }).click();
     await toast(p, /Draft ready/);
     await p.getByText(/verified NEAR AI enclave/).click();
@@ -118,6 +119,14 @@ try {
   await step('ll3', 'landlord', async (p) => {
     await p.locator('#t').scrollIntoViewIfNeeded();
     await p.waitForTimeout(1500);
+    // Real photos of the flat, if present (listings/ is git-ignored; without them the listing has none).
+    const photoInput = p.locator('input[type=file][accept^="image"]');
+    let added = 0;
+    for (const f of PHOTOS.filter(existsSync)) {
+      await p.getByText('Photos (up to 4)').scrollIntoViewIfNeeded(); // the input itself is hidden
+      await photoInput.setInputFiles(f);
+      await p.getByRole('button', { name: 'Remove photo' }).nth(added++).waitFor({ timeout: 30_000 });
+    }
     await p.getByRole('button', { name: /Publish on NEAR/ }).click();
     await p.waitForURL(/#\/home\/\d+/, { timeout: 90_000 });
     listingId = Number(p.url().split('/').pop());
@@ -252,7 +261,12 @@ try {
     await shot(p, '13-passport');
   });
   await pause(1500);
-  writeFileSync(join(OUT, 'timeline.json'), JSON.stringify({ total: Date.now() - t0, phones: PHONES, listingId, leaseId, captions }, null, 2));
+  const filmed = Date.now() - t0; // the video ends here; what follows is cleanup
+  // Off camera: Ade pauses the demo listing so repeated recordings don't fill the home page with copies.
+  await phones.landlord.goto(`${URL}#/home/${listingId}`);
+  await phones.landlord.getByRole('button', { name: 'Pause listing' }).click().catch(() => {});
+  await toast(phones.landlord, /Listing paused/).catch(() => console.warn(`could not pause listing ${listingId}; pause it from the landlord account`));
+  writeFileSync(join(OUT, 'timeline.json'), JSON.stringify({ total: filmed, phones: PHONES, listingId, leaseId, captions }, null, 2));
   console.log(`recorded ${Math.round((Date.now() - t0) / 1000)}s — listing ${listingId}, lease ${leaseId}`);
 } finally {
   for (const p of Object.values(phones)) await p.context().close(); // flushes the videos
