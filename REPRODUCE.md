@@ -83,4 +83,4 @@ bun run setup:e2e
 bunx playwright install chromium
 bun run test:e2e
 ```
-Expect `24 passed`. Each test drives a phone-sized browser through the web app against your own testnet deployment with 20-second waiting periods, and checks balances on-chain.
+Expect `29 passed`. The suite creates many throwaway accounts: if a run fails with *New accounts are paused … needs a NEAR top-up*, refill your root account from the testnet faucet with `TREASURY=<your root account> TARGET=30 ./scripts/fund-testnet.sh` and run it again. Each test drives a phone-sized browser through the web app against your own testnet deployment with 20-second waiting periods, and checks balances on-chain.

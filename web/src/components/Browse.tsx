@@ -36,7 +36,8 @@ export function Browse() {
       const hasPhoto = (l: Listing) => (decodeDetails(l.property_ref, l.id).photos.length ? 0 : 1);
       setListings(ls.filter((l) => (l.available || l.active_lease !== null) && !hidden.has(l.id)).reverse().sort((a, b) => hasPhoto(a) - hasPhoto(b)));
     }).catch(() => setErr("Couldn't load homes from NEAR. Pull to refresh or try again shortly."));
-    chain.allLeases().then((ls) => setTakeovers(ls.filter((l) => l.status === 'Active' && l.takeover?.landlord_consent))).catch(() => {});
+    const hiddenHomes = new Set(nearConfig().hiddenListings ?? []);
+    chain.allLeases().then((ls) => setTakeovers(ls.filter((l) => l.status === 'Active' && l.takeover?.landlord_consent && !hiddenHomes.has(l.listing_id)))).catch(() => {});
   }, []);
 
   const areaOf = useMemo(() => new Map(listings?.map((l) => [l.id, decodeDetails(l.property_ref, l.id).area || 'Lagos'])), [listings]);

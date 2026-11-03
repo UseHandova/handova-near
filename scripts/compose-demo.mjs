@@ -71,11 +71,11 @@ const intro = (() => {
   const cap = (name, text, from, to) =>
     `drawtext=fontfile='${FONT}':textfile='${textfile(name, wrap(text, 95))}':fontsize=30:line_spacing=8:fontcolor=white:box=1:boxcolor=0x000000@0.6:boxborderw=14:x=(w-text_w)/2:y=h-text_h-26:enable='between(t,${from / 1000},${to / 1000})'`;
   const draw = [
-    // Title in the empty margin left of the page column.
-    `drawtext=fontfile='${BOLD}':text='Handova':fontsize=96:fontcolor=0x111814:x=110:y=360`,
-    `drawbox=x=114:y=482:w=140:h=6:color=${GREEN}:t=fill`,
-    `drawtext=fontfile='${FONT}':text='NEAR Hackathon submission':fontsize=40:fontcolor=0x4a5550:x=112:y=520`,
-    `drawtext=fontfile='${FONT}':text='by Philip':fontsize=40:fontcolor=0x4a5550:x=112:y=576`,
+    // While HELLO plays: the page dimmed behind a centred title; it clears when the page tour starts.
+    `drawbox=x=0:y=0:w=iw:h=ih:color=${BG}@0.88:t=fill:enable='lt(t,${introAt / 1000})'`,
+    `drawtext=fontfile='${BOLD}':text='Handova':fontsize=140:fontcolor=white:x=(w-text_w)/2:y=330:enable='lt(t,${introAt / 1000})'`,
+    `drawbox=x=(iw-180)/2:y=500:w=180:h=6:color=${GREEN}:t=fill:enable='lt(t,${introAt / 1000})'`,
+    `drawtext=fontfile='${FONT}':text='NEAR Hackathon submission by Philip':fontsize=52:fontcolor=0xd2d8d4:x=(w-text_w)/2:y=545:enable='lt(t,${introAt / 1000})'`,
     cap('cap-hello', HELLO, helloAt, introAt),
     cap('cap-intro', INTRO, introAt, secs * 1000),
     `drawtext=fontfile='${FONT}':text='NEAR testnet · real app':fontsize=20:fontcolor=0x6c7671:x=w-text_w-24:y=h-40`,

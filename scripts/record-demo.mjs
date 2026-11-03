@@ -220,6 +220,14 @@ try {
     await p.waitForTimeout(1200);
     await shot(p, '07-landlord-paid');
   });
+  await step('ll5b', 'landlord', async (p) => {
+    await p.getByText('Cash out to an exchange or another chain').scrollIntoViewIfNeeded();
+    await p.locator('#co-to').pressSequentially('TNXoiAJ3dct8Fjg4M9fkLFh9S2v9TXc32G', { delay: 12 });
+    await p.getByRole('button', { name: 'Get a live quote' }).click();
+    await p.getByText(/You receive/).waitFor({ timeout: 30_000 });
+    await p.getByText(/You receive/).scrollIntoViewIfNeeded();
+    await shot(p, '08-cash-out');
+  });
 
   // Chapter two: the lease changes hands.
   await step('mm4', 'mum', async (p) => {
