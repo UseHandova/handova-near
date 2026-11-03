@@ -12,5 +12,5 @@ export const secrets: Record<string, string> = Object.fromEntries(
     .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]),
 );
 
-export const API = 'http://localhost:3099';
+export const API = `http://localhost:${process.env.E2E_API_PORT ?? 3099}`;
 export const STATE_FILE = 'test-results/e2e-state.json';

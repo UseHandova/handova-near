@@ -24,5 +24,9 @@ export interface NearConfig {
   gasless: boolean;
   accountCreation: boolean;
   ai: boolean;
+  /** Didit identity checks are configured on the server. */
+  idCheck?: boolean;
+  /** Listing ids this site leaves off its home page (they stay on-chain). */
+  hiddenListings?: number[];
   intentsLive: boolean;
 }

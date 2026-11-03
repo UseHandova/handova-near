@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '../lib/i18n';
 import { ArrowRight, ChevronLeft, ChevronRight, Globe2, Home, Lock, RotateCcw } from 'lucide-react';
-import { chain } from '../lib/near';
+import { chain, nearConfig } from '../lib/near';
 import type { Lease, Listing } from '../lib/types';
 import { usd, usdc } from '../lib/money';
 import { ListingCard } from './ListingCard';
@@ -31,9 +31,10 @@ export function Browse() {
   const [err, setErr] = useState('');
   useEffect(() => {
     chain.listings().then((ls) => {
-      // Paused homes are hidden. Newest first, homes with photos ahead of those without.
+      // Paused and moderated homes are hidden. Newest first, homes with photos ahead of those without.
+      const hidden = new Set(nearConfig().hiddenListings ?? []);
       const hasPhoto = (l: Listing) => (decodeDetails(l.property_ref, l.id).photos.length ? 0 : 1);
-      setListings(ls.filter((l) => l.available || l.active_lease !== null).reverse().sort((a, b) => hasPhoto(a) - hasPhoto(b)));
+      setListings(ls.filter((l) => (l.available || l.active_lease !== null) && !hidden.has(l.id)).reverse().sort((a, b) => hasPhoto(a) - hasPhoto(b)));
     }).catch(() => setErr("Couldn't load homes from NEAR. Pull to refresh or try again shortly."));
     chain.allLeases().then((ls) => setTakeovers(ls.filter((l) => l.status === 'Active' && l.takeover?.landlord_consent))).catch(() => {});
   }, []);

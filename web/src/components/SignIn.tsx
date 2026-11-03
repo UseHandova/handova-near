@@ -3,7 +3,9 @@ import { useT } from '../lib/i18n';
 import { Check, KeyRound, Smartphone, Wallet } from 'lucide-react';
 import { api } from '../lib/api';
 import { nearConfig } from '../lib/near';
-import { useSession } from '../lib/session';
+import { useSession, type Role } from '../lib/session';
+import { go } from '../lib/router';
+import { RoleCards } from './RolePicker';
 import { useToast } from '../lib/toast';
 import { Busy, Sheet } from './ui';
 
@@ -19,9 +21,10 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
   const [busy, setBusy] = useState(false);
   const [phrase, setPhrase] = useState('');
   const [restoreId, setRestoreId] = useState('');
+  const [role, setRole] = useState<Role | null>(null);
   const { t } = useT();
 
-  useEffect(() => { if (!open) { setMode('choose'); setName(''); setCheck(null); } }, [open]);
+  useEffect(() => { if (!open) { setMode('choose'); setName(''); setCheck(null); setRole(null); } }, [open]);
 
   useEffect(() => {
     if (!name) return setCheck(null);
@@ -67,7 +70,7 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
       )}
 
       {mode === 'create' && (
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (check?.available) run(() => createAccount(name), `Welcome! Your account is ${check.accountId}`); }}>
+        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (check?.available && role) run(async () => { await createAccount(name, role); if (role === 'landlord') go('/landlord'); }, `Welcome! Your account is ${check.accountId}`); }}>
           <div>
             <label className="label" htmlFor="name">Your name on Handova</label>
             <div className="flex items-center rounded-xl border border-line bg-surface focus-within:border-accent">
@@ -76,8 +79,13 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
             </div>
             {check && <p className={`mt-1.5 text-sm ${check.available ? 'text-ok' : 'text-danger'}`}>{check.available ? <><Check className="inline h-4 w-4" /> {check.accountId} is free</> : check.reason}</p>}
           </div>
+          <div>
+            <p className="label">{t('How will you use Handova?')}</p>
+            <RoleCards value={role} onChange={setRole} />
+            <p className="mt-1.5 text-xs text-faint">{t('You can switch any time on your Account page.')}</p>
+          </div>
           <p className="rounded-xl bg-muted p-3 text-sm text-sub">This is a real NEAR account that only you control. Next you'll see a 12-word recovery phrase — write it down; it's the only way back in if you lose this phone.</p>
-          <button className="btn-primary w-full" disabled={!check?.available || busy}><Busy busy={busy}>{t('Create account')}</Busy></button>
+          <button className="btn-primary w-full" disabled={!check?.available || !role || busy}><Busy busy={busy}>{t('Create account')}</Busy></button>
         </form>
       )}
 

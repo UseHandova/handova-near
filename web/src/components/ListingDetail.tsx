@@ -42,7 +42,10 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
     <div className="space-y-4 pt-2">
       <div className="card overflow-hidden">
         <div className="flex snap-x snap-mandatory overflow-x-auto">
-          {(d.photos.length ? d.photos : [undefined]).map((p, i) => <Photo key={i} src={p} className="h-60 w-full shrink-0 snap-center" />)}
+          {d.video && (
+            <video src={d.video} poster={d.photos[0]} controls muted playsInline preload="metadata" className="h-60 w-full shrink-0 snap-center bg-black object-contain" />
+          )}
+          {(d.photos.length || !d.video ? (d.photos.length ? d.photos : [undefined]) : []).map((p, i) => <Photo key={i} src={p} className="h-60 w-full shrink-0 snap-center" />)}
         </div>
         <div className="space-y-2 p-4">
           <h1 className="font-display text-2xl font-bold leading-tight">{d.title}</h1>

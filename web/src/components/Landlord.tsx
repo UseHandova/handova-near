@@ -7,6 +7,7 @@ import { useSession } from '../lib/session';
 import type { Lease, Listing } from '../lib/types';
 import { LeaseRow } from './MyRentals';
 import { Empty, Spinner } from './ui';
+import { VerifyIdentity } from './VerifyIdentity';
 
 export function Landlord({ onNeedSignIn }: { onNeedSignIn: () => void }) {
   const { session } = useSession();
@@ -38,6 +39,8 @@ export function Landlord({ onNeedSignIn }: { onNeedSignIn: () => void }) {
         <h1 className="font-display text-2xl font-bold">Landlord</h1>
         <a href="#/list" className="btn-primary !py-2.5"><Plus className="h-4 w-4" /> List a home</a>
       </div>
+
+      <VerifyIdentity />
 
       {needsAction.length > 0 && (
         <section className="space-y-2">

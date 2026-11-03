@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '../lib/i18n';
-import { ImagePlus, Mic, ShieldCheck, Sparkles, Square, X } from 'lucide-react';
+import { ImagePlus, Mic, ShieldCheck, Sparkles, Square, Video, X } from 'lucide-react';
 import { teraToGas } from 'near-api-js';
 import { API_BASE, api } from '../lib/api';
 import { encodeDetails } from '../lib/listing';
@@ -40,6 +40,8 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
   const [f, setF] = useState({ title: '', area: '', city: 'Lagos', beds: '', baths: '', type: 'flat', rentNgn: '', cautionNgn: '', term: '12', description: '' });
   const [amenities, setAmenities] = useState<string[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [video, setVideo] = useState('');
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }));
@@ -116,6 +118,23 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
     }
   }
 
+  async function addVideo(file: File) {
+    if (file.size > 60 * 1024 * 1024) return toast('error', 'Videos must be under 60 MB. Record a shorter walk-through.');
+    setUploadingVideo(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const r = await fetch(`${API_BASE}/api/media`, { method: 'POST', body: form });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error);
+      setVideo(new URL(j.url, location.origin).toString());
+    } catch (e) {
+      toast('error', (e as Error).message || 'Video upload failed. Try a shorter clip.');
+    } finally {
+      setUploadingVideo(false);
+    }
+  }
+
   const rentUsdc = Number(f.rentNgn) / rate;
   const cautionUsdc = Number(f.cautionNgn || 0) / rate;
   const units = (usd: number) => String(Math.round(usd * 100) * 10_000); // whole cents, 6 decimals
@@ -127,7 +146,7 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
     try {
       const property_ref = encodeDetails({
         title: f.title, area: f.area, city: f.city, beds: Number(f.beds) || undefined, baths: Number(f.baths) || undefined,
-        type: f.type, photos, description: f.description, amenities,
+        type: f.type, photos, video: video || undefined, description: f.description, amenities,
       });
       const r = await session.call(cfg.escrow, 'create_listing', {
         rent: units(rentUsdc), caution: units(cautionUsdc), term_months: Number(f.term), property_ref,
@@ -223,6 +242,21 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
               </label>
             )}
           </div>
+        </div>
+        <div>
+          <p className="label">{t('Video walk-through (optional)')}</p>
+          {video ? (
+            <div className="relative w-40">
+              <video src={video} muted playsInline loop autoPlay className="h-24 w-40 rounded-xl bg-black object-cover" />
+              <button onClick={() => setVideo('')} aria-label="Remove video" className="absolute -right-1.5 -top-1.5 rounded-full bg-black/70 p-0.5 text-white"><X className="h-3.5 w-3.5" /></button>
+            </div>
+          ) : (
+            <label className="flex h-20 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line px-4 text-sm font-semibold text-faint hover:text-accent">
+              {uploadingVideo ? <Busy busy>{''}</Busy> : <><Video className="h-5 w-5" /> {t('Add a short video')}</>}
+              <input type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden" onChange={(e) => e.target.files?.[0] && addVideo(e.target.files[0])} />
+            </label>
+          )}
+          <p className="mt-1 text-xs text-faint">Tenants see it play when they hover over your home. Up to 60 MB.</p>
         </div>
       </section>
 

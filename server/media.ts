@@ -139,6 +139,12 @@ export function mountMedia(app: Express, dir?: string) {
   app.get(/^\/api\/media\/([a-f0-9]{24}\.(?:jpg|png|webp|mp4|mov|webm))$/, (req: Request, res: Response) => {
     const name = (req.params as Record<string, string>)[0];
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    // Videos are fetched in byte ranges. A CDN in front (Vercel) would cache one 206 range answer and
+    // replay it for every range, so the video never loads: keep videos out of shared caches.
+    if (/\.(mp4|mov|webm)$/.test(name)) {
+      res.setHeader('CDN-Cache-Control', 'no-store');
+      res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
+    }
     res.sendFile(name, { root }, err => { if (err && !res.headersSent) res.status(404).end(); });
   });
 

@@ -8,7 +8,7 @@
  * and appends LISTINGS_LANDLORD_ACCOUNT_ID / LISTINGS_LANDLORD_PRIVATE_KEY to .env (git-ignored).
  *
  * The JSON file: { listingId? (set it to update a published listing), title, area, city?, beds, baths?, type, rentNgn, cautionNgn, termMonths?,
- *                  description, amenities?: string[], photos: string[] (paths, relative to the file) }
+ *                  description, amenities?: string[], photos: string[], video?: string (paths relative to the file) }
  */
 import { Account, JsonRpcProvider, KeyPair, type KeyPairString } from 'near-api-js';
 import { appendFileSync, readFileSync } from 'node:fs';
@@ -55,12 +55,23 @@ for (const p of spec.photos ?? []) {
   console.log(`uploaded ${basename(path)}`);
 }
 
+// Optional walk-through video (mp4/mov/webm), played on hover on the home page.
+let video: string | undefined;
+if (spec.video) {
+  const path = resolve(dirname(file), spec.video);
+  const type = path.endsWith('.webm') ? 'video/webm' : path.endsWith('.mov') ? 'video/quicktime' : 'video/mp4';
+  const form = new FormData();
+  form.append('file', new Blob([readFileSync(path)], { type }), basename(path));
+  video = new URL((await api<{ url: string }>('/api/media', { method: 'POST', body: form })).url, API).toString();
+  console.log(`uploaded ${basename(path)}`);
+}
+
 // Naira → USDC at today's rate, as the app's listing form does. Stored on-chain in USDC.
 const { rate } = await api<{ rate: number }>('/api/fx');
 const units = (ngn: number) => String(Math.round((ngn / rate) * 100) * 10_000);
 const property_ref = encodeDetails({
   title: spec.title, area: spec.area, city: spec.city ?? 'Lagos', beds: spec.beds, baths: spec.baths,
-  type: spec.type, photos, description: spec.description, amenities: spec.amenities,
+  type: spec.type, photos, video, description: spec.description, amenities: spec.amenities,
 });
 
 const account = new Account(accountId, new JsonRpcProvider({ url: deploy.rpc }), secret);

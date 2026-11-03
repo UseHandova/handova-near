@@ -69,13 +69,15 @@ export async function toast(page: Page, text: RegExp) {
 }
 
 /** Create a Handova account through the UI; returns the full account ID. */
-export async function signUp(page: Page, label: string): Promise<string> {
+/** Creates a Handova account. Labels "ll", "ade" or containing "landlord" sign up as a landlord, the rest as tenants. */
+export async function signUp(page: Page, label: string, role: 'tenant' | 'landlord' = /^(ll|ade)$|landlord/i.test(label) ? 'landlord' : 'tenant'): Promise<string> {
   await page.goto('/');
   await page.getByRole('button', { name: 'Get started' }).first().click();
   await page.getByText('New to crypto? Create an account').click();
   const name = `${label}-${uid()}`;
   await page.locator('#name').fill(name);
   await expect(page.getByText(/is free/)).toBeVisible();
+  await page.getByRole('radio', { name: role === 'landlord' ? /I rent out homes/ : /looking for a home/ }).click();
   await page.getByRole('button', { name: 'Create account' }).click();
   await toast(page, /Welcome! Your account is/);
   const accountId = `${name}.${deploy.accountParent}`;
@@ -145,6 +147,10 @@ export async function signInWithPhrase(page: Page, accountId: string, seedPhrase
   await page.locator('#phrase').fill(seedPhrase);
   await page.getByRole('button', { name: 'Restore' }).click();
   await toast(page, /Account restored/);
+  // A new device doesn't know the role yet: Handova asks once.
+  await page.getByText('How will you use Handova?').waitFor();
+  await page.getByRole('radio', { name: /looking for a home/ }).click();
+  await expect(page.getByText('How will you use Handova?')).toBeHidden();
 }
 
 /** Let a contract waiting period pass (plus a margin for block time and clock skew). */

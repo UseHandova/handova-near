@@ -8,6 +8,7 @@ import { useSession } from '../lib/session';
 import { council, daoPolicy } from '../lib/dao';
 import { useToast } from '../lib/toast';
 import { Busy, Empty, Row } from './ui';
+import { RoleSwitch } from './RolePicker';
 
 export function AccountPage({ onNeedSignIn }: { onNeedSignIn: () => void }) {
   const { session, signOut, seedPhrase, markBackedUp } = useSession();
@@ -71,6 +72,12 @@ export function AccountPage({ onNeedSignIn }: { onNeedSignIn: () => void }) {
       <div className="card space-y-1 p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-faint">{session.kind === 'device' ? 'Handova account · gasless' : 'NEAR wallet'}</p>
         <a href={accountUrl(session.accountId)} target="_blank" rel="noreferrer" className="flex items-center gap-1 break-all font-display text-lg font-bold">{session.accountId} <ExternalLink className="h-4 w-4 shrink-0 text-faint" /></a>
+      </div>
+
+      <div className="card space-y-2 p-4">
+        <p className="text-sm font-semibold text-ink2">{t('I use Handova as')}</p>
+        <RoleSwitch />
+        <p className="text-xs text-faint">{t('This only changes which pages your menu shows. You can rent and let homes with the same account.')}</p>
       </div>
 
       {session.needsBackup && phrase && (

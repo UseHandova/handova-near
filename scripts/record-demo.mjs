@@ -50,12 +50,28 @@ await landingPage.getByRole('heading', { name: 'Homes' }).waitFor();
 await pause(2500); // listings and fonts settle
 const landing = { start: Date.now() - landingT0, hello: duration.hello, intro: duration.intro, gap: 600 };
 await pause(landing.gap + duration.hello + landing.gap);
-const scrollMs = duration.intro;
-const height = await landingPage.evaluate(() => document.documentElement.scrollHeight - innerHeight);
-for (let t = 0; t < scrollMs; t += 50) {
-  await landingPage.evaluate((y) => scrollTo(0, y), Math.round((height * t) / scrollMs));
-  await pause(50);
+// During INTRO: glide down to the homes, rest the pointer on a home with a video so it plays, then
+// glide on to the page numbers.
+const introStart = Date.now();
+const ease = (x) => (x < 0.5 ? 2 * x * x : 1 - (-2 * x + 2) ** 2 / 2);
+const glide = async (from, to, ms) => {
+  for (let t = 0; t <= ms; t += 40) {
+    await landingPage.evaluate((y) => scrollTo(0, y), Math.round(from + (to - from) * ease(Math.min(1, t / ms))));
+    await pause(40);
+  }
+};
+const gridY = await landingPage.getByRole('heading', { name: 'Homes' }).evaluate((el) => el.getBoundingClientRect().top + scrollY - 100);
+await glide(0, gridY, duration.intro * 0.3);
+const withVideo = landingPage.locator('a[href^="#/home/"]').filter({ has: landingPage.locator('video') }).first();
+if (await withVideo.count()) {
+  const box = await withVideo.boundingBox();
+  await landingPage.mouse.move(box.x + box.width / 2, box.y + box.height / 3, { steps: 30 });
+  await pause(duration.intro * 0.4);
+  await landingPage.screenshot({ path: join(SHOTS, '00-desktop-home.png') });
+  await landingPage.mouse.move(box.x + box.width / 2, box.y - 80, { steps: 20 });
 }
+const bottom = await landingPage.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+await glide(gridY, bottom, Math.max(1500, duration.intro - (Date.now() - introStart)));
 await pause(landing.gap);
 landing.end = Date.now() - landingT0;
 await landingCtx.close();
@@ -83,13 +99,15 @@ const toast = (p, re) => p.getByRole('status').filter({ hasText: re }).first().w
 const openLease = async (p, id) => { await p.goto(`${URL}#/lease/${id}`); await p.reload(); await p.waitForTimeout(1200); };
 const uid = Date.now().toString(36).slice(-5);
 
-async function signUp(p, name) {
+async function signUp(p, name, role = 'tenant') {
   await p.goto(URL);
   await p.waitForTimeout(800);
   await p.getByRole('button', { name: 'Get started' }).first().click();
   await p.getByText('New to crypto? Create an account').click();
   await p.locator('#name').pressSequentially(name, { delay: 60 });
   await p.getByText(/is free/).waitFor();
+  await p.getByRole('radio', { name: role === 'landlord' ? /I rent out homes/ : /looking for a home/ }).click();
+  await p.waitForTimeout(500);
   await p.getByRole('button', { name: 'Create account' }).click();
   await toast(p, /Welcome! Your account is/);
 }
@@ -106,7 +124,13 @@ try {
   await shot(phones.landlord, '01-home');
 
   let listingId;
-  await step('ll1', 'landlord', (p) => signUp(p, `ade-${uid}`));
+  await step('ll1', 'landlord', (p) => signUp(p, `ade-${uid}`, 'landlord'));
+  await step('ll1b', 'landlord', async (p) => {
+    // Signing up as a landlord lands on the landlord page, which offers the Didit ID check.
+    await p.getByText('Get the verified landlord badge').scrollIntoViewIfNeeded();
+    await p.waitForTimeout(800);
+    await shot(p, '01-verify-landlord');
+  });
   await step('ll2', 'landlord', async (p) => {
     await p.goto(`${URL}#/list`);
     await p.getByPlaceholder(/2 bedroom flat for Yaba/).pressSequentially('I get flat for Yaba. AC for the rooms, POP ceiling with downlights. Rent na 2 million per year, caution 200k.', { delay: 18 });

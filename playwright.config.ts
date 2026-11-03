@@ -9,8 +9,8 @@
  */
 import { defineConfig, devices } from '@playwright/test';
 
-const API_PORT = 3099;
-const WEB_PORT = 5199;
+const API_PORT = Number(process.env.E2E_API_PORT ?? 3099);
+const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 5199); // override when another app holds the port
 
 export default defineConfig({
   testDir: './e2e',

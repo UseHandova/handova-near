@@ -1,4 +1,5 @@
-import { BadgeCheck, BedDouble, Home, Images, MapPin } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { BadgeCheck, BedDouble, Home, Images, MapPin, Play } from 'lucide-react';
 import { decodeDetails } from '../lib/listing';
 import { naira, usdc, useNgnRate } from '../lib/money';
 import { useT } from '../lib/i18n';
@@ -14,7 +15,50 @@ export function Photo({ src, className = '' }: { src?: string; className?: strin
   );
 }
 
+/**
+ * A listing's video over its cover photo, silent and looping. With a mouse it plays while the card is
+ * hovered; on touch screens (no hover) it plays while the card is mostly on screen.
+ */
+function HoverVideo({ src, poster, hovered }: { src: string; poster?: string; hovered: boolean }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [inView, setInView] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const canHover = typeof matchMedia !== 'undefined' && matchMedia('(hover: hover)').matches;
+  const still = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  useEffect(() => {
+    if (canHover || !ref.current) return;
+    const io = new IntersectionObserver(([e]) => setInView(e.intersectionRatio > 0.6), { threshold: [0, 0.6, 1] });
+    io.observe(ref.current);
+    return () => io.disconnect();
+  }, [canHover]);
+
+  const active = !still && (canHover ? hovered : inView);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    if (active) v.play().catch(() => {});
+    else { v.pause(); v.currentTime = 0; }
+  }, [active]);
+
+  return (
+    <video
+      ref={ref}
+      src={src}
+      poster={poster}
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      onPlaying={() => setPlaying(true)}
+      onPause={() => setPlaying(false)}
+      className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${active && playing ? 'opacity-100' : 'opacity-0'}`}
+    />
+  );
+}
+
 export function ListingCard({ l }: { l: Listing }) {
+  const [hovered, setHovered] = useState(false);
   const rate = useNgnRate();
   const { t } = useT();
   const d = decodeDetails(l.property_ref, l.id);
@@ -22,10 +66,13 @@ export function ListingCard({ l }: { l: Listing }) {
   return (
     <a
       href={`#/home/${l.id}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       className="group card flex h-full flex-col overflow-hidden transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_44px_-20px_rgba(10,102,56,0.38)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <div className="relative aspect-[16/10] overflow-hidden">
         <Photo src={d.photos[0]} className="h-full w-full transition duration-700 ease-out group-hover:scale-[1.06]" />
+        {d.video && <HoverVideo src={d.video} poster={d.photos[0]} hovered={hovered} />}
         {d.photos[0] && <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/40 to-transparent" />}
         <div className="absolute left-3 top-3 flex gap-1.5">
           {l.landlord_verified && (
@@ -33,9 +80,10 @@ export function ListingCard({ l }: { l: Listing }) {
           )}
           {taken && <span className="chip !bg-black/65 !text-white">{t('Taken')}</span>}
         </div>
-        {d.photos.length > 1 && (
-          <span className="absolute bottom-3 right-3 chip !bg-black/55 !text-white"><Images className="h-3.5 w-3.5" />{d.photos.length}</span>
-        )}
+        <div className="absolute bottom-3 right-3 flex gap-1.5">
+          {d.video && <span className="chip !bg-black/55 !text-white"><Play className="h-3.5 w-3.5 fill-current" />{t('Video')}</span>}
+          {d.photos.length > 1 && <span className="chip !bg-black/55 !text-white"><Images className="h-3.5 w-3.5" />{d.photos.length}</span>}
+        </div>
       </div>
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h3 className="font-display text-[17px] font-bold leading-snug transition-colors group-hover:text-accent">{d.title}</h3>

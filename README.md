@@ -1,21 +1,25 @@
 # Handova — rent in Lagos straight from the landlord, with the rent in escrow on NEAR
 
-Handova lets a tenant rent a home directly from the landlord, with no agent. The tenant (or family abroad) pays rent and the caution fee in USDC into a NEAR smart contract. The landlord is paid when the tenant confirms they moved in (or, only for an ID-verified landlord, if the tenant ignores a marked handover for 3 days). The tenant then holds a **lease NFT that holds the caution fee**, and that fee comes back at move-out unless the landlord proves damage. People pay no gas, and they can pay from any chain through NEAR Intents. A tenant leaving early can **sell the rest of their lease** (with the landlord's consent), finished leases form an on-chain **rental passport**, disputes are decided by a **Sputnik DAO council**, and the app speaks **English, Naijá, Yorùbá, Hausa and Igbo**.
+Handova lets a tenant rent a home directly from the landlord, with no agent. The tenant (or family abroad) pays rent and the caution fee in USDC into a NEAR smart contract. The landlord is paid when the tenant confirms they moved in (or, only for an ID-verified landlord, if the tenant ignores a marked handover for 3 days). The tenant then holds a **lease NFT that holds the caution fee**, and that fee comes back at move-out unless the landlord proves damage. People pay no gas, and they can pay from any chain through NEAR Intents. A tenant leaving early can **sell the rest of their lease** (with the landlord's consent), finished leases form an on-chain **rental passport**, disputes are decided by a **Sputnik DAO council**, landlords can get an **ID-verified badge recorded on NEAR** (Didit), and the app speaks **English, Naijá, Yorùbá, Hausa and Igbo**.
 
-> **Status, plainly:** everything runs on **NEAR testnet** (contract [`escrow.handova.testnet`](https://testnet.nearblocks.io/address/escrow.handova.testnet)). NEAR Intents has no testnet, so the app shows a live 1Click quote and then **simulates** the deposit arriving with test USDC; the escrow payment after that is a real testnet transaction. No real landlords or tenants have used it yet.
+> **Status, plainly:** everything runs on **NEAR testnet** (contract [`escrow.handova.testnet`](https://testnet.nearblocks.io/address/escrow.handova.testnet)). NEAR Intents has no testnet, so the app shows a live 1Click quote and then **simulates** the deposit arriving with test USDC; the escrow payment after that is a real testnet transaction. Two real Lagos homes are listed (Yaba, Ikorodu) with their own photos and video; nobody has rented through it yet.
 
 **Built at NEAR HACKATHON (1–14 Nov 2026).** Tracks: `realworld`, `nfts`. Built on an earlier Arc version of Handova; only the NEAR work is the entry — see [Built before / during the hackathon](#built-before--during-the-hackathon).
 
-- 🌍 **Try it live (testnet, phone-sized):** https://handova-near.vercel.app — web app on Vercel, API (relayer, keeper, accounts) on Railway
+- 🌍 **Try it live (testnet, phone or desktop):** https://handova-near.vercel.app — web app on Vercel, API (relayer, keeper, accounts, ID checks) on Railway
 - 🎬 **Demo video (3 min, real testnet, four phones, Nigerian narrator):** YOUTUBE_LINK
 - 🧪 **Reproduce it yourself:** [`REPRODUCE.md`](REPRODUCE.md) — three commands, your own testnet accounts, no keys from us
 - 📜 **Contract:** [`contract/src/`](contract/src) · **Server:** [`server/near/`](server/near) · **Web app:** [`web/src/`](web/src) · **Browser tests:** [`e2e/`](e2e)
+
+![Handova on desktop: homes with photos and a video that plays on hover](docs/screenshots/00-desktop-home.png)
 
 | ![Home](docs/screenshots/01-home.png) | ![NEAR AI listing draft](docs/screenshots/02-ai-draft.png) | ![Pay from any chain](docs/screenshots/04-intents-quote.png) | ![Lease NFT](docs/screenshots/06-lease-nft.png) |
 |---|---|---|---|
 | Homes, priced in Naira | Voice note → listing (NEAR AI, verified TEE) | Pay from Base, Solana… (NEAR Intents) | Lease NFT holding the caution fee |
 | ![Landlord consents to a takeover](docs/screenshots/10-landlord-consent.png) | ![Take over a lease](docs/screenshots/11-takeover-offers.png) | ![DAO arbiter](docs/screenshots/12-dao-arbiter.png) | ![Rental passport](docs/screenshots/13-passport.png) |
 | Landlord sees the passport and consents to a takeover | Leases offered for takeover | Disputes go to a 2-of-3 DAO council | The tenant's rental passport |
+
+**For tenants and landlords alike:** people choose at sign-up whether they're renting or letting (switchable on the Account page), and the menu follows: tenants get *My rentals*, landlords get their landlord page with the Didit ID check. On desktop the homes show in a grid with area tabs and page numbers; a listing's walk-through video plays when you hover over it (or while it's on screen on a phone).
 
 ---
 
@@ -30,11 +34,12 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 8. [API reference](#api-reference)
 9. [Try it](#try-it)
 10. [Testing](#testing)
-11. [Security model and known limits](#security-model-and-known-limits)
-12. [Independent AI review](#independent-ai-review-near-ai-cloud)
-13. [Configuration and deployment](#configuration-and-deployment)
-14. [Built vs planned](#built-vs-planned)
-15. [Built before / during the hackathon](#built-before--during-the-hackathon)
+11. [Landlord verification](#landlord-verification-didit--near)
+12. [Security model and known limits](#security-model-and-known-limits)
+13. [Independent AI review](#independent-ai-review-near-ai-cloud)
+14. [Configuration and deployment](#configuration-and-deployment)
+15. [Built vs planned](#built-vs-planned)
+16. [Built before / during the hackathon](#built-before--during-the-hackathon)
 
 ---
 
@@ -53,7 +58,8 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 
 | | What happens | NEAR piece |
 |---|---|---|
-| 1 | Ade (landlord) describes his flat in Pidgin; NEAR AI drafts the listing; he checks it and publishes | NEAR AI Cloud (TEE) · gasless `create_listing` |
+| 0 | Ade signs up as a landlord; he can verify his ID with Didit and the badge is written on NEAR | NEP-413 signed message · `set_verified` |
+| 1 | Ade (landlord) describes his flat in Pidgin; NEAR AI drafts the listing; he adds photos, checks it and publishes | NEAR AI Cloud (TEE) · gasless `create_listing` |
 | 2 | The nurse pays rent + caution **for mum** from Base USDC (or USDC on NEAR) | NEAR Intents 1Click → `ft_transfer_call` |
 | 3 | The money is locked in the escrow, status `Pending` | `ft_on_transfer` |
 | 4 | Ade marks the handover; mum confirms move-in | `mark_handover`, `confirm_move_in` |
@@ -73,6 +79,7 @@ Every step is in the [demo video](YOUTUBE_LINK) (four phones side by side — la
 | NFT that shows the live lease | Dynamic metadata: title, description, `extra` and an on-chain SVG built from the lease at view time | [`nft.rs` `live()`](contract/src/nft.rs), [`svg.rs`](contract/src/svg.rs) |
 | No gas for users | NEP-366 meta transactions: the phone signs a delegate action; the relayer verifies it and pays gas | [`server/near/relayer.ts`](server/near/relayer.ts), [`shared/gasless.ts`](shared/gasless.ts) |
 | Accounts for people without a wallet | Named sub-accounts `name.handova.testnet` created with the **device's own key**; 12-word recovery phrase | [`server/near/accounts.ts`](server/near/accounts.ts), [`web/src/lib/session.tsx`](web/src/lib/session.tsx) |
+| Verified landlords | Didit ID + liveness + face check. The landlord first proves control of the account with a **NEP-413 signed message**; on approval Handova's verifier account calls `set_verified` on the escrow, which unlocks the badge, silence claims and more than 3 listings | [`server/near/verify.ts`](server/near/verify.ts), [`shared/nep413.ts`](shared/nep413.ts), [`VerifyIdentity.tsx`](web/src/components/VerifyIdentity.tsx) |
 | Existing NEAR wallets | NEAR Connect (`@hot-labs/near-connect`): HOT, Meteor, MyNearWallet, Intear… | [`session.tsx`](web/src/lib/session.tsx) |
 | Pay from any chain | NEAR Intents 1Click: `EXACT_OUTPUT` quote → deposit on the origin chain → USDC delivered to the payer's NEAR account → gasless `ft_transfer_call` into escrow | [`server/near/intents.ts`](server/near/intents.ts), [`IntentsPay.tsx`](web/src/components/IntentsPay.tsx) |
 | Voice note or text → listing draft | NEAR AI Cloud, models in TEEs (`openai/whisper-large-v3`, `z-ai/glm-5.3-flash`); each answer has a receipt the server checks | [`server/near/ai.ts`](server/near/ai.ts) |
@@ -252,6 +259,7 @@ sequenceDiagram
 | `POST /api/relay {signedDelegate}` | NEP-366 relay (base64 borsh `SignedDelegate`) |
 | `GET /api/intents/tokens` · `POST /api/intents/quote` · `GET /api/intents/status` · `POST /api/intents/submit` | NEAR Intents 1Click; testnet answers dry quotes only |
 | `POST /api/ai/listing-draft {text or audioBase64, mime}` · `POST /api/ai/document-check` | NEAR AI with a checked receipt |
+| `GET /api/verify/challenge?accountId=` · `POST /api/verify/didit/session` · `POST /api/verify/didit/complete` · `POST /api/verify/didit/resume` · `GET /api/verify/status` | Landlord ID check: NEP-413 challenge, Didit session, result → `set_verified` on NEAR |
 | `POST /api/faucet {accountId}` | Testnet only: 2,000 test USDC |
 | `POST /api/rpc` | Same-origin JSON-RPC proxy (reads + sending signed transactions), failover across 5 providers |
 | `POST /api/media` | Listing photo upload |
@@ -312,11 +320,24 @@ The end-to-end cases: happy path; recovery phrase and restore; taken name; famil
 
 All 24 have passed on the current contract. The suite found real bugs that were then fixed: pages not refreshing when a deadline passed, the arbiter blocked by the relayer, NFT transfer running out of gas money, an AI draft cut off by reasoning tokens, and server errors that hid a drained wallet. It runs against public testnet RPCs, so Playwright retries a test once on a network blip and reports it as flaky.
 
+## Landlord verification (Didit → NEAR)
+
+Fake listings are the main rental scam in Lagos, so the contract treats **ID-verified landlords** differently: only they can collect rent when a tenant ignores a marked handover for 3 days, and only they can list more than 3 homes. Tenants see the badge on every listing.
+
+How a landlord gets verified (Landlord page → *Verify my identity*):
+
+1. **Prove the account.** The app asks the server for a one-time message and the landlord signs it with their NEAR key as a **NEP-413** signed message (no transaction, no gas). Handova accounts sign with the key on the phone; NEAR wallets sign through NEAR Connect. The server checks the ed25519 signature and that the key is a **full-access key of that account**, so nobody can verify someone else's account. Challenges are single use and expire after 10 minutes.
+2. **Check the person.** The landlord takes a photo of their ID and a selfie on **Didit**'s page (document check, liveness, face match).
+3. **Record it on NEAR.** When Didit approves, Handova's verifier account calls `set_verified(account, true)` on the escrow (`landlord_verified` event). The badge is public, on-chain, and readable by any app (`is_verified`).
+
+Safeguards: one ID document can verify one account (kept only as a keyed hash of country + ID number, never the number itself); 5 attempts per account per day; Didit can only send people back to Handova's own address; a check finished on another phone or in a closed tab is collected next time the landlord opens the page; Handova never stores ID photos or names, Didit does. The verifier can only set the badge; like every other role it cannot move money.
+
 ## Security model and known limits
 
 - **Relayer** ([`relayer.ts`](server/near/relayer.ts)): only function calls to the escrow (fixed method list, zero NEAR attached) or `ft_transfer_call` on USDC (exactly 1 yocto) whose `receiver_id` is the escrow; the ed25519 signature is verified offline and the key must be on the sender's account; arbiter rulings only for the arbiter; total gas ≤ 300 Tgas; per-sender, per-IP and daily limits; balance checks before spending.
 - **Keys:** user keys are generated in the browser and never leave it. Server keys (relayer, account creator, verifier) are only in `.env` (git-ignored).
 - **Contract:** pull payments; balance restored on failed `ft_transfer`; `total_held` always equals the contract's USDC balance (checked in sandbox tests); no upgrade method; every waiting state has a timeout.
+- **Home-page moderation:** the operator can hide test or spam listings from Handova's own home page (`HIDDEN_LISTINGS`, e.g. leftovers from automated demo runs). They stay on-chain and visible to any other NEAR client, and hiding can't touch money, leases or the listing itself.
 - **Known limits:** the contract pays storage for listings and leases so users never need NEAR — spam is limited by the 1 USDC minimum rent, 3 listings for unverified landlords, account-creation rate limits and the relayer budget, not by deposits. Relayer, keeper, account creator and verifier are one server. The arbiter of `escrow.handova.testnet` is the Sputnik DAO `handova-council.sputnikv2.testnet` (2 of 3 council votes). Device keys live in browser storage: back up the phrase. `leases_by_account` is a vector per account.
 
 ## Independent AI review (NEAR AI Cloud)
@@ -333,10 +354,14 @@ Contract IDs come from `deploy/<network>.json` (or `deploy/<network>.local.json`
 | `RELAYER_ACCOUNT_ID` / `RELAYER_PRIVATE_KEY` | Pays users' gas; runs the keeper |
 | `CREATOR_ACCOUNT_ID` / `CREATOR_PRIVATE_KEY` | Owns the account parent; creates user accounts |
 | `VERIFIER_ACCOUNT_ID` / `VERIFIER_NEAR_PRIVATE_KEY` | Marks ID-verified landlords |
+| `DIDIT_API_KEY` / `DIDIT_WORKFLOW_ID` | Didit identity checks (optional; the Verify button is hidden without them) |
+| `ID_PEPPER` | Secret for hashing ID numbers (one ID, one account) |
+| `VERIFICATION_DATA_FILE`, `VERIFY_RETURN_URLS` | Where pending checks are kept; where Didit may send people back |
 | `ADMIN_SECRET` | Admin routes |
 | `SPUTNIK_FACTORY` | DAO factory for `create-arbiter-dao.ts` (default `sputnikv2.testnet`) |
 | `NEARAI_API_KEY` | NEAR AI Cloud (optional) |
 | `ONECLICK_JWT` | NEAR Intents partner key (optional) |
+| `HIDDEN_LISTINGS` | Listing ids hidden from Handova's home page (comma-separated) |
 | `RELAYER_DAILY_TX`, `RATE_LIMIT_SCALE`, `KEEPER`, `NEAR_RPC_FALLBACKS` | Limits and switches |
 
 Deploy your own: `ROOT=you.testnet ./scripts/deploy-testnet.sh` (add `TIMEOUT_SECS=20` for short waiting periods). Build the contract: `bun run contract:build`.
@@ -356,8 +381,11 @@ Deploy your own: `ROOT=you.testnet ./scripts/deploy-testnet.sh` (add `TIMEOUT_SE
 | NEAR AI voice note → listing, with checked TEE receipt | ✅ |
 | Pay from any chain (NEAR Intents 1Click) | ⚠️ built but **not run live**: quotes, deposit address, status polling and auto-pay are coded; on testnet the deposit is **simulated** |
 | NEAR AI document pre-check | ⚠️ API only; no admin screen yet |
-| Real landlords and tenants | ⏳ not yet |
-| Hosted demo | ⏳ planned |
+| Landlord ID verification (Didit → NEP-413 → `set_verified` on NEAR) | ✅ built; live checks need Didit credits on the team's account |
+| Tenant / landlord roles chosen at sign-up, switchable | ✅ |
+| Desktop layout: grid, area tabs, pages, animations | ✅ |
+| Real landlords and tenants | ⏳ two real Lagos homes listed (Yaba, Ikorodu); no rentals yet |
+| Hosted demo | ✅ https://handova-near.vercel.app (web on Vercel, API on Railway) |
 | Full translation of every screen and message | ⏳ planned |
 
 ## Built before / during the hackathon
@@ -370,8 +398,9 @@ Handova first existed on **Arc** (Circle's L1) as a Solidity + USDC app: [`UseHa
 ### Libraries and AI-written code
 - Contract: `near-sdk` 5.30, `near-contract-standards` 5.30, `base64`; tests: `near-workspaces` 0.24, `tokio`.
 - Server/web: `near-api-js` 7.4, `@hot-labs/near-connect` 0.12, `borsh`, `@noble/curves` + `@noble/hashes` (NEAR AI receipt signatures), `express`, `multer`, `react` 18, `vite`, `tailwindcss`, `lucide-react`, `qrcode`, `vite-plugin-node-polyfills`; tests: `@playwright/test`.
-- External services: NEAR RPC (FastNEAR and others), NEAR Intents 1Click API, NEAR AI Cloud, open.er-api.com (USD→NGN display rate).
-- Video: recorded with Playwright, narrated with macOS `say`, composed with `ffmpeg-static`.
+- External services: NEAR RPC (FastNEAR and others), NEAR Intents 1Click API, NEAR AI Cloud, Didit (identity checks), open.er-api.com (USD→NGN display rate).
+- The Didit flow in [`server/near/verify.ts`](server/near/verify.ts) is adapted from the Arc version's `server/verification.ts` (same Didit calls and safeguards). What's new for NEAR: proving account control with a NEP-413 signed message instead of an EVM signature, and recording the result with the escrow's `set_verified` instead of a Solidity call.
+- Video: recorded with Playwright, narrated with YarnGPT (Nigerian English voice), composed with `ffmpeg-static`.
 - Most of the NEAR-edition code was written with **Claude Code** (Anthropic), directed and reviewed by the team.
 
 ### Other project

@@ -10,6 +10,7 @@ import { mountRpc } from './rpc';
 import { mountIntents } from './intents';
 import { mountRelayer } from './relayer';
 import { runKeeperOnce } from './keeper';
+import { mountVerify } from './verify';
 
 export function mountNear(app: Express) {
   /** What the web app needs to talk to the chain. Public. */
@@ -26,7 +27,10 @@ export function mountNear(app: Express) {
       gasless: !!relayer,
       accountCreation: !!creator,
       ai: !!env('NEARAI_API_KEY'),
+      idCheck: !!(env('DIDIT_API_KEY') && env('DIDIT_WORKFLOW_ID') && verifier),
       intentsLive: NETWORK === 'mainnet',
+      // Listings this site doesn't show on its home page (test leftovers, spam). They stay on-chain.
+      hiddenListings: (env('HIDDEN_LISTINGS') ?? '').split(',').map((s) => s.trim()).filter(Boolean).map(Number).filter(Number.isInteger),
     });
   });
 
@@ -66,6 +70,7 @@ export function mountNear(app: Express) {
   });
 
   mountAccounts(app);
+  mountVerify(app);
   mountRelayer(app);
   mountIntents(app);
   mountAi(app);

@@ -18,6 +18,8 @@ import { ListHome } from './components/ListHome';
 import { AccountPage } from './components/AccountPage';
 import { ArbiterDesk } from './components/ArbiterDesk';
 import { Passport } from './components/Passport';
+import { RolePrompt } from './components/RolePicker';
+import { useDiditReturn } from './components/VerifyIdentity';
 
 export default function App() {
   const [cfg, setCfg] = useState<NearConfig | null>(null);
@@ -42,7 +44,8 @@ export default function App() {
 
 function Shell({ cfg }: { cfg: NearConfig }) {
   const route = useRoute();
-  const { session } = useSession();
+  const { session, role } = useSession();
+  useDiditReturn();
   const [signIn, setSignIn] = useState(false);
   const { t, lang, setLang } = useT();
   const tr = t;
@@ -60,12 +63,13 @@ function Shell({ cfg }: { cfg: NearConfig }) {
   else if (page === 'passport' && id) body = <Passport accountId={decodeURIComponent(id)} />;
   else body = <Browse />;
 
+  // Tenants see their rentals, landlords their listings; visitors who aren't signed in see both.
   const tabs = [
-    { path: '', icon: Home, label: 'Homes', active: !page || page === 'home' },
-    { path: 'rentals', icon: KeyRound, label: 'My rentals', active: page === 'rentals' || page === 'lease' },
-    { path: 'landlord', icon: Building2, label: 'Landlord', active: page === 'landlord' || page === 'list' },
-    { path: 'account', icon: UserRound, label: 'Account', active: page === 'account' },
-  ];
+    { path: '', icon: Home, label: 'Homes', active: !page || page === 'home', show: true },
+    { path: 'rentals', icon: KeyRound, label: 'My rentals', active: page === 'rentals' || page === 'lease', show: role !== 'landlord' },
+    { path: 'landlord', icon: Building2, label: 'Landlord', active: page === 'landlord' || page === 'list', show: role !== 'tenant' },
+    { path: 'account', icon: UserRound, label: 'Account', active: page === 'account', show: true },
+  ].filter((tab) => tab.show);
 
   const wide = !page; // the home page uses the full desktop width; other pages stay a focused column
   return (
@@ -99,7 +103,7 @@ function Shell({ cfg }: { cfg: NearConfig }) {
       </header>
       <main className={`mx-auto px-4 ${wide ? 'max-w-md sm:max-w-3xl lg:max-w-6xl lg:px-8' : 'max-w-md lg:pt-6'}`}>{body}</main>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="mx-auto grid max-w-md grid-cols-4">
+        <div className="mx-auto grid max-w-md" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
           {tabs.map((tab) => (
             <a key={tab.label} href={`#/${tab.path}`} className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold ${tab.active ? 'text-accent' : 'text-faint'}`}>
               <tab.icon className="h-5 w-5" />
@@ -109,6 +113,7 @@ function Shell({ cfg }: { cfg: NearConfig }) {
         </div>
       </nav>
       <SignInSheet open={signIn} onClose={() => setSignIn(false)} />
+      <RolePrompt />
     </div>
   );
 }
