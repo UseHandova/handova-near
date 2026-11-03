@@ -23,3 +23,9 @@ voice-old/
 my-voice/
 voice-own/
 listings/
+
+# Internal notes and review packets: kept locally, never published
+CLAUDE.md
+docs/HACKATHON.md
+docs/REVIEW-*.md
+docs/ai-review-*/
