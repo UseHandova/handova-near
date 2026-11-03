@@ -1,6 +1,6 @@
 /**
  * Proves on NEAR testnet that a Handova lease NFT sells through Mintbase's open market contract
- * (NEP-178 approval + NEP-199 payout), and only after the landlord agreed to the handover.
+ * (NEP-178 approval + NEP-199 payout), and only to the person the landlord agreed to.
  *
  *   bun scripts/mintbase-sale-testnet.ts [--api https://handova-near.vercel.app]
  *
@@ -78,8 +78,9 @@ const owner1 = (await view<any>(deploy.escrow, 'nft_token', { token_id: String(l
 console.log(`  NFT owner: ${owner1} · buyer refunded: ${(await usdcOf(buyer)) === before}`);
 if (owner1 !== tenant.accountId) throw new Error('sold without the landlord agreeing');
 
-console.log('▶ Landlord agrees; buy on Mintbase');
-await call(landlord, deploy.escrow, 'consent_takeover', { lease_id: leaseId });
+console.log('▶ The buyer asks, the landlord agrees to them; buy on Mintbase');
+await call(buyer, deploy.escrow, 'request_takeover', { lease_id: leaseId }, 0n, 30n * TGAS);
+await call(landlord, deploy.escrow, 'consent_takeover', { lease_id: leaseId }, 0n, 30n * TGAS);
 // Mintbase drops a listing whose sale was refused, without freeing its storage: deposit again and re-list.
 // (The app only offers Mintbase once the landlord has agreed, so this doesn't happen there.)
 await call(tenant, MARKET, 'deposit_storage', {}, milliNear(10), 30n * TGAS);

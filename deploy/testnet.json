@@ -2,7 +2,7 @@
   "network": "testnet",
   "rpc": "https://test.rpc.fastnear.com",
   "explorer": "https://testnet.nearblocks.io",
-  "escrow": "escrow-v2.handova.testnet",
+  "escrow": "escrow-v3.handova.testnet",
   "token": "usdc.handova.testnet",
   "tokenDecimals": 6,
   "tokenOpenMint": true,

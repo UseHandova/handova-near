@@ -36,19 +36,24 @@ export const ESCROW_METHODS = new Set([
   'offer_takeover',
   'cancel_takeover',
   'consent_takeover',
+  'request_takeover',
   // Arbiter rulings: relayed only when the sender is the escrow's arbiter (checked below).
   'resolve_move_in',
   'resolve_dispute',
 ]);
 export const ARBITER_METHODS = new Set(['resolve_move_in', 'resolve_dispute']);
 
-let arbiterCache: { at: number; id: string } | null = null;
-async function currentArbiter(): Promise<string> {
-  if (!arbiterCache || Date.now() - arbiterCache.at > 60_000) {
-    const cfg = await view<{ arbiter: string }>(deploy.escrow, 'get_config');
-    arbiterCache = { at: Date.now(), id: cfg.arbiter };
+/** Rulings are relayed only for each lease's own arbiter (fixed when the tenant paid, see the contract). */
+async function isLeaseArbiter(sd: SignedDelegate, sender: string): Promise<boolean> {
+  for (const a of (sd.delegateAction as any).actions ?? []) {
+    const fc = a.functionCall;
+    if (!fc || !ARBITER_METHODS.has(fc.methodName)) continue;
+    let leaseId: unknown;
+    try { leaseId = JSON.parse(Buffer.from(fc.args).toString('utf8')).lease_id; } catch { return false; }
+    const lease = await view<{ arbiter?: string } | null>(deploy.escrow, 'get_lease', { lease_id: leaseId }).catch(() => null);
+    if (!lease?.arbiter || lease.arbiter !== sender) return false;
   }
-  return arbiterCache.id;
+  return true;
 }
 /** NEAR's per-transaction gas limit; the actions together may not exceed it. */
 const MAX_GAS_TOTAL = 300_000_000_000_000n;
@@ -178,8 +183,8 @@ export function mountRelayer(app: Express) {
     if (!sig.ok) return res.status(400).json({ error: 'The request signature is not valid. Sign in again and retry.' });
     const key = await provider.viewAccessKey({ accountId: checked.senderId, publicKey: sig.publicKey }).catch(() => null);
     if (!key) return res.status(400).json({ error: `This device's key is not on ${checked.senderId}. Sign in again.` });
-    if (checked.methods.some((m) => ARBITER_METHODS.has(m)) && checked.senderId !== (await currentArbiter().catch(() => ''))) {
-      return res.status(403).json({ error: 'Only the arbiter can make this ruling.' });
+    if (checked.methods.some((m) => ARBITER_METHODS.has(m)) && !(await isLeaseArbiter(sd, checked.senderId))) {
+      return res.status(403).json({ error: "Only this lease's arbiter can make this ruling." });
     }
     if (!perIp.take(req.ip ?? 'ip') || !perSender.take(checked.senderId)) {
       return res.status(429).json({ error: 'Too many requests. Wait a few minutes and try again.' });

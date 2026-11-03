@@ -236,14 +236,6 @@ try {
     await p.getByRole('button', { name: 'Offer for takeover' }).click();
     await toast(p, /Offer published/);
   });
-  await step('ll6', 'landlord', async (p) => {
-    await openLease(p, leaseId);
-    await p.getByText(/Rental passport:/).scrollIntoViewIfNeeded();
-    await p.waitForTimeout(1500);
-    await shot(p, '10-landlord-consent');
-    await p.getByRole('button', { name: 'Agree to this takeover' }).click();
-    await toast(p, /Agreed/);
-  });
   await step('to1', 'tolu', async (p) => {
     await signUp(p, `tolu-${uid}`);
     await p.goto(URL);
@@ -251,9 +243,20 @@ try {
     await p.getByText('Take over a lease').first().scrollIntoViewIfNeeded();
     await p.waitForTimeout(1500);
     await shot(p, '11-takeover-offers');
+    await p.getByText(`Lease #${leaseId} · listing`).click();
+    await p.getByRole('button', { name: 'Ask to take over this lease' }).click();
+    await toast(p, /Asked/);
+  });
+  await step('ll6', 'landlord', async (p) => {
+    await openLease(p, leaseId);
+    await p.getByText(/Rental passport:/).scrollIntoViewIfNeeded();
+    await p.waitForTimeout(1500);
+    await shot(p, '10-landlord-consent');
+    await p.getByRole('button', { name: /Agree to .* taking over/ }).click();
+    await toast(p, /Agreed/);
   });
   await step('to2', 'tolu', async (p) => {
-    await p.getByText(`Lease #${leaseId} · listing`).click();
+    await openLease(p, leaseId);
     await p.getByRole('button', { name: /Take over this lease/ }).click();
     await toast(p, /You took over the lease/);
     await p.waitForTimeout(1200);

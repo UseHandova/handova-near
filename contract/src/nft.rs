@@ -1,8 +1,9 @@
 //! NEP-171 lease NFT. Token id = lease id.
 //!
 //! The caution fee never leaves this contract; it belongs to whoever owns the token. The token
-//! can change hands only while the lease is `Active` (e.g. the lease is taken over by a new
-//! tenant). During move-out review, a dispute, and after close it is locked — once closed it stays
+//! can change hands only while the lease is `Active`, and only to the person the landlord agreed
+//! to (see market.rs: offer → request → consent): a direct transfer, a transfer call or a
+//! marketplace sale to anyone else is refused. During move-out review, a dispute, and after close it is locked — once closed it stays
 //! with the tenant as proof of a finished lease (a rental history).
 //!
 //! Metadata is not stored: every view builds it from the lease, so wallets always show the live
@@ -28,9 +29,9 @@ impl NonFungibleTokenCore for Contract {
     #[payable]
     fn nft_transfer(&mut self, receiver_id: AccountId, token_id: TokenId, approval_id: Option<u64>, memo: Option<String>) {
         let lease_id = self.assert_transferable(&token_id);
+        self.assert_consented_receiver(lease_id, &receiver_id);
         self.nft.nft_transfer(receiver_id.clone(), token_id, approval_id, memo);
-        self.index_lease(&receiver_id, lease_id);
-        self.drop_takeover(lease_id);
+        self.hand_over(lease_id, &receiver_id);
     }
 
     #[payable]
@@ -42,8 +43,10 @@ impl NonFungibleTokenCore for Contract {
         memo: Option<String>,
         msg: String,
     ) -> PromiseOrValue<bool> {
-        self.assert_transferable(&token_id);
-        // The receiver is indexed in nft_resolve_transfer, only if they keep the token.
+        let lease_id = self.assert_transferable(&token_id);
+        self.assert_consented_receiver(lease_id, &receiver_id);
+        // The receiver becomes the tenant in nft_resolve_transfer, only if they keep the token;
+        // if they hand it back, the holder keeps the lease and the landlord's consent stands.
         self.nft.nft_transfer_call(receiver_id, token_id, approval_id, memo, msg)
     }
 
@@ -65,8 +68,7 @@ impl NonFungibleTokenResolver for Contract {
         let kept = self.nft.nft_resolve_transfer(previous_owner_id, receiver_id.clone(), token_id.clone(), approved_account_ids);
         if kept {
             if let Ok(lease_id) = token_id.parse::<u64>() {
-                self.index_lease(&receiver_id, lease_id);
-                self.drop_takeover(lease_id);
+                self.hand_over(lease_id, &receiver_id);
             }
         }
         kept
@@ -104,9 +106,9 @@ pub struct Payout {
     pub payout: HashMap<AccountId, U128>,
 }
 
-/// NEP-199 payouts, so NEAR marketplaces (e.g. Mintbase's market) can sell a lease. The same rule as
-/// Handova's own takeover market applies: the sale only goes through if the landlord has agreed to
-/// hand the lease over. The buyer becomes the tenant and holds the caution right.
+/// NEP-199 payouts, so NEAR marketplaces (e.g. Mintbase's market) can settle a lease sale. The same
+/// rule as Handova's own takeover applies: the sale only goes through to the person the landlord
+/// agreed to. The buyer becomes the tenant and holds the caution right.
 #[near]
 impl Contract {
     /// The whole sale price goes to the current holder (no royalties).
@@ -128,19 +130,11 @@ impl Contract {
     ) -> Payout {
         let lease_id = self.assert_transferable(&token_id);
         let holder = self.holder(lease_id);
-        let lease = self.leases.get(&lease_id).unwrap_or_else(|| env::panic_str("Lease not found"));
-        require!(
-            lease.takeover.as_ref().is_some_and(|t| t.landlord_consent),
-            "The landlord hasn't agreed to hand this lease over"
-        );
-        require!(receiver_id != lease.landlord, "The landlord can't take over their own lease");
+        self.assert_consented_receiver(lease_id, &receiver_id);
         let payout = self.nft_payout(token_id.clone(), balance, max_len_payout);
         // Checks the 1 yocto, the owner or the marketplace's approval; clears approvals; emits nft_transfer.
         self.nft.nft_transfer(receiver_id.clone(), token_id, approval_id, memo);
-        let lease = self.leases.get_mut(&lease_id).unwrap_or_else(|| env::panic_str("Lease not found"));
-        lease.tenant = receiver_id.clone();
-        lease.takeover = None;
-        self.index_lease(&receiver_id, lease_id);
+        self.hand_over(lease_id, &receiver_id);
         events::emit(
             "lease_taken_over",
             json!({ "lease_id": lease_id, "from": holder, "to": receiver_id, "price": balance, "via": env::predecessor_account_id() }),
@@ -188,13 +182,6 @@ impl NonFungibleTokenMetadataProvider for Contract {
 }
 
 impl Contract {
-    /// An offer to hand the lease over ends when the NFT moves another way.
-    fn drop_takeover(&mut self, lease_id: u64) {
-        if let Some(l) = self.leases.get_mut(&lease_id) {
-            l.takeover = None;
-        }
-    }
-
     fn assert_transferable(&self, token_id: &TokenId) -> u64 {
         let lease_id: u64 = token_id.parse().unwrap_or_else(|_| env::panic_str("Token not found"));
         let lease = self.leases.get(&lease_id).unwrap_or_else(|| env::panic_str("Token not found"));

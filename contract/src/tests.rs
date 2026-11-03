@@ -71,6 +71,13 @@ impl T {
         self.c.balance_of(acc(who)).0
     }
 
+    /// The holder offers lease 1, `buyer` asks for it and the landlord agrees to `buyer`.
+    fn agree(&mut self, holder: &str, buyer: &str, price: u128) {
+        self.as_(holder).offer_takeover(1, U128(price));
+        self.as_(buyer).request_takeover(1);
+        self.as_("landlord.near").consent_takeover(1);
+    }
+
     /// Paid and moved in: lease 1, NFT "1" owned by tenant.near.
     fn active_lease(&mut self) -> u64 {
         let l = self.list();
@@ -282,10 +289,12 @@ fn landlord_cannot_dispute_after_review_window() {
 fn caution_follows_the_nft() {
     let mut t = T::new();
     t.active_lease();
-    // The lease is taken over: the NFT and its caution move to a new tenant.
+    // The landlord agrees to a new tenant; the holder hands the NFT (and its caution) over directly.
+    t.agree("tenant.near", "newtenant.near", 0);
     t.ctx("tenant.near", 1);
     t.c.nft_transfer(acc("newtenant.near"), "1".into(), None, None);
     assert_eq!(t.lease(1).nft_holder, Some(acc("newtenant.near")));
+    assert_eq!(t.lease(1).tenant, acc("newtenant.near"));
     assert_eq!(t.c.get_leases_for(acc("newtenant.near")).len(), 1);
 
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.as_("tenant.near").move_out(1)));
@@ -415,7 +424,7 @@ fn rent_has_a_minimum() {
 }
 
 #[test]
-#[should_panic(expected = "Only ID-verified landlords can claim move-in")]
+#[should_panic(expected = "Only landlords who were ID-verified when the tenant paid")]
 fn unverified_landlord_cannot_collect_by_silence() {
     let mut t = T::new();
     let l = t.list();
@@ -507,6 +516,9 @@ fn lease_takeover_needs_landlord_consent_then_moves_nft_and_pays_holder() {
     t.as_("tenant.near").offer_takeover(1, U128(price));
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.pay("newtenant.near", price, r#"{"take_over":1}"#)));
     assert!(r.is_err(), "landlord hasn't consented");
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.as_("landlord.near").consent_takeover(1)));
+    assert!(r.is_err(), "nobody has asked yet, so there is nobody to agree to");
+    t.as_("newtenant.near").request_takeover(1);
     t.as_("landlord.near").consent_takeover(1);
     let unused = t.pay("newtenant.near", price + 2 * USDC, r#"{"take_over":1}"#);
     assert_eq!(unused, 2 * USDC);
@@ -539,6 +551,7 @@ fn marketplace_sale_needs_landlord_consent_and_pays_the_holder() {
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.c.nft_transfer_payout(acc("buyer.near"), "1".into(), Some(1), None, U128(250 * USDC), Some(10))));
     assert!(r.is_err(), "no consent, no sale");
     t.as_("tenant.near").offer_takeover(1, U128(250 * USDC));
+    t.as_("buyer.near").request_takeover(1);
     t.as_("landlord.near").consent_takeover(1);
     // The landlord can't buy their own lease.
     sale();
@@ -565,8 +578,7 @@ fn marketplace_sale_refused_once_the_lease_is_locked() {
     t.active_lease();
     t.ctx("tenant.near", 1_000_000_000_000_000_000_000);
     t.c.nft_approve("1".into(), acc("market.near"), None);
-    t.as_("tenant.near").offer_takeover(1, U128(USDC));
-    t.as_("landlord.near").consent_takeover(1);
+    t.agree("tenant.near", "buyer.near", USDC);
     t.as_("tenant.near").move_out(1);
     let mut c = VMContextBuilder::new();
     c.current_account_id(acc("handova.near")).predecessor_account_id(acc("market.near")).attached_deposit(NearToken::from_yoctonear(1));
@@ -579,10 +591,10 @@ fn marketplace_sale_refused_once_the_lease_is_locked() {
 fn takeover_offer_ends_when_nft_moves_another_way() {
     let mut t = T::new();
     t.active_lease();
-    t.as_("tenant.near").offer_takeover(1, U128(USDC));
+    t.agree("tenant.near", "friend.near", USDC);
     t.ctx("tenant.near", 1);
     t.c.nft_transfer(acc("friend.near"), "1".into(), None, None);
-    assert!(t.lease(1).takeover.is_none());
+    assert!(t.lease(1).takeover.is_none(), "the offer and its consent end once the lease has moved");
 }
 
 #[test]
@@ -616,9 +628,113 @@ fn approvals_only_while_active() {
     use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApproval;
     let _ = t.c.nft_approve("1".into(), acc("market.near"), None);
     assert!(t.c.nft_is_approved("1".into(), acc("market.near"), None));
-    // The marketplace moves it for the holder.
+    // The marketplace moves it for the holder, to the tenant the landlord agreed to.
+    t.agree("tenant.near", "buyer.near", USDC);
     t.ctx("market.near", 1);
     t.c.nft_transfer(acc("buyer.near"), "1".into(), None, None);
     assert_eq!(t.lease(1).nft_holder, Some(acc("buyer.near")));
     assert!(!t.c.nft_is_approved("1".into(), acc("market.near"), None), "approvals cleared on transfer");
+}
+
+// ---------- Authority: nobody gets around the landlord, the lease's arbiter, or the verifier ----------
+
+fn refused(f: impl FnOnce()) -> bool {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).is_err()
+}
+
+#[test]
+fn lease_never_moves_without_the_landlords_consent() {
+    let mut t = T::new();
+    t.active_lease();
+    // A plain transfer, even to the holder's own second wallet, is refused without consent.
+    t.ctx("tenant.near", 1);
+    assert!(refused(|| t.c.nft_transfer(acc("stranger.near"), "1".into(), None, None)));
+    assert!(refused(|| { let _ = t.c.nft_transfer_call(acc("stranger.near"), "1".into(), None, None, "".into()); }));
+    // An offer alone isn't consent either.
+    t.as_("tenant.near").offer_takeover(1, U128(USDC));
+    t.ctx("tenant.near", 1);
+    assert!(refused(|| t.c.nft_transfer(acc("stranger.near"), "1".into(), None, None)));
+    // A marketplace the holder approved can't settle a sale without consent.
+    t.ctx("tenant.near", 1_000_000_000_000_000_000_000);
+    let _ = t.c.nft_approve("1".into(), acc("market.near"), None);
+    let mut c = VMContextBuilder::new();
+    c.current_account_id(acc("handova.near")).predecessor_account_id(acc("market.near")).attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(c.build());
+    assert!(refused(|| { t.c.nft_transfer_payout(acc("stranger.near"), "1".into(), Some(1), None, U128(USDC), Some(10)); }));
+    assert_eq!(t.lease(1).nft_holder, Some(acc("tenant.near")));
+    assert_eq!(t.lease(1).tenant, acc("tenant.near"));
+}
+
+#[test]
+fn consent_is_for_one_person_only() {
+    let mut t = T::new();
+    t.active_lease();
+    t.agree("tenant.near", "alice.near", 50 * USDC);
+    // Someone else can't swap in after the landlord agreed: not by asking, paying, transfer or marketplace.
+    assert!(refused(|| t.as_("mallory.near").request_takeover(1)));
+    assert!(refused(|| { t.pay("mallory.near", 50 * USDC, r#"{"take_over":1}"#); }));
+    t.ctx("tenant.near", 1);
+    assert!(refused(|| t.c.nft_transfer(acc("mallory.near"), "1".into(), None, None)));
+    t.ctx("tenant.near", 1_000_000_000_000_000_000_000);
+    let _ = t.c.nft_approve("1".into(), acc("market.near"), None);
+    let mut c = VMContextBuilder::new();
+    c.current_account_id(acc("handova.near")).predecessor_account_id(acc("market.near")).attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(c.build());
+    assert!(refused(|| { t.c.nft_transfer_payout(acc("mallory.near"), "1".into(), Some(1), None, U128(50 * USDC), Some(10)); }));
+    // A new offer from the holder resets the consent; the landlord must agree again.
+    t.as_("tenant.near").offer_takeover(1, U128(60 * USDC));
+    assert!(refused(|| { t.pay("alice.near", 60 * USDC, r#"{"take_over":1}"#); }));
+    // The agreed person can take over.
+    t.as_("alice.near").request_takeover(1);
+    t.as_("landlord.near").consent_takeover(1);
+    t.pay("alice.near", 60 * USDC, r#"{"take_over":1}"#);
+    assert_eq!(t.lease(1).tenant, acc("alice.near"));
+    assert_eq!(t.lease(1).nft_holder, Some(acc("alice.near")));
+}
+
+#[test]
+fn a_new_arbiter_cannot_rule_on_a_lease_that_was_already_open() {
+    let mut t = T::new();
+    t.active_lease();
+    t.as_("tenant.near").move_out(1);
+    t.as_("landlord.near").dispute_caution(1, U128(100 * USDC), "Broken window".into());
+    // The owner appoints a different arbiter mid-dispute: it has no say over this lease.
+    t.as_("owner.near").set_arbiter(acc("friendly-arbiter.near"));
+    assert!(refused(|| t.as_("friendly-arbiter.near").resolve_dispute(1, U128(100 * USDC))));
+    assert_eq!(t.lease(1).arbiter, acc("arbiter.near"));
+    // The arbiter the lease was opened with still decides.
+    t.as_("arbiter.near").resolve_dispute(1, U128(30 * USDC));
+    assert_eq!(t.lease(1).status, LeaseStatus::Closed);
+    // Leases paid after the change use the new arbiter.
+    let l = t.list();
+    t.pay("tenant2.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l}}}"#));
+    assert_eq!(t.lease(2).arbiter, acc("friendly-arbiter.near"));
+}
+
+#[test]
+fn a_verifier_changed_mid_lease_cannot_unlock_a_silence_claim() {
+    let mut t = T::new();
+    let l = t.list();
+    t.pay("tenant.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l}}}"#));
+    assert!(!t.lease(1).landlord_verified);
+    // The owner installs a new verifier, which verifies the landlord after the tenant paid.
+    t.as_("owner.near").set_verifier(acc("new-verifier.near"));
+    t.as_("new-verifier.near").set_verified(acc("landlord.near"), true);
+    t.as_("landlord.near").mark_handover(1);
+    t.wait_days(4);
+    assert!(refused(|| t.as_("anyone.near").claim_move_in(1)), "not verified when the tenant paid");
+    assert_eq!(t.lease(1).status, LeaseStatus::Pending);
+}
+
+#[test]
+fn a_revoked_badge_also_stops_a_silence_claim() {
+    let mut t = T::new();
+    t.as_("verifier.near").set_verified(acc("landlord.near"), true);
+    let l = t.list();
+    t.pay("tenant.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l}}}"#));
+    assert!(t.lease(1).landlord_verified);
+    t.as_("verifier.near").set_verified(acc("landlord.near"), false);
+    t.as_("landlord.near").mark_handover(1);
+    t.wait_days(4);
+    assert!(refused(|| t.as_("anyone.near").claim_move_in(1)));
 }

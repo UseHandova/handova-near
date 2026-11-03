@@ -1,6 +1,6 @@
 import { act, activeLease, chain, expect, expectLease, signUp, test, toast, openLease } from './helpers';
 
-test('lease NFT passed to a new tenant: the caution right moves with it', async ({ phone }) => {
+test('lease handed to family for free, only after the landlord agrees: the caution right moves with it', async ({ phone }) => {
   const ll = await phone('landlord');
   const tn = await phone('tenant');
   const nw = await phone('new-tenant');
@@ -9,10 +9,16 @@ test('lease NFT passed to a new tenant: the caution right moves with it', async 
   const newTenant = await signUp(nw, 'nt');
   const { leaseId, caution } = await activeLease(ll, tn, tenant);
 
+  // Free handover: offer at 0, the new tenant asks, the landlord agrees to them, the holder hands it over.
   await openLease(tn, leaseId);
-  await tn.getByPlaceholder(/name {2}or {2}name\./).fill(newTenant.split('.')[0]);
-  await tn.getByRole('button', { name: 'Send lease NFT' }).click();
-  await toast(tn, /Lease NFT sent/);
+  await tn.getByLabel('Takeover price').fill('0');
+  await tn.getByRole('button', { name: 'Offer for takeover' }).click();
+  await toast(tn, /Offer published/);
+  await act(nw, leaseId, /Ask to take over this lease/, /Asked/);
+  await act(ll, leaseId, /Agree to .* taking over/, /Agreed/);
+  await openLease(tn, leaseId);
+  await tn.getByRole('button', { name: /Hand the lease to/ }).click();
+  await toast(tn, /Lease handed to/);
   await expect.poll(async () => (await chain.lease(leaseId)).nft_holder).toBe(newTenant);
   expect((await chain.nft(leaseId)).owner_id).toBe(newTenant);
 
@@ -22,8 +28,9 @@ test('lease NFT passed to a new tenant: the caution right moves with it', async 
   await expect(nw.getByText(`Lease #${leaseId}`)).toBeVisible();
 
   await act(nw, leaseId, /moving out/, /Move-out started/);
-  // Locked during review: the transfer box is gone.
-  await expect(nw.getByRole('button', { name: 'Send lease NFT' })).toHaveCount(0);
+  // Locked during review: no takeover offer can be made.
+  await expect(nw.getByRole('button', { name: 'Offer for takeover' })).toHaveCount(0);
+  expect((await chain.lease(leaseId)).tenant).toBe(newTenant);
   await act(ll, leaseId, /return the caution/, /Approved/);
   await expectLease(leaseId, 'Closed');
   expect(await chain.escrowBalance(newTenant)).toBe(caution);

@@ -37,7 +37,7 @@ export function Browse() {
       setListings(ls.filter((l) => (l.available || l.active_lease !== null) && !hidden.has(l.id)).reverse().sort((a, b) => hasPhoto(a) - hasPhoto(b)));
     }).catch(() => setErr("Couldn't load homes from NEAR. Pull to refresh or try again shortly."));
     const hiddenHomes = new Set(nearConfig().hiddenListings ?? []);
-    chain.allLeases().then((ls) => setTakeovers(ls.filter((l) => l.status === 'Active' && l.takeover?.landlord_consent && !hiddenHomes.has(l.listing_id)))).catch(() => {});
+    chain.allLeases().then((ls) => setTakeovers(ls.filter((l) => l.status === 'Active' && l.takeover && !l.takeover.landlord_consent && !hiddenHomes.has(l.listing_id)))).catch(() => {});
   }, []);
 
   const areaOf = useMemo(() => new Map(listings?.map((l) => [l.id, decodeDetails(l.property_ref, l.id).area || 'Lagos'])), [listings]);
@@ -93,7 +93,7 @@ export function Browse() {
       {takeovers.length > 0 && (
         <section className="space-y-2">
           <h2 className="font-display text-lg font-bold lg:text-2xl">{t('Take over a lease')}</h2>
-          <p className="text-sm text-sub">A tenant is leaving early and the landlord has agreed. Pay their price and the home, and its caution fee, pass to you.</p>
+          <p className="text-sm text-sub">A tenant is leaving early. Ask to take over; the landlord reviews your rental passport, and if they agree you pay the price and the home, with its caution fee, passes to you.</p>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {takeovers.map((l) => (
               <a key={l.id} href={`#/lease/${l.id}`} className="card flex items-center justify-between gap-3 p-4 transition hover:-translate-y-0.5">

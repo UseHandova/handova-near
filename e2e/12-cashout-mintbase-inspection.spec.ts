@@ -30,7 +30,8 @@ test("lease sold on Mintbase's market: listed after the landlord agrees, bought 
   await tn.getByLabel('Takeover price').fill('3');
   await tn.getByRole('button', { name: 'Offer for takeover' }).click();
   await toast(tn, /Offer published/);
-  await act(ll, leaseId, /Agree to this takeover/, /Agreed/);
+  await act(by, leaseId, /Ask to take over this lease/, /Asked/);
+  await act(ll, leaseId, /Agree to .* taking over/, /Agreed/);
 
   await openLease(tn, leaseId);
   await tn.getByRole('button', { name: /Also list on Mintbase/ }).click();

@@ -8,6 +8,8 @@
 # Creates: usdc.$ROOT (open-mint test USDC), escrow.$ROOT (the Handova contract),
 #          verifier.$ROOT (server key that marks verified landlords).
 # Set TOKEN=3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af to use Circle's testnet USDC instead.
+# LOCK=1 deletes every access key of the escrow account at the end: nobody (us included) can ever deploy
+# other code there, so the published rules are the rules for good.
 set -euo pipefail
 
 ROOT="${ROOT:-handova.testnet}"
@@ -86,5 +88,13 @@ cat > "$OUT" <<JSON
   "arbiter": "$ARBITER"
 }
 JSON
+if [ "${LOCK:-}" = "1" ]; then
+  echo "▶ Locking $ESCROW: deleting its access keys"
+  KEYS=$(curl -s https://test.rpc.fastnear.com -H 'content-type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"query\",\"params\":{\"request_type\":\"view_access_key_list\",\"finality\":\"final\",\"account_id\":\"$ESCROW\"}}" \
+    | python3 -c "import sys,json; print(','.join(k['public_key'] for k in json.load(sys.stdin)['result']['keys']))")
+  [ -n "$KEYS" ] && near account delete-keys "$ESCROW" public-keys "$KEYS" $NET $SIGN
+fi
+
 echo "✔ Done. $OUT:"
 cat "$OUT"

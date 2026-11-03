@@ -154,6 +154,20 @@ async fn nft_transfer_moves_the_caution_and_dispute_times_out_50_50() -> anyhow:
     pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?.into_result()?;
     e.nurse.call(e.handova.id(), "confirm_move_in").args_json(json!({ "lease_id": 1 })).transact().await?.into_result()?;
 
+    // Without the landlord's consent the lease NFT can't move.
+    let unconsented = e
+        .nurse
+        .call(e.handova.id(), "nft_transfer")
+        .args_json(json!({ "receiver_id": e.mum.id(), "token_id": "1" }))
+        .deposit(NearToken::from_yoctonear(1))
+        .transact()
+        .await?;
+    assert!(unconsented.is_failure(), "a lease never moves without the landlord");
+    // Offer (free), mum asks, the landlord agrees to mum.
+    e.nurse.call(e.handova.id(), "offer_takeover").args_json(json!({ "lease_id": 1, "price": "0" })).transact().await?.into_result()?;
+    e.mum.call(e.handova.id(), "request_takeover").args_json(json!({ "lease_id": 1 })).transact().await?.into_result()?;
+    e.landlord.call(e.handova.id(), "consent_takeover").args_json(json!({ "lease_id": 1 })).transact().await?.into_result()?;
+
     // NEP-171 transfer needs exactly 1 yoctoNEAR.
     e.nurse
         .call(e.handova.id(), "nft_transfer")

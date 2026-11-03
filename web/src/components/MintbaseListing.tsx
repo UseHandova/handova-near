@@ -38,7 +38,8 @@ export function MintbaseListing({ lease, holder, onChange }: { lease: Lease; hol
   if (!market || !lease.takeover?.landlord_consent || listing === undefined) return null;
   const me = session?.accountId;
   const isHolder = me === holder;
-  const isLandlord = me === lease.landlord;
+  // The escrow only completes the sale to the person the landlord agreed to.
+  const isApprovedBuyer = !!me && me === lease.takeover.buyer;
   const price = BigInt(lease.takeover.price);
   const explorer = `${cfg.explorer}/address/${market}`;
 
@@ -84,16 +85,16 @@ export function MintbaseListing({ lease, holder, onChange }: { lease: Lease; hol
     <div className="space-y-2 rounded-xl border border-line p-3">
       <p className="flex items-center gap-2 text-sm font-semibold"><Store className="h-4 w-4 text-accent" /> Mintbase market</p>
       {listing ? (
-        <p className="text-sm text-sub">Listed on Mintbase's market for <b className="text-ink">{usd(usdc(listing.price))}</b>. The sale settles through the escrow, so the buyer becomes the tenant and gets the caution right.</p>
+        <p className="text-sm text-sub">Listed on Mintbase's market for <b className="text-ink">{usd(usdc(listing.price))}</b>. The sale settles through the escrow, which completes it only for the tenant the landlord agreed to; they become the tenant and get the caution right.</p>
       ) : (
-        <p className="text-sm text-sub">The landlord agreed, so this lease can also be sold on Mintbase's open NFT market, where other NEAR apps can find it.</p>
+        <p className="text-sm text-sub">The landlord agreed to the new tenant, so the sale can also settle on Mintbase's open NFT market, where other NEAR apps can see it.</p>
       )}
       {isHolder && !listing && (
         <button className="btn-ghost w-full" disabled={!!busy} onClick={list}>
           <Busy busy={busy === 'list'}>Also list on Mintbase for {usd(usdc(price))}</Busy>
         </button>
       )}
-      {session && listing && !isHolder && !isLandlord && (
+      {session && listing && isApprovedBuyer && (
         <button className="btn-ghost w-full" disabled={!!busy} onClick={buy}>
           <Busy busy={busy === 'buy'}>Buy on Mintbase for {usd(usdc(listing.price))}</Busy>
         </button>

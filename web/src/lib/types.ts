@@ -36,7 +36,12 @@ export interface Lease {
   caution_to_landlord: string;
   caution_to_holder: string;
   closed_holder: string | null;
-  takeover: { price: string; landlord_consent: boolean; offered_at_ms: number } | null;
+  /** `buyer` asked to take the lease over; the landlord's consent is for that account only. */
+  takeover: { price: string; buyer: string | null; landlord_consent: boolean; offered_at_ms: number } | null;
+  /** The arbiter when the tenant paid; only it can rule on this lease. */
+  arbiter: string;
+  /** Whether the landlord was ID-verified when the tenant paid (needed to claim rent by silence). */
+  landlord_verified: boolean;
   nft_holder: string | null;
 }
 

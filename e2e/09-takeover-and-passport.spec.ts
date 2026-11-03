@@ -1,6 +1,6 @@
 import { act, activeLease, chain, expect, expectLease, faucet, signUp, test, toast, openLease } from './helpers';
 
-test('lease takeover: holder offers, landlord agrees, a new tenant buys it and gets the caution right', async ({ phone }) => {
+test('lease takeover: holder offers, a new tenant asks, the landlord agrees to them, they buy it and get the caution right', async ({ phone }) => {
   const ll = await phone('landlord');
   const tn = await phone('tenant');
   const nw = await phone('new-tenant');
@@ -15,19 +15,22 @@ test('lease takeover: holder offers, landlord agrees, a new tenant buys it and g
   await toast(tn, /Offer published/);
   await expect.poll(async () => (await chain.lease(leaseId)).takeover?.price).toBe('5000000');
 
-  // Not buyable until the landlord agrees.
-  await openLease(nw, leaseId);
-  await expect(nw.getByText(/Waiting for the landlord to agree/)).toBeVisible();
+  // The would-be tenant finds it on the home page and asks; nothing is buyable yet.
+  await nw.goto('/');
+  await nw.reload();
+  await nw.getByText(`Lease #${leaseId} · listing`).click();
   await expect(nw.getByRole('button', { name: /Take over this lease/ })).toHaveCount(0);
+  await nw.getByRole('button', { name: 'Ask to take over this lease' }).click();
+  await toast(nw, /Asked/);
+  await expect.poll(async () => (await chain.lease(leaseId)).takeover?.buyer).toBe(buyer);
 
+  // The landlord sees the buyer's passport and agrees to that person.
   await openLease(ll, leaseId);
   await expect(ll.getByText(/Rental passport:/)).toBeVisible();
-  await ll.getByRole('button', { name: 'Agree to this takeover' }).click();
+  await ll.getByRole('button', { name: /Agree to .* taking over/ }).click();
   await toast(ll, /Agreed/);
 
-  // The buyer finds it on the home page.
-  await nw.goto('/');
-  await nw.getByText(`Lease #${leaseId} · listing`).click();
+  await openLease(nw, leaseId);
   await faucet(buyer);
   await nw.getByRole('button', { name: /Take over this lease for 5.00 USDC/ }).click();
   await toast(nw, /You took over the lease/);

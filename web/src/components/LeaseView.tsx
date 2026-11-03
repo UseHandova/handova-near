@@ -5,7 +5,7 @@ import { teraToGas } from 'near-api-js';
 import { decodeDetails } from '../lib/listing';
 import { naira, usd, usdc, useNgnRate } from '../lib/money';
 import { api } from '../lib/api';
-import { accountUrl, chain, getProvider, nearConfig, shortAccount, txUrl } from '../lib/near';
+import { accountUrl, chain, nearConfig, shortAccount, txUrl } from '../lib/near';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 import type { Lease, Listing, Timeouts } from '../lib/types';
@@ -26,7 +26,6 @@ export function LeaseView({ id }: { id: number }) {
   const [nft, setNft] = useState<Nft>(null);
   const [t, setT] = useState<Timeouts | null>(null);
   const [arbiter, setArbiter] = useState('');
-  const [to, setTo] = useState('');
   const { t: tr } = useT();
   const [busy, setBusy] = useState('');
   const [amount, setAmount] = useState('');
@@ -59,7 +58,9 @@ export function LeaseView({ id }: { id: number }) {
   const isHolder = me === holder;
   const isLandlord = me === lease.landlord;
   const isPayer = me === lease.payer;
-  const isArbiter = !!me && me === arbiter;
+  // Each lease keeps the arbiter it was paid under; the contract's current one only judges new leases.
+  const leaseArbiter = lease.arbiter || arbiter;
+  const isArbiter = !!me && me === leaseArbiter;
   const details = listing ? decodeDetails(listing.property_ref, listing.id) : null;
   const caution = usdc(lease.caution);
   const s = (secs?: number) => (secs ?? 0) * 1000;
@@ -101,17 +102,15 @@ export function LeaseView({ id }: { id: number }) {
   }
 
   /** NEP-171 transfer needs 1 yoctoNEAR, which the relayer never pays — so the holder signs it directly. */
-  async function transferLease() {
+  /** Holder: hand the lease NFT to the person the landlord agreed to (a free handover). */
+  async function transferLease(receiver: string) {
     if (!session) return;
     const cfg = nearConfig();
-    const receiver = to.includes('.') || to.length === 64 ? to : `${to}.${cfg.accountParent}`;
     setBusy('nft_transfer');
     try {
-      await getProvider().viewAccount({ accountId: receiver }).catch(() => { throw new Error(`${receiver} doesn't exist. Check the name.`); });
       const r = await session.callDirect(cfg.escrow, 'nft_transfer', { receiver_id: receiver, token_id: String(lease!.id) }, { deposit: 1n, gas: teraToGas('10') });
       if (!r.ok) throw new Error(r.error ?? 'The transfer did not go through.');
-      toast('ok', `Lease NFT sent to ${receiver}. The caution fee now belongs to them.`, txUrl(r.hash));
-      setTo('');
+      toast('ok', `Lease handed to ${receiver}. The home and the caution fee are now theirs.`, txUrl(r.hash));
       await load();
     } catch (e) {
       toast('error', (e as Error).message);
@@ -181,36 +180,52 @@ export function LeaseView({ id }: { id: number }) {
   if (lease.status === 'Active') {
     if (isHolder) {
       actions.push(btn('move_out', tr("I'm moving out"), 'Move-out started. The landlord has 7 days to review.', {}, 'btn-ghost'));
-      actions.push(
-        <div key="nft" className="space-y-2 rounded-xl border border-line p-3">
-          <p className="text-sm font-semibold">Pass this lease to someone else</p>
-          <p className="text-xs text-sub">They become the lease holder: they can move out and the caution fee goes to them. Costs a tiny NEAR network fee.</p>
-          <input className="input" value={to} onChange={(e) => setTo(e.target.value.toLowerCase().trim())} placeholder={`name  or  name.${nearConfig().accountParent}`} autoCapitalize="none" />
-          <button className="btn-ghost w-full" disabled={!!busy || !to} onClick={transferLease}><Busy busy={busy === 'nft_transfer'}>Send lease NFT</Busy></button>
-        </div>,
-      );
     }
     const offer = lease.takeover;
     if (isHolder && !offer) {
       actions.push(
         <div key="offer" className="space-y-2 rounded-xl border border-line p-3">
           <p className="text-sm font-semibold">Leaving early? Offer your lease to a new tenant</p>
-          <p className="text-xs text-sub">They pay you the price you set and take over the home and the caution right. The landlord must agree first.</p>
+          <p className="text-xs text-sub">Someone asks to take it over, the landlord reviews them and agrees, then they pay you the price you set and get the home and the caution right. Set 0 to hand it to family for free.</p>
           <input className="input" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="Price in USDC" aria-label="Takeover price" />
-          <button className="btn-ghost w-full" disabled={!!busy || !amount || Number(amount) <= 0} onClick={() => act('offer_takeover', { price: String(Math.round(Number(amount) * 1e6)) }, 'Offer published. The landlord has been asked to agree.')}><Busy busy={busy === 'offer_takeover'}>Offer for takeover</Busy></button>
+          <button className="btn-ghost w-full" disabled={!!busy || amount === '' || Number(amount) < 0} onClick={() => act('offer_takeover', { price: String(Math.round(Number(amount) * 1e6)) }, 'Offer published. When someone asks for it, the landlord decides.')}><Busy busy={busy === 'offer_takeover'}>Offer for takeover</Busy></button>
         </div>,
       );
     }
     if (offer) {
-      notes.push(`Offered for takeover at ${usd(usdc(offer.price))}. ${offer.landlord_consent ? 'The landlord has agreed — anyone can take it over now.' : 'Waiting for the landlord to agree.'}`);
-      if (isHolder) actions.push(btn('cancel_takeover', 'Withdraw the takeover offer', 'Offer withdrawn.', {}, 'btn-ghost'));
-      if (isLandlord && !offer.landlord_consent) actions.push(btn('consent_takeover', 'Agree to this takeover', 'Agreed. The next tenant can take over the lease.'));
-      if (session && !isHolder && !isLandlord && offer.landlord_consent) {
-        actions.push(
-          <button key="buy" className="btn-primary w-full" disabled={!!busy} onClick={() => buyTakeover(BigInt(offer.price))}>
-            <Busy busy={busy === 'take_over'}>Take over this lease for {usd(usdc(offer.price))}</Busy>
-          </button>,
-        );
+      const buyer = offer.buyer;
+      const free = BigInt(offer.price) === 0n;
+      const status = offer.landlord_consent && buyer
+        ? `The landlord agreed to ${shortAccount(buyer)}. Only they can take it over.`
+        : buyer ? `${shortAccount(buyer)} asked to take it over. Waiting for the landlord to agree.` : 'Waiting for someone to ask to take it over.';
+      notes.push(`Offered for takeover at ${free ? 'no cost' : usd(usdc(offer.price))}. ${status}`);
+      if (isHolder) {
+        actions.push(btn('cancel_takeover', 'Withdraw the takeover offer', 'Offer withdrawn.', {}, 'btn-ghost'));
+        if (offer.landlord_consent && buyer && free) {
+          actions.push(
+            <button key="hand" className="btn-primary w-full" disabled={!!busy} onClick={() => transferLease(buyer)}>
+              <Busy busy={busy === 'nft_transfer'}>Hand the lease to {shortAccount(buyer)} now</Busy>
+            </button>,
+          );
+        }
+      }
+      if (isLandlord && buyer && !offer.landlord_consent) {
+        actions.push(btn('consent_takeover', `Agree to ${shortAccount(buyer)} taking over`, `Agreed. Only ${shortAccount(buyer)} can take over the lease.`));
+      }
+      if (session && !isHolder && !isLandlord) {
+        if (!offer.landlord_consent && buyer !== me) {
+          actions.push(btn('request_takeover', 'Ask to take over this lease', 'Asked. The landlord will review your rental passport and decide.'));
+        } else if (!offer.landlord_consent) {
+          notes.push('You asked to take this lease over. The landlord is reviewing your rental passport.');
+        } else if (buyer === me && !free) {
+          actions.push(
+            <button key="buy" className="btn-primary w-full" disabled={!!busy} onClick={() => buyTakeover(BigInt(offer.price))}>
+              <Busy busy={busy === 'take_over'}>Take over this lease for {usd(usdc(offer.price))}</Busy>
+            </button>,
+          );
+        } else if (buyer === me) {
+          notes.push('The landlord agreed. The holder can now hand the lease to you.');
+        }
       }
       if (offer.landlord_consent) actions.push(<MintbaseListing key="mintbase" lease={lease} holder={holder} onChange={load} />);
     }
@@ -318,11 +333,12 @@ export function LeaseView({ id }: { id: number }) {
       </div>
 
       <div className="animate-fade-up space-y-4 lg:sticky lg:top-24" style={{ animationDelay: '80ms' }}>
-      {isLandlord && (lease.status === 'Pending' || !!lease.takeover) && <PassportSummary accountId={lease.tenant} />}
+      {isLandlord && lease.status === 'Pending' && <PassportSummary accountId={lease.tenant} />}
+      {isLandlord && lease.takeover?.buyer && !lease.takeover.landlord_consent && <PassportSummary accountId={lease.takeover.buyer} />}
       {(lease.status === 'Ending' || lease.status === 'Disputed') && (
         <InspectionPanel lease={lease} holder={holder} onSuggest={(v) => { setAmount(v); toast('ok', `Amount set to ${v} USDC. Check it, add what was damaged, then open the dispute.`); }} />
       )}
-      {arbiter && <DaoRulings lease={lease} arbiter={arbiter} onChange={load} />}
+      {leaseArbiter && <DaoRulings lease={lease} arbiter={leaseArbiter} onChange={load} />}
       {notes.map((n) => <p key={n} className="rounded-xl bg-muted p-3 text-sm text-ink2">{n}</p>)}
       {actions.length > 0 && <div className="space-y-2">{actions}</div>}
       {!session && <p className="text-center text-sm text-sub">Sign in as the tenant or landlord to act on this lease.</p>}

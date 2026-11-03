@@ -77,6 +77,12 @@ pub struct Lease {
     pub closed_holder: Option<AccountId>,
     /// The holder's offer to hand the lease over to a new tenant (see market.rs).
     pub takeover: Option<crate::market::Takeover>,
+    /// The arbiter when the tenant paid. Only this account can rule on this lease, so changing
+    /// the contract's arbiter later never affects a lease that is already open.
+    pub arbiter: AccountId,
+    /// Whether the landlord was ID-verified when the tenant paid. Claiming rent by the tenant's
+    /// silence needs this, so a verifier changed mid-lease can't unlock it.
+    pub landlord_verified: bool,
     /// Current lease NFT holder. Filled in by views; not stored.
     #[borsh(skip)]
     pub nft_holder: Option<AccountId>,
@@ -138,6 +144,8 @@ impl FungibleTokenReceiver for Contract {
             caution_to_landlord: U128(0),
             caution_to_holder: U128(0),
             closed_holder: None,
+            arbiter: self.arbiter.clone(),
+            landlord_verified: self.verified.contains_key(&listing.landlord),
             takeover: None,
             nft_holder: None,
         };
@@ -186,8 +194,8 @@ impl Contract {
     pub fn claim_move_in(&mut self, lease_id: u64) {
         let lease = self.lease_ref(lease_id);
         require!(
-            self.verified.contains_key(&lease.landlord),
-            "Only ID-verified landlords can claim move-in without the tenant. Ask the tenant to confirm"
+            lease.landlord_verified && self.verified.contains_key(&lease.landlord),
+            "Only landlords who were ID-verified when the tenant paid can claim move-in without the tenant. Ask the tenant to confirm"
         );
         require!(lease.status == LeaseStatus::Pending, "This lease is not waiting for move-in");
         let handover = lease.handover_at_ms.unwrap_or_else(|| env::panic_str("The landlord hasn't marked the handover"));
@@ -221,8 +229,8 @@ impl Contract {
     /// Arbiter: decide a disputed handover. `moved_in = true` pays the landlord as if the tenant
     /// confirmed; `false` refunds the payer in full.
     pub fn resolve_move_in(&mut self, lease_id: u64, moved_in: bool) {
-        require!(env::predecessor_account_id() == self.arbiter, "Only the arbiter can decide");
         let lease = self.lease_ref(lease_id);
+        require!(env::predecessor_account_id() == lease.arbiter, "Only this lease's arbiter can decide");
         require!(lease.status == LeaseStatus::Pending, "This lease is not waiting for move-in");
         require!(lease.move_in_dispute.is_some(), "There is no handover dispute on this lease");
         if moved_in {
@@ -344,8 +352,8 @@ impl Contract {
 
     /// Arbiter: decide how much of the caution the landlord keeps; the rest goes to the holder.
     pub fn resolve_dispute(&mut self, lease_id: u64, landlord_amount: U128) {
-        require!(env::predecessor_account_id() == self.arbiter, "Only the arbiter can decide");
         let lease = self.lease_ref(lease_id);
+        require!(env::predecessor_account_id() == lease.arbiter, "Only this lease's arbiter can decide");
         require!(lease.status == LeaseStatus::Disputed, "This lease has no open dispute");
         let claim = lease.dispute.as_ref().unwrap().landlord_claim.0;
         require!(landlord_amount.0 <= claim, "The arbiter can't award more than the landlord claimed");
