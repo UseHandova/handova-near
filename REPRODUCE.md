@@ -1,6 +1,6 @@
 # Reproduce Handova on NEAR testnet
 
-For judges and AI screeners. Every step says what to run and what you should see. You need no keys from the Handova team, and no Twilio, Didit, Dojah or NEAR AI.
+Run Handova end to end on your own testnet accounts. Every step says what to run and what you should see. You need no keys from the Handova team, and no Twilio, Didit, Dojah or NEAR AI.
 
 ## 0. Tools
 - Rust + [cargo-near](https://github.com/near/cargo-near) (`cargo near --version` → 0.22+)
@@ -11,7 +11,7 @@ For judges and AI screeners. Every step says what to run and what you should see
 ```sh
 cd contract && cargo test
 ```
-Expect `test result: ok. 35 passed` (unit) and `test result: ok. 3 passed` (sandbox: a local NEAR node with a real NEP-141 token).
+Expect `test result: ok. 42 passed` (unit) and `test result: ok. 3 passed` (sandbox: a local NEAR node with a real NEP-141 token).
 
 ## 2. Your own deployment (about 2 minutes)
 ```sh
@@ -75,7 +75,7 @@ See the README, section "D. The web app", for the click path.
 ```sh
 bun run test:near
 ```
-Expect `10 pass` (4 files): the relayer allowlist (refuses other contracts, other methods, NEAR deposits, token transfers not going to the escrow, bad signatures, too much gas), the keeper's timeout rules, the Intents quote shape, and NEAR AI receipt signature recovery (checked against a real saved receipt — no API key needed).
+Expect `17 pass` (6 files): the relayer allowlist (refuses other contracts, other methods, NEAR deposits, token transfers not going to the escrow, bad signatures, too much gas), the keeper's timeout rules, the Intents quote shape, and NEAR AI receipt signature recovery (checked against a real saved receipt — no API key needed).
 
 ## End-to-end suite (optional, about 25 minutes)
 ```sh
@@ -83,4 +83,4 @@ bun run setup:e2e
 bunx playwright install chromium
 bun run test:e2e
 ```
-Expect `29 passed`. The suite creates many throwaway accounts: if a run fails with *New accounts are paused … needs a NEAR top-up*, refill your root account from the testnet faucet with `TREASURY=<your root account> TARGET=30 ./scripts/fund-testnet.sh` and run it again. Each test drives a phone-sized browser through the web app against your own testnet deployment with 20-second waiting periods, and checks balances on-chain.
+Expect `29 passed`. Without `NEARAI_API_KEY` (with credit) in `.env.e2e`, the 2 NEAR AI tests are skipped, so expect `27 passed, 2 skipped`. Public-RPC rate limits can make a test pass only on Playwright's retry, reported as flaky. The suite creates many throwaway accounts: if a run fails with *New accounts are paused … needs a NEAR top-up*, refill your root account from the testnet faucet with `TREASURY=<your root account> TARGET=30 ./scripts/fund-testnet.sh` and run it again. Each test drives a phone-sized browser through the web app against your own testnet deployment with 20-second waiting periods, and checks balances on-chain.
