@@ -5,7 +5,8 @@
  *
  * Builds one packet (hackathon rules, README, key source, git log, test results) and asks each
  * model, separately, to score the project as a hackathon judge and be brutally honest.
- * Writes docs/ai-review-<date>/<model>.md and prints a short summary. Needs NEARAI_API_KEY.
+ * Writes docs/ai-review-<date>/<model>.md (git-ignored: reviews stay on your machine) and prints a short summary.
+ * Needs NEARAI_API_KEY. Uses docs/HACKATHON.md if you keep a copy, else the live rules from nearhackathon.com.
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
@@ -19,11 +20,19 @@ const file = (p: string) => `\n===== FILE: ${p} =====\n${read(p)}`;
 const sh = (c: string) => execSync(c, { encoding: 'utf8' });
 
 const notes = process.argv[2] ? read(process.argv[2]) : '';
+
+// The hackathon rules: a local copy if you keep one (git-ignored), else the live official page.
+const RULES_URL = 'https://nearhackathon.com/HACKATHON.md';
+let rules = existsSync('docs/HACKATHON.md') ? readFileSync('docs/HACKATHON.md', 'utf8') : '';
+if (!rules) {
+  rules = await fetch(RULES_URL).then((r) => (r.ok ? r.text() : '')).catch(() => '');
+  console.log(rules ? `Using the live rules from ${RULES_URL}` : `No docs/HACKATHON.md and ${RULES_URL} didn't answer: reviewing without the rules.`);
+}
 const packet = [
   '# PACKET FOR REVIEW: Handova (NEAR edition)',
   `Date: ${new Date().toISOString().slice(0, 10)}. Hackathon development ends 2026-11-14 23:59 UTC. The team expects thousands of submissions.`,
   notes && `\n## Notes from the team (current status, honest)\n${notes}`,
-  file('docs/HACKATHON.md'),
+  rules && `\n===== FILE: HACKATHON.md (official rules) =====\n${rules}`,
   file('README.md'),
   file('REPRODUCE.md'),
   file('contract/src/lib.rs'),
