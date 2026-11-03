@@ -71,7 +71,9 @@ function Shell({ cfg }: { cfg: NearConfig }) {
     { path: 'account', icon: UserRound, label: 'Account', active: page === 'account', show: true },
   ].filter((tab) => tab.show);
 
-  const wide = !page; // the home page uses the full desktop width; other pages stay a focused column
+  // The home page uses the full desktop width; detail pages split into two columns on desktop; forms stay narrow.
+  const wide = !page;
+  const narrow = page === 'list' || page === 'arbiter';
   return (
     <div className="min-h-dvh pb-24 lg:pb-16">
       <header className="sticky top-0 z-40 bg-bg/80 backdrop-blur lg:border-b lg:border-line">
@@ -101,7 +103,7 @@ function Shell({ cfg }: { cfg: NearConfig }) {
           </div>
         </div>
       </header>
-      <main className={`mx-auto px-4 ${wide ? 'max-w-md sm:max-w-3xl lg:max-w-6xl lg:px-8' : 'max-w-md lg:pt-6'}`}>{body}</main>
+      <main className={`mx-auto px-4 ${wide ? 'max-w-md sm:max-w-3xl lg:max-w-6xl lg:px-8' : narrow ? 'max-w-md lg:max-w-2xl lg:pt-6' : 'max-w-md lg:max-w-5xl lg:px-8 lg:pt-6'}`}>{body}</main>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="mx-auto grid max-w-md" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
           {tabs.map((tab) => (

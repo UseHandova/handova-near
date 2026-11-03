@@ -9,6 +9,7 @@ import { council, daoPolicy } from '../lib/dao';
 import { useToast } from '../lib/toast';
 import { Busy, Empty, Row } from './ui';
 import { RoleSwitch } from './RolePicker';
+import { CashOut } from './CashOut';
 
 export function AccountPage({ onNeedSignIn }: { onNeedSignIn: () => void }) {
   const { session, signOut, seedPhrase, markBackedUp } = useSession();
@@ -68,7 +69,8 @@ export function AccountPage({ onNeedSignIn }: { onNeedSignIn: () => void }) {
 
   const phrase = seedPhrase();
   return (
-    <div className="space-y-4 pt-2">
+    <div className="space-y-4 pt-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-6 lg:gap-y-4 lg:space-y-0">
+      <div className="animate-fade-up space-y-4 lg:col-start-1 lg:row-start-1">
       <div className="card space-y-1 p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-faint">{session.kind === 'device' ? 'Handova account · gasless' : 'NEAR wallet'}</p>
         <a href={accountUrl(session.accountId)} target="_blank" rel="noreferrer" className="flex items-center gap-1 break-all font-display text-lg font-bold">{session.accountId} <ExternalLink className="h-4 w-4 shrink-0 text-faint" /></a>
@@ -97,7 +99,9 @@ export function AccountPage({ onNeedSignIn }: { onNeedSignIn: () => void }) {
 
       {isArbiter && <a href="#/arbiter" className="btn-ghost w-full"><Scale className="h-4 w-4" /> Arbiter desk</a>}
       <a href={`#/passport/${session.accountId}`} className="btn-ghost w-full"><ScrollText className="h-4 w-4" /> {t('My rental passport')}</a>
+      </div>
 
+      <div className="animate-fade-up space-y-4 lg:col-start-2 lg:row-span-2 lg:row-start-1" style={{ animationDelay: '80ms' }}>
       <div className="card p-4">
         <Row k="USDC in your account" v={wallet === null ? '…' : <>{usd(usdc(wallet))} <span className="text-faint">≈ {naira(usdc(wallet), rate)}</span></>} />
         <Row k="Ready to withdraw from escrow" v={escrow === null ? '…' : <>{usd(usdc(escrow))} <span className="text-faint">≈ {naira(usdc(escrow), rate)}</span></>} strong />
@@ -106,6 +110,11 @@ export function AccountPage({ onNeedSignIn }: { onNeedSignIn: () => void }) {
         {cfg.tokenOpenMint && <button className="btn-ghost mt-2 w-full" disabled={!!busy} onClick={faucet}><Busy busy={busy === 'faucet'}>Get 2,000 test USDC</Busy></button>}
       </div>
 
+      <CashOut balance={wallet} />
+      </div>
+
+      <div className="space-y-4 lg:col-start-1 lg:row-start-2">
+
       {session.kind === 'device' && !session.needsBackup && phrase && (
         <button className="btn-ghost w-full" onClick={() => setShowPhrase((v) => !v)}><Eye className="h-4 w-4" /> {showPhrase ? 'Hide' : 'Show'} recovery phrase</button>
       )}
@@ -113,8 +122,9 @@ export function AccountPage({ onNeedSignIn }: { onNeedSignIn: () => void }) {
 
       <button className="btn-danger w-full" onClick={() => signOut().then(() => toast('ok', 'Signed out'))}><LogOut className="h-4 w-4" /> {t('Sign out')}</button>
       {session.kind === 'device' && <p className="text-center text-xs text-sub">Signing out removes the key from this device. Make sure your recovery phrase is written down.</p>}
+      </div>
 
-      <div className="pt-4 text-center text-xs text-faint">
+      <div className="pt-4 text-center text-xs text-faint lg:col-span-2">
         Escrow <a className="underline" href={accountUrl(cfg.escrow)} target="_blank" rel="noreferrer">{cfg.escrow}</a> on NEAR {cfg.network}
       </div>
     </div>

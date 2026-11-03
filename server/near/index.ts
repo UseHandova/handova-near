@@ -1,7 +1,7 @@
 /** All NEAR routes for the Handova API. */
 import type { Express } from 'express';
 import { teraToGas } from 'near-api-js';
-import { deploy, env, NETWORK } from './config';
+import { deploy, env, MINTBASE_MARKET, NETWORK } from './config';
 import { creator, relayer, verifier } from './chain';
 import { mountAccounts } from './accounts';
 import { mountAi } from './ai';
@@ -11,6 +11,7 @@ import { mountIntents } from './intents';
 import { mountRelayer } from './relayer';
 import { runKeeperOnce } from './keeper';
 import { mountVerify } from './verify';
+import { mountInspect } from './inspect';
 
 export function mountNear(app: Express) {
   /** What the web app needs to talk to the chain. Public. */
@@ -29,6 +30,7 @@ export function mountNear(app: Express) {
       ai: !!env('NEARAI_API_KEY'),
       idCheck: !!(env('DIDIT_API_KEY') && env('DIDIT_WORKFLOW_ID') && verifier),
       intentsLive: NETWORK === 'mainnet',
+      mintbaseMarket: MINTBASE_MARKET,
       // Listings this site doesn't show on its home page (test leftovers, spam). They stay on-chain.
       hiddenListings: (env('HIDDEN_LISTINGS') ?? '').split(',').map((s) => s.trim()).filter(Boolean).map(Number).filter(Number.isInteger),
     });
@@ -71,6 +73,7 @@ export function mountNear(app: Express) {
 
   mountAccounts(app);
   mountVerify(app);
+  mountInspect(app);
   mountRelayer(app);
   mountIntents(app);
   mountAi(app);

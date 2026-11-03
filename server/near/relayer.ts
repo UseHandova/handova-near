@@ -11,7 +11,8 @@ import type { Express } from 'express';
 import { deserialize } from 'borsh';
 import { createHash } from 'node:crypto';
 import { actions, baseEncode, encodeDelegateAction, PublicKey, SCHEMA, type SignedDelegate } from 'near-api-js';
-import { deploy } from './config';
+import { deploy, MINTBASE_MARKET } from './config';
+import { isPayoutDeposit } from './intents';
 import { nearBalance, provider, relayer, summarize, view, withRetry } from './chain';
 import { RateLimit } from './rate-limit';
 
@@ -56,6 +57,23 @@ const MAX_ACTIONS = 2;
 export interface Policy {
   escrow: string;
   token: string;
+  /** Mintbase's market contract, where a lease the landlord agreed to hand over can also be sold. */
+  market?: string;
+  /** Cash-out: is `address` a NEAR Intents deposit address issued to `sender` (see intents.ts)? */
+  payoutDeposit?: (sender: string, address: string) => boolean;
+}
+
+const MILLINEAR = 10n ** 21n;
+/** Most a user may attach for NEP-178 approval storage / the market's listing storage (their own NEAR). */
+const MAX_APPROVE_DEPOSIT = 10n * MILLINEAR;
+const MAX_MARKET_STORAGE = 20n * MILLINEAR;
+
+function jsonArgs(fc: any): any {
+  try {
+    return JSON.parse(Buffer.from(fc.args).toString('utf8'));
+  } catch {
+    throw new Error(`Unreadable ${fc.methodName} arguments`);
+  }
 }
 
 export interface CheckedDelegate {
@@ -74,7 +92,8 @@ export function decodeSignedDelegate(b64: string): SignedDelegate {
 export function checkDelegate(sd: SignedDelegate, policy: Policy): CheckedDelegate {
   const d: any = sd.delegateAction;
   const receiver = d.receiverId as string;
-  if (receiver !== policy.escrow && receiver !== policy.token) {
+  const toMarket = !!policy.market && receiver === policy.market;
+  if (receiver !== policy.escrow && receiver !== policy.token && !toMarket) {
     throw new Error(`Gasless is only for Handova's contracts, not ${receiver}`);
   }
   if (!d.actions?.length || d.actions.length > MAX_ACTIONS) throw new Error('Expected 1–2 actions');
@@ -87,20 +106,35 @@ export function checkDelegate(sd: SignedDelegate, policy: Policy): CheckedDelega
     const gas = BigInt(fc.gas.toString());
     totalGas += gas;
     if (totalGas > MAX_GAS_TOTAL) throw new Error('Too much gas requested');
-    if (receiver === policy.escrow) {
+    if (receiver === policy.escrow && fc.methodName === 'nft_approve') {
+      // Listing a lease on Mintbase's market: approvals only for that market, small storage deposit.
+      if (!policy.market || jsonArgs(fc).account_id !== policy.market) throw new Error("Gasless approvals are only for Mintbase's market");
+      if (deposit > MAX_APPROVE_DEPOSIT) throw new Error('Too much NEAR attached to nft_approve');
+    } else if (receiver === policy.escrow) {
       if (!ESCROW_METHODS.has(fc.methodName)) throw new Error(`${fc.methodName} can't be sent gaslessly`);
       if (deposit !== 0n) throw new Error(`Gasless calls can't attach NEAR (${fc.methodName})`);
+    } else if (toMarket) {
+      if (fc.methodName !== 'deposit_storage') throw new Error(`${fc.methodName} on the market can't be sent gaslessly`);
+      if (deposit > MAX_MARKET_STORAGE) throw new Error('Too much NEAR attached to deposit_storage');
+    } else if (fc.methodName === 'ft_transfer' || fc.methodName === 'storage_deposit') {
+      // Cash-out: USDC to the NEAR Intents deposit address this server issued to the sender (plus its storage).
+      const args = jsonArgs(fc);
+      const to = fc.methodName === 'ft_transfer' ? args.receiver_id : args.account_id;
+      if (!policy.payoutDeposit?.(d.senderId, to)) throw new Error('Only payments into the Handova escrow are gasless');
+      if (fc.methodName === 'ft_transfer' && deposit !== 1n) throw new Error('ft_transfer needs exactly 1 yoctoNEAR');
+      if (fc.methodName === 'storage_deposit' && deposit > MAX_APPROVE_DEPOSIT) throw new Error('Too much NEAR attached to storage_deposit');
     } else {
-      // Token: only paying into the escrow.
+      // Token: paying into the escrow, or buying a Handova lease NFT on Mintbase's market.
       if (fc.methodName !== 'ft_transfer_call') throw new Error('Only payments into the Handova escrow are gasless');
       if (deposit !== 1n) throw new Error('ft_transfer_call needs exactly 1 yoctoNEAR');
-      let args: any;
-      try {
-        args = JSON.parse(Buffer.from(fc.args).toString('utf8'));
-      } catch {
-        throw new Error('Unreadable ft_transfer_call arguments');
+      const args = jsonArgs(fc);
+      if (args.receiver_id === policy.market && policy.market) {
+        let msg: any;
+        try { msg = JSON.parse(args.msg); } catch { msg = null; }
+        if (msg?.nft_contract_id !== policy.escrow) throw new Error('Market payments must buy a Handova lease');
+      } else if (args.receiver_id !== policy.escrow) {
+        throw new Error('Payments can only go to the Handova escrow');
       }
-      if (args.receiver_id !== policy.escrow) throw new Error('Payments can only go to the Handova escrow');
     }
     methods.push(fc.methodName);
   }
@@ -136,7 +170,7 @@ export function mountRelayer(app: Express) {
     let checked: CheckedDelegate;
     try {
       sd = decodeSignedDelegate(String(req.body?.signedDelegate ?? ''));
-      checked = checkDelegate(sd, { escrow: deploy.escrow, token: deploy.token });
+      checked = checkDelegate(sd, { escrow: deploy.escrow, token: deploy.token, market: MINTBASE_MARKET, payoutDeposit: isPayoutDeposit });
     } catch (e) {
       return res.status(400).json({ error: (e as Error).message || 'Could not read the signed request. Refresh and try again.' });
     }

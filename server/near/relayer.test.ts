@@ -70,3 +70,44 @@ describe('relayer policy', () => {
     expect(() => checkDelegate(roundTrip(sd), policy)).toThrow(/Only contract calls/);
   });
 });
+
+describe('relayer policy: Mintbase market', () => {
+  const p = { ...policy, market: 'market-v2-beta.mintspace2.testnet' };
+  const mn = 10n ** 21n; // 0.001 NEAR
+
+  test('allows listing a lease on the market and buying one there', () => {
+    const approve = call('nft_approve', { token_id: '3', account_id: p.market, msg: '{"price":"5000000","ft_contract":"usdc.handova.testnet"}' }, 5n * mn);
+    expect(checkDelegate(roundTrip(signed(p.escrow, [approve])), p).methods).toEqual(['nft_approve']);
+    expect(checkDelegate(roundTrip(signed(p.market, [call('deposit_storage', {}, 10n * mn)])), p).methods).toEqual(['deposit_storage']);
+    const buy = call('ft_transfer_call', { receiver_id: p.market, amount: '5000000', msg: JSON.stringify({ nft_contract_id: p.escrow, token_id: '3' }) }, 1n);
+    expect(checkDelegate(roundTrip(signed(p.token, [buy])), p).methods).toEqual(['ft_transfer_call']);
+  });
+
+  test('refuses approvals for anyone else, big deposits, other market methods, and buying other NFTs', () => {
+    const toThief = call('nft_approve', { token_id: '3', account_id: 'thief.testnet' }, mn);
+    expect(() => checkDelegate(roundTrip(signed(p.escrow, [toThief])), p)).toThrow(/only for Mintbase/);
+    const greedy = call('nft_approve', { token_id: '3', account_id: p.market }, 50n * mn);
+    expect(() => checkDelegate(roundTrip(signed(p.escrow, [greedy])), p)).toThrow(/Too much NEAR/);
+    expect(() => checkDelegate(roundTrip(signed(p.market, [call('deposit_storage', {}, 100n * mn)])), p)).toThrow(/Too much NEAR/);
+    expect(() => checkDelegate(roundTrip(signed(p.market, [call('claim_unused_storage_deposit', {}, 1n)])), p)).toThrow(/can't be sent gaslessly/);
+    const other = call('ft_transfer_call', { receiver_id: p.market, amount: '1', msg: JSON.stringify({ nft_contract_id: 'someone-elses-nft.testnet', token_id: '1' }) }, 1n);
+    expect(() => checkDelegate(roundTrip(signed(p.token, [other])), p)).toThrow(/Handova lease/);
+    // Without a configured market, none of it is allowed.
+    expect(() => checkDelegate(roundTrip(signed(p.market, [call('deposit_storage', {}, mn)])), policy)).toThrow(/only for Handova/);
+  });
+});
+
+describe('relayer policy: cash-out', () => {
+  const issued = (sender: string, addr: string) => sender === 'mum.handova.testnet' && addr === 'deposit1.near';
+  const p = { ...policy, payoutDeposit: issued };
+
+  test('allows sending USDC to a deposit address issued to the sender, and its storage', () => {
+    expect(checkDelegate(roundTrip(signed(p.token, [call('ft_transfer', { receiver_id: 'deposit1.near', amount: '5' }, 1n)])), p).methods).toEqual(['ft_transfer']);
+    expect(checkDelegate(roundTrip(signed(p.token, [call('storage_deposit', { account_id: 'deposit1.near' }, 1_250_000_000_000_000_000_000n)])), p).methods).toEqual(['storage_deposit']);
+  });
+
+  test('refuses any other address', () => {
+    expect(() => checkDelegate(roundTrip(signed(p.token, [call('ft_transfer', { receiver_id: 'thief.near', amount: '5' }, 1n)])), p)).toThrow(/Only payments/);
+    expect(() => checkDelegate(roundTrip(signed(p.token, [call('storage_deposit', { account_id: 'thief.near' }, 1n)])), p)).toThrow(/Only payments/);
+  });
+});

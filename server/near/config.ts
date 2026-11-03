@@ -38,6 +38,10 @@ export const deploy = loadDeploy();
 /** Mainnet USDC (Circle) — the asset NEAR Intents delivers. Checked against 1Click /v0/tokens. */
 export const MAINNET_USDC = '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
 
+/** Mintbase's open market contract, where leases the landlord agreed to hand over can also be sold. */
+export const MINTBASE_MARKET =
+  process.env.MINTBASE_MARKET || (NETWORK === 'mainnet' ? 'simple.market.mintbase1.near' : 'market-v2-beta.mintspace2.testnet');
+
 export function env(name: string): string | undefined {
   const v = process.env[name];
   return v && v.trim() ? v.trim() : undefined;

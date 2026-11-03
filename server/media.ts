@@ -12,8 +12,8 @@ import express, { type Express, type Request, type Response } from 'express';
 import multer from 'multer';
 import { randomBytes } from 'node:crypto';
 import { S3Client } from 'bun';
-import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 const TYPES: Record<string, { ext: string; kind: 'image' | 'video'; maxBytes: number }> = {
   'image/jpeg': { ext: 'jpg', kind: 'image', maxBytes: 10 * 1024 * 1024 },
@@ -26,6 +26,12 @@ const TYPES: Record<string, { ext: string; kind: 'image' | 'video'; maxBytes: nu
 const MAX_UPLOADS_PER_HOUR = 60;
 
 const mediaRoot = () => resolve(process.env.MEDIA_DIR || 'server/uploads');
+
+/** A stored photo by its generated name (24 hex chars + extension), or null. Local disk only. */
+export function readMediaFile(name: string): Buffer | null {
+  if (!/^[a-f0-9]{24}\.(jpg|png|webp)$/.test(name)) return null;
+  try { return readFileSync(join(mediaRoot(), name)); } catch { return null; }
+}
 
 let s3: S3Client | null | undefined;
 function bucket(): S3Client | null {

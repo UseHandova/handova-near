@@ -21,7 +21,7 @@ use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
 use near_sdk::{env, near, require, AccountId, Promise, PromiseOrValue};
 
-use crate::{svg, Contract, ContractExt, LeaseStatus};
+use crate::{events, svg, Contract, ContractExt, LeaseStatus};
 
 #[near]
 impl NonFungibleTokenCore for Contract {
@@ -95,6 +95,57 @@ impl NonFungibleTokenApproval for Contract {
 
     fn nft_is_approved(&self, token_id: TokenId, approved_account_id: AccountId, approval_id: Option<u64>) -> bool {
         self.nft.nft_is_approved(token_id, approved_account_id, approval_id)
+    }
+}
+
+/// NEP-199: how a marketplace splits the sale of a lease.
+#[near(serializers = [json])]
+pub struct Payout {
+    pub payout: HashMap<AccountId, U128>,
+}
+
+/// NEP-199 payouts, so NEAR marketplaces (e.g. Mintbase's market) can sell a lease. The same rule as
+/// Handova's own takeover market applies: the sale only goes through if the landlord has agreed to
+/// hand the lease over. The buyer becomes the tenant and holds the caution right.
+#[near]
+impl Contract {
+    /// The whole sale price goes to the current holder (no royalties).
+    pub fn nft_payout(&self, token_id: TokenId, balance: U128, max_len_payout: Option<u32>) -> Payout {
+        require!(max_len_payout.map_or(true, |m| m >= 1), "max_len_payout must be at least 1");
+        let owner = self.nft.owner_by_id.get(&token_id).unwrap_or_else(|| env::panic_str("Token not found"));
+        Payout { payout: HashMap::from([(owner, balance)]) }
+    }
+
+    #[payable]
+    pub fn nft_transfer_payout(
+        &mut self,
+        receiver_id: AccountId,
+        token_id: TokenId,
+        approval_id: Option<u64>,
+        memo: Option<String>,
+        balance: U128,
+        max_len_payout: Option<u32>,
+    ) -> Payout {
+        let lease_id = self.assert_transferable(&token_id);
+        let holder = self.holder(lease_id);
+        let lease = self.leases.get(&lease_id).unwrap_or_else(|| env::panic_str("Lease not found"));
+        require!(
+            lease.takeover.as_ref().is_some_and(|t| t.landlord_consent),
+            "The landlord hasn't agreed to hand this lease over"
+        );
+        require!(receiver_id != lease.landlord, "The landlord can't take over their own lease");
+        let payout = self.nft_payout(token_id.clone(), balance, max_len_payout);
+        // Checks the 1 yocto, the owner or the marketplace's approval; clears approvals; emits nft_transfer.
+        self.nft.nft_transfer(receiver_id.clone(), token_id, approval_id, memo);
+        let lease = self.leases.get_mut(&lease_id).unwrap_or_else(|| env::panic_str("Lease not found"));
+        lease.tenant = receiver_id.clone();
+        lease.takeover = None;
+        self.index_lease(&receiver_id, lease_id);
+        events::emit(
+            "lease_taken_over",
+            json!({ "lease_id": lease_id, "from": holder, "to": receiver_id, "price": balance, "via": env::predecessor_account_id() }),
+        );
+        payout
     }
 }
 

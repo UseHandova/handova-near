@@ -41,7 +41,7 @@ export function MyRentals({ onNeedSignIn }: { onNeedSignIn: () => void }) {
       <h1 className="font-display text-2xl font-bold">My rentals</h1>
       {!leases && <div className="flex justify-center py-10 text-sub"><Spinner className="h-6 w-6" /></div>}
       {leases?.length === 0 && <Empty icon={<KeyRound className="h-6 w-6" />} title="No rentals yet"><a href="#/" className="font-semibold text-accent">Find a home</a> — or pay for someone else's.</Empty>}
-      {leases?.map((l) => <LeaseRow key={l.id} l={l} me={session.accountId} />)}
+      <div className="grid gap-3 lg:grid-cols-2">{leases?.map((l) => <LeaseRow key={l.id} l={l} me={session.accountId} />)}</div>
     </div>
   );
 }

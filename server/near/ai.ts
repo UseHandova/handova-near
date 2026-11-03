@@ -17,7 +17,8 @@ import { RateLimit } from './rate-limit';
 
 const BASE = env('NEARAI_BASE_URL') ?? 'https://cloud-api.near.ai/v1';
 export const CHAT_MODEL = env('NEARAI_CHAT_MODEL') ?? 'z-ai/glm-5.3-flash';
-export const VISION_MODEL = env('NEARAI_VISION_MODEL') ?? 'Qwen/Qwen3-VL-30B-A3B-Instruct';
+// GLM-5.3 Flash reads images too and its TEE receipts verify; Qwen3-VL stopped answering (Nov 2026).
+export const VISION_MODEL = env('NEARAI_VISION_MODEL') ?? 'z-ai/glm-5.3-flash';
 export const TRANSCRIBE_MODEL = env('NEARAI_TRANSCRIBE_MODEL') ?? 'openai/whisper-large-v3';
 
 export interface Receipt {

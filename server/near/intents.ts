@@ -9,6 +9,10 @@
  * Two steps on purpose: 1Click's `customRecipientMsg` (deliver straight into ft_transfer_call)
  * is marked "highly experimental" and loses funds on any mistake.
  *
+ * Cash out (landlords): the reverse. "Take exactly X USDC from my NEAR account and deliver USDT/USDC to my
+ * exchange address on TRON, BSC, Base, Solana…". The landlord sends the USDC on NEAR to 1Click's deposit
+ * address (gasless, allowed by the relayer only for deposit addresses issued here, see `isPayoutDeposit`).
+ *
  * NEAR Intents is mainnet-only. On testnet, quotes are always `dry` (a real price, no deposit
  * address) so the screen can be tried without moving money.
  */
@@ -81,6 +85,48 @@ export function quoteRequest(q: QuoteInput, now = Date.now()) {
   };
 }
 
+export interface PayoutInput {
+  /** USDC base units to send from the landlord's NEAR account. */
+  amountIn: string;
+  /** 1Click asset id to receive, e.g. USDT on TRON. */
+  destinationAsset: string;
+  /** The landlord's address on that chain (often an exchange deposit address). */
+  recipient: string;
+  /** The landlord's NEAR account: refunds go back here if the swap fails. */
+  refundTo: string;
+  dry: boolean;
+}
+
+export function payoutRequest(q: PayoutInput, now = Date.now()) {
+  return {
+    dry: q.dry,
+    swapType: 'EXACT_INPUT',
+    slippageTolerance: 100,
+    originAsset: DESTINATION_ASSET,
+    depositType: 'ORIGIN_CHAIN',
+    destinationAsset: q.destinationAsset,
+    amount: q.amountIn,
+    refundTo: q.refundTo,
+    refundType: 'ORIGIN_CHAIN',
+    recipient: q.recipient,
+    recipientType: 'DESTINATION_CHAIN',
+    deadline: new Date(now + 60 * 60_000).toISOString(),
+    referral: 'handova',
+    quoteWaitingTimeMs: 3000,
+  };
+}
+
+/** Deposit addresses this server got from 1Click for a landlord's cash-out (one hour each). */
+const payoutDeposits = new Map<string, { sender: string; until: number }>();
+export function rememberPayoutDeposit(sender: string, depositAddress: string, now = Date.now()) {
+  payoutDeposits.set(depositAddress, { sender, until: now + 60 * 60_000 });
+}
+/** True when `sender` may send USDC to `address` gaslessly: a live cash-out quote issued to them. */
+export function isPayoutDeposit(sender: string, address: string, now = Date.now()): boolean {
+  const d = payoutDeposits.get(address);
+  return !!d && d.sender === sender && d.until > now;
+}
+
 const quotesPerIp = new RateLimit(60, 60 * 60_000);
 
 export function mountIntents(app: Express) {
@@ -111,6 +157,34 @@ export function mountIntents(app: Express) {
       const msg = (e as Error).message;
       const status = (e as any).status as number | undefined;
       if (status && status < 500) return res.status(400).json({ error: `No quote: ${msg}. Check the refund address matches the chain you pay from.` });
+      res.status(502).json({ error: 'NEAR Intents is not answering right now. Try again in a minute.' });
+    }
+  });
+
+  /** Landlord cash-out: USDC on NEAR → stablecoin on another chain. Dry (price only) on testnet. */
+  app.post('/api/intents/payout-quote', async (req, res) => {
+    const b = req.body ?? {};
+    if (!/^\d+$/.test(String(b.amountIn ?? '')) || BigInt(b.amountIn) <= 0n) return res.status(400).json({ error: 'Enter how much USDC to send.' });
+    for (const k of ['destinationAsset', 'recipient', 'refundTo']) {
+      if (!b[k]) return res.status(400).json({ error: `Missing ${k}` });
+    }
+    if (!quotesPerIp.take(req.ip ?? 'ip')) return res.status(429).json({ error: 'Too many quotes. Wait a few minutes.' });
+    const live = NETWORK === 'mainnet' && b.dry === false;
+    try {
+      // On testnet the landlord's account doesn't exist on mainnet; refunds can't happen in a dry quote anyway.
+      const quote = await oneClick<any>('/v0/quote', {
+        method: 'POST',
+        body: JSON.stringify(payoutRequest({ ...b, dry: !live, refundTo: live ? b.refundTo : 'wrap.near' })),
+      });
+      if (live && quote?.quote?.depositAddress) rememberPayoutDeposit(String(b.refundTo), quote.quote.depositAddress);
+      res.json({ live, ...quote });
+    } catch (e) {
+      const msg = (e as Error).message;
+      const status = (e as any).status as number | undefined;
+      if (status && status < 500) {
+        if (/recipient/i.test(msg)) return res.status(400).json({ error: "That address doesn't look right for the chosen network. Copy it again from your exchange or wallet." });
+        return res.status(400).json({ error: `No quote: ${msg}.` });
+      }
       res.status(502).json({ error: 'NEAR Intents is not answering right now. Try again in a minute.' });
     }
   });

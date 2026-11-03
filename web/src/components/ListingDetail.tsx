@@ -39,13 +39,13 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
   const mine = session?.accountId === l.landlord;
 
   return (
-    <div className="space-y-4 pt-2">
-      <div className="card overflow-hidden">
+    <div className="space-y-4 pt-2 lg:grid lg:grid-cols-[1.25fr_1fr] lg:items-start lg:gap-6 lg:space-y-0">
+      <div className="card animate-fade-up overflow-hidden">
         <div className="flex snap-x snap-mandatory overflow-x-auto">
           {d.video && (
-            <video src={d.video} poster={d.photos[0]} controls muted playsInline preload="metadata" className="h-60 w-full shrink-0 snap-center bg-black object-contain" />
+            <video src={d.video} poster={d.photos[0]} controls muted playsInline preload="metadata" className="h-60 w-full shrink-0 snap-center bg-black object-contain lg:h-[26rem]" />
           )}
-          {(d.photos.length || !d.video ? (d.photos.length ? d.photos : [undefined]) : []).map((p, i) => <Photo key={i} src={p} className="h-60 w-full shrink-0 snap-center" />)}
+          {(d.photos.length || !d.video ? (d.photos.length ? d.photos : [undefined]) : []).map((p, i) => <Photo key={i} src={p} className="h-60 w-full shrink-0 snap-center lg:h-[26rem]" />)}
         </div>
         <div className="space-y-2 p-4">
           <h1 className="font-display text-2xl font-bold leading-tight">{d.title}</h1>
@@ -55,6 +55,7 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
         </div>
       </div>
 
+      <div className="animate-fade-up space-y-4 lg:sticky lg:top-24" style={{ animationDelay: '80ms' }}>
       <div className="card p-4">
         <Row k={`Rent (${l.term_months === 12 ? '1 year' : `${l.term_months} months`})`} v={<>{naira(rent, rate)} <span className="text-faint">· {usd(rent)}</span></>} />
         <Row k={t('Caution fee (refundable)')} v={<>{naira(caution, rate)} <span className="text-faint">· {usd(caution)}</span></>} />
@@ -68,6 +69,15 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
         </a>
       </div>
 
+      {!mine && (
+        <div className="hidden lg:block">
+          {open ? (
+            <button className="btn-primary w-full" onClick={() => (session ? setPaying(true) : onNeedSignIn())}>Pay {naira(rent + caution, rate)} into escrow</button>
+          ) : (
+            <button className="btn-ghost w-full" disabled>{l.active_lease !== null ? t('Taken') : t('Paused by the landlord')}</button>
+          )}
+        </div>
+      )}
       <div className="card space-y-3 p-4">
         <h2 className="font-display font-bold">{t('How your money is protected')}</h2>
         {[
@@ -83,8 +93,9 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
       </div>
 
       {mine && <ManageListing listing={l} onChanged={reload} />}
+      </div>
 
-      <div className="sticky bottom-20 z-30">
+      <div className="sticky bottom-20 z-30 lg:hidden">
         {mine ? null : open ? (
           <button className="btn-primary w-full shadow-card" onClick={() => (session ? setPaying(true) : onNeedSignIn())}>Pay {naira(rent + caution, rate)} into escrow</button>
         ) : (

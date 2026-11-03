@@ -12,6 +12,8 @@ import type { Lease, Listing, Timeouts } from '../lib/types';
 import { Busy, fmtDate, Row, Spinner, StatusPill, timeLeft } from './ui';
 import { PassportSummary } from './Passport';
 import { DaoRulings } from './DaoRulings';
+import { MintbaseListing } from './MintbaseListing';
+import { InspectionPanel } from './Inspection';
 
 type Nft = Awaited<ReturnType<typeof chain.nftToken>>;
 
@@ -210,6 +212,7 @@ export function LeaseView({ id }: { id: number }) {
           </button>,
         );
       }
+      if (offer.landlord_consent) actions.push(<MintbaseListing key="mintbase" lease={lease} holder={holder} onChange={load} />);
     }
     if (isLandlord && lease.ends_at_ms && now >= lease.ends_at_ms) actions.push(btn('move_out', 'Lease term ended — start move-out', 'Move-out started.', {}, 'btn-ghost'));
   }
@@ -271,7 +274,8 @@ export function LeaseView({ id }: { id: number }) {
   ];
 
   return (
-    <div className="space-y-4 pt-2">
+    <div className="space-y-4 pt-2 lg:grid lg:grid-cols-[1.1fr_1fr] lg:items-start lg:gap-6 lg:space-y-0">
+      <div className="animate-fade-up space-y-4">
       <a href="#/rentals" className="inline-flex items-center gap-1 text-sm font-semibold text-sub"><ArrowLeft className="h-4 w-4" /> My rentals</a>
       <div className="card space-y-2 p-4">
         <div className="flex items-start justify-between gap-2">
@@ -311,13 +315,20 @@ export function LeaseView({ id }: { id: number }) {
         </div>
       )}
 
+      </div>
+
+      <div className="animate-fade-up space-y-4 lg:sticky lg:top-24" style={{ animationDelay: '80ms' }}>
       {isLandlord && (lease.status === 'Pending' || !!lease.takeover) && <PassportSummary accountId={lease.tenant} />}
+      {(lease.status === 'Ending' || lease.status === 'Disputed') && (
+        <InspectionPanel lease={lease} holder={holder} onSuggest={(v) => { setAmount(v); toast('ok', `Amount set to ${v} USDC. Check it, add what was damaged, then open the dispute.`); }} />
+      )}
       {arbiter && <DaoRulings lease={lease} arbiter={arbiter} onChange={load} />}
       {notes.map((n) => <p key={n} className="rounded-xl bg-muted p-3 text-sm text-ink2">{n}</p>)}
       {actions.length > 0 && <div className="space-y-2">{actions}</div>}
       {!session && <p className="text-center text-sm text-sub">Sign in as the tenant or landlord to act on this lease.</p>}
+      </div>
 
-      <a href={`${nearConfig().explorer}/address/${nearConfig().escrow}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1 text-xs text-faint">
+      <a href={`${nearConfig().explorer}/address/${nearConfig().escrow}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-1 text-xs text-faint lg:col-span-2">
         Escrow contract {nearConfig().escrow} <ExternalLink className="h-3 w-3" />
       </a>
     </div>

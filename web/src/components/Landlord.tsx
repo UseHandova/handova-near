@@ -7,6 +7,7 @@ import { useSession } from '../lib/session';
 import type { Lease, Listing } from '../lib/types';
 import { LeaseRow } from './MyRentals';
 import { Empty, Spinner } from './ui';
+import { Photo } from './ListingCard';
 import { VerifyIdentity } from './VerifyIdentity';
 
 export function Landlord({ onNeedSignIn }: { onNeedSignIn: () => void }) {
@@ -45,7 +46,7 @@ export function Landlord({ onNeedSignIn }: { onNeedSignIn: () => void }) {
       {needsAction.length > 0 && (
         <section className="space-y-2">
           <h2 className="font-semibold text-warn">Needs your attention</h2>
-          {needsAction.map((l) => <LeaseRow key={l.id} l={l} me={session.accountId} />)}
+          <div className="grid gap-2 lg:grid-cols-2">{needsAction.map((l) => <LeaseRow key={l.id} l={l} me={session.accountId} />)}</div>
         </section>
       )}
 
@@ -58,11 +59,13 @@ export function Landlord({ onNeedSignIn }: { onNeedSignIn: () => void }) {
             <a href="#/list" className="btn-primary mt-3 w-full">List a home</a>
           </Empty>
         )}
-        {listings?.map((l) => {
+        <div className="grid gap-2 lg:grid-cols-2">
+        {listings?.map((l, i) => {
           const d = decodeDetails(l.property_ref, l.id);
           return (
-            <a key={l.id} href={`#/home/${l.id}`} className="card flex items-center justify-between gap-3 p-4">
-              <div className="min-w-0">
+            <a key={l.id} href={`#/home/${l.id}`} className="card animate-fade-up flex items-center gap-3 p-3 transition hover:-translate-y-0.5" style={{ animationDelay: `${i * 60}ms` }}>
+              <Photo src={d.photos[0]} className="h-14 w-14 shrink-0 rounded-xl" />
+              <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{d.title}</p>
                 <p className="text-sm text-sub">{naira(usdc(l.rent), rate)} / {l.term_months === 12 ? 'year' : `${l.term_months} mo`}</p>
               </div>
@@ -70,12 +73,13 @@ export function Landlord({ onNeedSignIn }: { onNeedSignIn: () => void }) {
             </a>
           );
         })}
+        </div>
       </section>
 
       {leases.length > needsAction.length && (
         <section className="space-y-2">
           <h2 className="font-semibold">All leases</h2>
-          {leases.filter((l) => !needsAction.includes(l)).map((l) => <LeaseRow key={l.id} l={l} me={session.accountId} />)}
+          <div className="grid gap-2 lg:grid-cols-2">{leases.filter((l) => !needsAction.includes(l)).map((l) => <LeaseRow key={l.id} l={l} me={session.accountId} />)}</div>
         </section>
       )}
     </div>

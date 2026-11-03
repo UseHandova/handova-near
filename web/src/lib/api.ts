@@ -28,5 +28,7 @@ export interface NearConfig {
   idCheck?: boolean;
   /** Listing ids this site leaves off its home page (they stay on-chain). */
   hiddenListings?: number[];
+  /** Mintbase's market contract, for listing leases the landlord agreed to hand over. */
+  mintbaseMarket?: string;
   intentsLive: boolean;
 }

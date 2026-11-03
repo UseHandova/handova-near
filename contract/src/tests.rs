@@ -1,6 +1,7 @@
 //! Rule-by-rule unit tests. The end-to-end tests with a real token are in tests/.
 
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
+use near_contract_standards::non_fungible_token::approval::NonFungibleTokenApproval;
 use near_contract_standards::non_fungible_token::core::NonFungibleTokenCore;
 use near_contract_standards::non_fungible_token::enumeration::NonFungibleTokenEnumeration;
 use near_sdk::json_types::U128;
@@ -519,6 +520,59 @@ fn lease_takeover_needs_landlord_consent_then_moves_nft_and_pays_holder() {
     t.as_("landlord.near").approve_move_out(1);
     assert_eq!(t.bal("newtenant.near"), CAUTION);
     assert_eq!(t.c.get_config().total_held.0, RENT + CAUTION + price);
+}
+
+#[test]
+fn marketplace_sale_needs_landlord_consent_and_pays_the_holder() {
+    let mut t = T::new();
+    t.active_lease();
+    // The holder approves a marketplace (NEP-178).
+    t.ctx("tenant.near", 1_000_000_000_000_000_000_000);
+    t.c.nft_approve("1".into(), acc("market.near"), None);
+    let sale = || {
+        let mut c = VMContextBuilder::new();
+        c.current_account_id(acc("handova.near")).predecessor_account_id(acc("market.near")).attached_deposit(NearToken::from_yoctonear(1));
+        testing_env!(c.build());
+    };
+    // Without the landlord's consent the marketplace can't complete a sale.
+    sale();
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.c.nft_transfer_payout(acc("buyer.near"), "1".into(), Some(1), None, U128(250 * USDC), Some(10))));
+    assert!(r.is_err(), "no consent, no sale");
+    t.as_("tenant.near").offer_takeover(1, U128(250 * USDC));
+    t.as_("landlord.near").consent_takeover(1);
+    // The landlord can't buy their own lease.
+    sale();
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.c.nft_transfer_payout(acc("landlord.near"), "1".into(), Some(1), None, U128(250 * USDC), Some(10))));
+    assert!(r.is_err());
+    // NEP-199: the payout names the holder; after the sale the buyer is the tenant and holds the caution.
+    assert_eq!(t.c.nft_payout("1".into(), U128(250 * USDC), Some(10)).payout.get(&acc("tenant.near")), Some(&U128(250 * USDC)));
+    sale();
+    let p = t.c.nft_transfer_payout(acc("buyer.near"), "1".into(), Some(1), None, U128(250 * USDC), Some(10));
+    assert_eq!(p.payout.len(), 1);
+    assert_eq!(p.payout.get(&acc("tenant.near")), Some(&U128(250 * USDC)));
+    let lease = t.lease(1);
+    assert_eq!(lease.tenant, acc("buyer.near"));
+    assert_eq!(lease.nft_holder, Some(acc("buyer.near")));
+    assert!(lease.takeover.is_none());
+    t.as_("buyer.near").move_out(1);
+    t.as_("landlord.near").approve_move_out(1);
+    assert_eq!(t.bal("buyer.near"), CAUTION, "the caution follows the lease to the buyer");
+}
+
+#[test]
+fn marketplace_sale_refused_once_the_lease_is_locked() {
+    let mut t = T::new();
+    t.active_lease();
+    t.ctx("tenant.near", 1_000_000_000_000_000_000_000);
+    t.c.nft_approve("1".into(), acc("market.near"), None);
+    t.as_("tenant.near").offer_takeover(1, U128(USDC));
+    t.as_("landlord.near").consent_takeover(1);
+    t.as_("tenant.near").move_out(1);
+    let mut c = VMContextBuilder::new();
+    c.current_account_id(acc("handova.near")).predecessor_account_id(acc("market.near")).attached_deposit(NearToken::from_yoctonear(1));
+    testing_env!(c.build());
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.c.nft_transfer_payout(acc("buyer.near"), "1".into(), Some(1), None, U128(USDC), None)));
+    assert!(r.is_err(), "locked during move-out review");
 }
 
 #[test]
