@@ -1,0 +1,240 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;background:#000}
+  svg{display:block;width:1080px;height:1080px}
+  text{font-family:'DM Sans',Arial,sans-serif;font-weight:700}
+  .h{font-family:'Space Grotesk',Arial,sans-serif}
+</style></head><body>
+<svg id="root" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg"></svg>
+<script>
+const INK='#12211a', GREEN='#1f9e61', DEEP='#0b6b43', AMBER='#f2b45a', RED='#e0533f', CREAM='#f7f3e8', NOTE='#8fd3a8', SKIN='#6b4226', SKIN2='#7d4f2e';
+const root=document.getElementById('root');
+const P=new URLSearchParams(location.search);
+
+// ---- drawing helpers ----
+function person({top=AMBER,skin=SKIN,hair='#1a1110',sad=false,dress=false,shades=false}={}){
+  const mouth=sad?'M-14 -226 q14 -13 28 0':'M-16 -234 q16 16 32 0';
+  return `<rect x="-40" y="-122" width="32" height="122" rx="15" fill="#26323b"/><rect x="8" y="-122" width="32" height="122" rx="15" fill="#26323b"/>
+  <path d="${dress?'M-74 -60 q6 -150 74 -150 q68 0 74 150 z':'M-60 -100 q0 -110 60 -110 q60 0 60 110 z'}" fill="${top}"/>
+  <rect x="-16" y="-214" width="32" height="26" fill="${skin}"/>
+  <circle cx="0" cy="-252" r="46" fill="${skin}"/>
+  <path d="M-47 -258 a47 47 0 0 1 94 0 q-47 -30 -94 0z" fill="${hair}"/>
+  ${shades?`<rect x="-34" y="-264" width="30" height="16" rx="6" fill="#0c0c0c"/><rect x="4" y="-264" width="30" height="16" rx="6" fill="#0c0c0c"/><rect x="-6" y="-260" width="12" height="4" fill="#0c0c0c"/>`
+  :`<circle cx="-17" cy="-254" r="5.5" fill="#fff"/><circle cx="17" cy="-254" r="5.5" fill="#fff"/><circle cx="-17" cy="-254" r="2.6" fill="#111"/><circle cx="17" cy="-254" r="2.6" fill="#111"/>`}
+  <path d="${mouth}" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+}
+const note=(id)=>`<g id="${id}"><rect x="-52" y="-30" width="104" height="60" rx="8" fill="${NOTE}" stroke="#2f7a52" stroke-width="4"/><circle r="17" fill="#2f7a52"/><text y="9" text-anchor="middle" font-size="26" fill="#fff">₦</text></g>`;
+const key=`<circle cx="-46" r="26" fill="none" stroke="${AMBER}" stroke-width="14"/><rect x="-22" y="-7" width="86" height="14" rx="5" fill="${AMBER}"/><rect x="42" y="4" width="10" height="20" fill="${AMBER}"/><rect x="60" y="4" width="10" height="16" fill="${AMBER}"/>`;
+const house=(body='#fff',roof=RED)=>`<path d="M-130 -150 L0 -260 L130 -150 z" fill="${roof}"/><rect x="-105" y="-150" width="210" height="150" fill="${body}"/><rect x="-28" y="-92" width="56" height="92" rx="5" fill="${INK}"/><rect x="-86" y="-126" width="42" height="42" rx="4" fill="#9fc6d8"/><rect x="44" y="-126" width="42" height="42" rx="4" fill="#9fc6d8"/>`;
+function chip(id,text,x,y,{bg='#fff',fg=INK,fs=38,r=0}={}){
+  const w=text.length*fs*.56+56,h=fs*1.9;
+  return `<g id="${id}"><g transform="translate(${x} ${y}) rotate(${r})"><rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="${h/2}" fill="${bg}"/><text y="${fs*.35}" text-anchor="middle" font-size="${fs}" fill="${fg}">${text}</text></g></g>`;
+}
+const cross=(s=60)=>`<circle r="${s}" fill="${RED}"/><path d="M${-s*.42} ${-s*.42}L${s*.42} ${s*.42}M${s*.42} ${-s*.42}L${-s*.42} ${s*.42}" stroke="#fff" stroke-width="${s*.2}" stroke-linecap="round"/>`;
+const tick=(s=60)=>`<circle r="${s}" fill="${GREEN}"/><path d="M${-s*.45} 0L${-s*.1} ${s*.36}L${s*.48} ${-s*.36}" stroke="#fff" stroke-width="${s*.2}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+const skyline=(c)=>`<g fill="${c}"><rect x="0" y="600" width="90" height="200"/><rect x="100" y="540" width="70" height="260"/><rect x="180" y="620" width="120" height="180"/><rect x="330" y="500" width="80" height="300"/><rect x="420" y="590" width="130" height="210"/><rect x="570" y="530" width="90" height="270"/><rect x="680" y="610" width="110" height="190"/><rect x="810" y="480" width="80" height="320"/><rect x="900" y="580" width="180" height="220"/></g>`;
+const vault=`<rect x="-170" y="-150" width="340" height="300" rx="30" fill="${INK}"/><rect x="-146" y="-126" width="292" height="252" rx="20" fill="#203a2e"/><circle r="74" fill="none" stroke="${GREEN}" stroke-width="16"/><path d="M0 -74V74M-74 0H74M-52 -52L52 52M52 -52L-52 52" stroke="${GREEN}" stroke-width="9"/><circle r="26" fill="${GREEN}"/>`;
+const padlock=`<g id="shackle"><path d="M-30 0 v-34 a30 30 0 0 1 60 0 v34" fill="none" stroke="#c8d2cc" stroke-width="14"/></g><rect x="-46" y="-4" width="92" height="72" rx="12" fill="${AMBER}"/><circle cy="24" r="10" fill="${INK}"/><rect x="-4" y="26" width="8" height="20" fill="${INK}"/>`;
+const leaseCard=`<rect x="-240" y="-150" width="480" height="300" rx="30" fill="${DEEP}"/><rect x="-240" y="-150" width="480" height="96" rx="30" fill="${GREEN}"/><text x="-208" y="-86" font-size="40" fill="#fff" class="h">Handova lease</text><g transform="translate(150 70) scale(.5)">${house('#fff',AMBER)}</g><text x="-208" y="-6" font-size="30" fill="#cfe9da">Caution fee</text><text x="-208" y="50" font-size="46" fill="#fff" class="h">₦ safe inside</text><text x="-208" y="108" font-size="26" fill="#cfe9da">Yours to hold</text>`;
+const phone=`<rect x="-156" y="-306" width="312" height="612" rx="42" fill="${INK}"/><clipPath id="pc"><rect x="-142" y="-292" width="284" height="584" rx="30"/></clipPath><image href="${P.get('shot')}" x="-142" y="-292" width="284" height="584" preserveAspectRatio="xMidYMin slice" clip-path="url(#pc)"/>`;
+
+root.innerHTML=`
+<rect id="bg" width="1080" height="1080"/>
+<g id="s1">
+  <circle id="sun" cx="950" cy="170" r="80" fill="${AMBER}" opacity=".85"/>
+  <g transform="translate(0 0)">${skyline('#2c4f40')}</g>
+  <rect y="790" width="1080" height="20" fill="#2c4438"/>
+  <g id="cal"><g transform="translate(540 240)"><rect x="-190" y="-150" width="380" height="300" rx="24" fill="#fff"/><rect x="-190" y="-150" width="380" height="74" rx="24" fill="${RED}"/><text y="-96" text-anchor="middle" font-size="40" fill="#fff">1 FULL YEAR</text>
+    ${Array.from({length:12},(_,i)=>`<rect id="c${i}" x="${-164+(i%4)*84}" y="${-60+Math.floor(i/4)*68}" width="72" height="56" rx="10" fill="#e3e6e2"/>`).join('')}</g></g>
+  <g id="you1" transform="translate(190 790)">${person()}</g>
+  <g id="agent1">${`<g transform="translate(590 790)">${person({top:'#59636b',skin:SKIN2,shades:true})}</g>`}</g>
+  <g id="str1"><g transform="translate(880 790)">${person({top:'#3a4048',skin:'#2b3036',hair:'#2b3036'})}</g><text x="880" y="460" text-anchor="middle" font-size="110" fill="${AMBER}" class="h">?</text></g>
+  ${chip('c1a','+ agent fee',590,450,{bg:AMBER})}
+  ${chip('c1y','You',190,450,{bg:'#fff'})}
+  ${[0,1,2,3,4,5,6].map(i=>note('n1'+i)).join('')}
+</g>
+<g id="s2">
+  <g transform="translate(0 0)">${skyline('#402626')}</g>
+  <rect y="790" width="1080" height="20" fill="#3a2424"/>
+  <g id="house2"><g transform="translate(790 790) scale(1.1)">${house('#7a6b6b','#5c3a3a')}</g></g>
+  <g id="str2"><g transform="translate(560 790)">${person({top:'#3a4048',skin:'#2b3036',hair:'#2b3036'})}</g></g>
+  <g id="you2" transform="translate(190 790)">${person({sad:true})}</g>
+  ${chip('c2a','Fake landlord?',560,400,{bg:'#fff'})}
+  <g id="key2"><g transform="translate(790 300) scale(1.4)">${key}</g><g transform="translate(880 340)">${cross(44)}</g></g>
+  ${chip('c2b','No keys?',790,180,{bg:'#fff'})}
+  ${chip('c2c','Money gone',540,560,{bg:RED,fg:'#fff',fs:76,r:-6})}
+</g>
+<g id="s3">
+  <rect y="800" width="1080" height="280" fill="#e9e3d2"/>
+  <g id="you3" transform="translate(150 800)">${person()}</g>
+  <g id="ll3" transform="translate(930 800)">${person({top:GREEN,skin:SKIN2,dress:true})}</g>
+  <g id="ph3"><g transform="translate(540 400) scale(1.08)">${phone}</g></g>
+  ${chip('c3a','You',150,450,{bg:INK,fg:'#fff'})}
+  ${chip('c3l','Landlord',930,450,{bg:INK,fg:'#fff'})}
+  ${chip('c3b','₦0 agent fee',540,660,{bg:GREEN,fg:'#fff',fs:62,r:-5})}
+</g>
+<g id="s4">
+  <rect y="800" width="1080" height="280" fill="#e9e3d2"/>
+  <g id="you4" transform="translate(140 800)">${person()}</g>
+  <g id="ll4" transform="translate(940 800)">${person({top:GREEN,skin:SKIN2,dress:true})}</g>
+  <g id="vault4"><g transform="translate(540 500)">${vault}</g></g>
+  <g id="lock4" transform="translate(540 330)">${padlock}</g>
+  ${[0,1,2,3,4].map(i=>note('n4'+i)).join('')}
+  ${chip('c4a','Locked box on NEAR',540,130,{bg:INK,fg:'#fff',fs:44})}
+  <g id="x4a"><g transform="translate(940 650)">${cross(46)}</g></g>
+  ${chip('c4b','Not the landlord',880,400,{bg:'#fff',fs:34})}
+  ${chip('c4c','Not Handova',540,735,{bg:'#fff',fs:36})}
+  ${chip('c4y','You',140,450,{bg:INK,fg:'#fff'})}
+</g>
+<g id="s5">
+  <g id="a5"><rect x="60" y="70" width="960" height="330" rx="36" fill="#fff"/>
+    <g transform="translate(205 335) scale(.8)">${house('#f0ece0',AMBER)}</g><g id="t5a" transform="translate(300 150)">${tick(46)}</g>
+    <text x="205" y="378" text-anchor="middle" font-size="30" fill="${INK}">You moved in</text>
+    <path d="M395 235 H640 m-30 -28 l30 28 l-30 28" stroke="${GREEN}" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(830 372) scale(.92)">${person({top:GREEN,skin:SKIN2,dress:true})}</g>
+    <text x="518" y="190" text-anchor="middle" font-size="34" fill="${INK}">Landlord paid</text></g>
+  ${note('n5a')}
+  <g id="b5"><rect x="60" y="430" width="960" height="330" rx="36" fill="#fff"/>
+    <g transform="translate(190 590) scale(1.1)">${key}</g><g id="x5" transform="translate(285 650)">${cross(38)}</g>
+    <text x="205" y="728" text-anchor="middle" font-size="30" fill="${INK}">No keys</text>
+    <path d="M395 595 H640 m-30 -28 l30 28 l-30 28" stroke="${AMBER}" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(830 732) scale(.92)">${person()}</g>
+    <text x="518" y="550" text-anchor="middle" font-size="34" fill="${INK}">Money back to you</text></g>
+  ${note('n5b')}
+</g>
+<g id="s6">
+  <rect y="800" width="1080" height="280" fill="#e9e3d2"/>
+  <g id="house6"><g transform="translate(860 800) scale(1.15)">${house('#fff',AMBER)}</g></g>
+  <g id="you6" transform="translate(200 800)">${person()}</g>
+  <g id="card6">${leaseCard}</g>
+  ${[0,1,2].map(i=>note('n6'+i)).join('')}
+  ${chip('c6a','Back to you when you move out',540,110,{bg:GREEN,fg:'#fff',fs:38})}
+  ${chip('c6b','Unless damage is proven',540,205,{bg:AMBER,fs:36})}
+  ${chip('c6y','You',200,450,{bg:INK,fg:'#fff'})}
+</g>
+<g id="s7">
+  <rect y="800" width="1080" height="280" fill="#e9e3d2"/>
+  <path id="arc7" d="M160 400 Q540 -20 920 400" stroke="${GREEN}" stroke-width="10" stroke-dasharray="4 26" stroke-linecap="round" fill="none"/>
+  <g id="abroad7" transform="translate(160 800)">${person({top:'#4f7fbf',skin:SKIN2,dress:true})}</g>
+  <g id="you7" transform="translate(920 800)">${person()}</g>
+  ${chip('c7a','Abroad',160,450,{bg:'#fff'})}
+  ${chip('c7b','Lagos',920,450,{bg:'#fff'})}
+  ${note('n7')}
+  ${chip('c7c','No crypto knowledge needed',540,640,{bg:INK,fg:'#fff',fs:34})}
+</g>
+<g id="s8">
+  <image id="logo8" href="${P.get('logo')}" x="440" y="210" width="200" height="200"/>
+  <text id="t8a" x="540" y="560" text-anchor="middle" font-size="130" fill="#fff" class="h">Handova</text>
+  <text id="t8b" x="540" y="650" text-anchor="middle" font-size="44" fill="#d2d8d4">Rent without the agent.</text>
+  <text id="t8c" x="540" y="710" text-anchor="middle" font-size="44" fill="#d2d8d4">Without the fear.</text>
+  <text id="t8d" x="540" y="830" text-anchor="middle" font-size="42" fill="#45c985">handova-near.vercel.app</text>
+  <text id="t8e" x="540" y="890" text-anchor="middle" font-size="30" fill="#8a948f">Built on NEAR · working demo on testnet</text>
+</g>
+<g id="capg"><rect id="capbg" x="40" y="838" width="1000" height="190" rx="28" fill="#0a120e"/><text id="cap1" x="540" y="918" text-anchor="middle" font-size="50" fill="#fff"></text><text id="cap2" x="540" y="982" text-anchor="middle" font-size="50" fill="#fff"></text></g>
+<text id="brand" x="44" y="66" font-size="30" fill="#fff" fill-opacity=".85" class="h">Handova</text>`;
+
+// ---- motion helpers ----
+const $=(id)=>document.getElementById(id);
+const clamp=(x)=>Math.max(0,Math.min(1,x));
+const out=(x)=>1-Math.pow(1-clamp(x),3);
+const back=(x)=>{x=clamp(x);const c=1.70158;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
+const pop=(u,at,d=.4)=>back((u-at)/d);
+function put(id,{x=0,y=0,s=1,o=1,r=0}={}){const e=$(id);e.setAttribute('transform',`translate(${x} ${y}) rotate(${r}) scale(${s})`);e.setAttribute('opacity',o)}
+/** Show an element in place, scaling up around (cx, cy) from time `at`. */
+function popIn(id,u,at,cx,cy,d=.4){const k=pop(u,at,d);put(id,{x:cx*(1-k),y:cy*(1-k),s:k,o:clamp((u-at)/.12)})}
+/** Move a note from A to B along an arc between times a and b; gone before and after. */
+function flyNote(id,u,a,b,[x0,y0],[x1,y1],h=160,s=1){const k=clamp((u-a)/(b-a)),e=out(k);put(id,{x:x0+(x1-x0)*e,y:y0+(y1-y0)*e-Math.sin(e*Math.PI)*h,s,r:(1-e)*-18,o:u<a||u>b?0:1})}
+const mix=(a,b,k)=>{const p=(c)=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16));const A=p(a),B=p(b);return `rgb(${A.map((v,i)=>Math.round(v+(B[i]-v)*k)).join(',')})`};
+const bob=(u,f=1.6,a=5)=>Math.sin(u*f*2)*a;
+
+const S={
+ s1(u,D){
+  put('you1',{x:190,y:790+bob(u)});
+  popIn('cal',u,2.3,540,240);
+  for(let i=0;i<12;i++)$('c'+i).setAttribute('fill',u>2.9+i*.19?AMBER:'#e3e6e2');
+  popIn('c1y',u,.3,190,450);popIn('agent1',u,5.3,590,790);popIn('c1a',u,5.45,590,450);
+  popIn('str1',u,6.7,880,790);
+  for(let i=0;i<7;i++){const a=3.4+i*.6;flyNote('n1'+i,u,a,a+1,[230,590],i<5?[880,590]:[590,590],200)}
+ },
+ s2(u,D){
+  put('you2',{x:190,y:790});
+  popIn('c2a',u,.35,560,400);
+  $('str2').setAttribute('opacity',1-clamp((u-1.5)/.6));
+  $('c2a').setAttribute('opacity',Math.min(clamp((u-.35)/.12),1-clamp((u-1.6)/.5)));
+  popIn('key2',u,2.0,790,300);popIn('c2b',u,2.1,790,180);
+  popIn('c2c',u,3.7,540,560,.3);
+ },
+ s3(u,D){
+  popIn('ph3',u,.05,540,400,.55);
+  put('you3',{x:150+out(u/.6)*0,y:800+bob(u)});put('ll3',{x:930,y:800+bob(u+.6)});
+  popIn('c3a',u,1.5,150,450);popIn('c3l',u,1.8,930,450);popIn('c3b',u,3.6,540,660,.3);
+ },
+ s4(u,D){
+  put('you4',{x:140,y:800+bob(u)});put('ll4',{x:940,y:800+bob(u+.6)});
+  popIn('vault4',u,.05,540,500,.5);
+  const shut=out((u-2.5)/.25);
+  put('lock4',{x:540,y:330,o:clamp((u-.3)/.2)});put('shackle',{y:-34+shut*34});
+  for(let i=0;i<5;i++){const a=.7+i*.34;flyNote('n4'+i,u,a,a+.8,[180,600],[540,500],170,1-.3*clamp((u-a)/.8))}
+  popIn('c4a',u,1.7,540,130);
+  popIn('x4a',u,4.6,940,650);popIn('c4b',u,4.7,880,400);popIn('c4y',u,.1,140,450);
+  popIn('c4c',u,6.0,540,735);
+ },
+ s5(u,D){
+  popIn('a5',u,.05,540,235,.45);
+  $('t5a').setAttribute('transform',`translate(300 150) scale(${pop(u,2.4)})`);
+  flyNote('n5a',u,2.9,4.0,[400,235],[760,235],40);
+  popIn('b5',u,4.1,540,595,.4);
+  $('x5').setAttribute('transform',`translate(285 650) scale(${pop(u,4.5)})`);
+  flyNote('n5b',u,5.0,6.1,[400,595],[760,595],40);
+ },
+ s6(u,D){
+  const hold=out((u-3.1)/.8);
+  const k=pop(u,.15,.5);
+  put('card6',{x:540-60*hold,y:330+80*hold,s:k*(1-.3*hold),o:clamp(u/.15),r:-3+3*hold});
+  put('you6',{x:200,y:800+bob(u)});
+  const walk=out((u-.1)/.4);$('house6').setAttribute('opacity',walk);
+  popIn('c6a',u,4.7,540,110);
+  for(let i=0;i<3;i++){const a=5.2+i*.5;flyNote('n6'+i,u,a,a+1,[420,520],[300,650],30)}
+  popIn('c6b',u,8.0,540,205);popIn('c6y',u,.2,200,450);
+ },
+ s7(u,D){
+  put('abroad7',{x:160,y:800+bob(u)});put('you7',{x:920,y:800+bob(u+.6)});
+  $('arc7').setAttribute('stroke-dashoffset',-u*60);
+  popIn('c7a',u,.1,160,450);popIn('c7b',u,.25,920,450);
+  const e=out((u-.4)/1.5),a=1-e;const x=a*a*160+2*a*e*540+e*e*920,y=a*a*400+2*a*e*-20+e*e*400;
+  put('n7',{x,y,o:u>.4&&u<1.95?1:0});
+  popIn('c7c',u,2.0,540,640);
+ },
+ s8(u,D){
+  const k=pop(u,.1,.5);$('logo8').setAttribute('transform',`translate(${540*(1-k)} ${310*(1-k)}) scale(${k})`);
+  [['t8a',.4],['t8b',1.1],['t8c',1.7],['t8d',2.5],['t8e',2.9]].forEach(([id,at])=>{$(id).setAttribute('opacity',clamp((u-at)/.3))});
+ }
+};
+const IDS=Object.keys(S);
+let TL; // {scenes:[{id,start,end}],caps:[{a,b,lines}]}
+function bgAt(t){
+  const [s1,s2,s3,s4,s5,s6,s7,s8]=TL.scenes;
+  if(t<s2.start)return mix('#16322a','#16322a',0);
+  if(t<s3.start)return mix('#16322a','#2a1416',clamp((t-s2.start)/.6));
+  if(t<s8.start)return mix('#2a1416',CREAM,clamp((t-s3.start+.1)/.5));
+  return mix(CREAM,'#0d1611',clamp((t-s8.start+.1)/.5));
+}
+window.setup=(tl)=>{TL=tl};
+window.seek=(t)=>{
+  $('bg').setAttribute('fill',bgAt(t));
+  for(const sc of TL.scenes){
+    const e=$(sc.id),on=t>=sc.start-.2&&t<sc.end+.2;
+    e.setAttribute('display',on?'inline':'none');if(!on)continue;
+    e.setAttribute('opacity',Math.min(clamp((t-sc.start+.2)/.3),clamp((sc.end+.2-t)/.3)));
+    S[sc.id](t-sc.start,sc.end-sc.start);
+  }
+  const c=TL.caps.find(c=>t>=c.a&&t<c.b);
+  $('capg').setAttribute('display',c?'inline':'none');
+  if(c){$('cap1').textContent=c.lines[0];$('cap2').textContent=c.lines[1]||'';
+    const two=!!c.lines[1];$('cap1').setAttribute('y',two?920:951);$('capbg').setAttribute('y',two?838:878);$('capbg').setAttribute('height',two?190:110)}
+  const dark=t<TL.scenes[2].start||t>=TL.scenes[7].start;
+  $('brand').setAttribute('fill',dark?'#fff':INK);$('brand').setAttribute('display',t>=TL.scenes[7].start?'none':'inline');
+};
+</script></body></html>
