@@ -7,11 +7,13 @@ Run Handova end to end on your own testnet accounts. Every step says what to run
 - [near CLI](https://github.com/near/near-cli-rs) (`near --version` → near-cli-rs 0.30+)
 - [Bun](https://bun.sh) 1.3+
 
-## 1. Contract tests (about 1 minute)
+## 1. Contract tests (about 15 minutes the first time, 2 minutes after)
 ```sh
 cd contract && cargo test
 ```
 Expect `test result: ok. 42 passed` (unit) and `test result: ok. 3 passed` (sandbox: a local NEAR node with a real NEP-141 token).
+
+The first build downloads a NEAR sandbox binary. If it stops with `failed to run custom build command for near-workspaces`, run `cargo test` again (this happened once in two clean builds).
 
 ## 2. Your own deployment (about 2 minutes)
 ```sh
