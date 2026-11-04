@@ -47,6 +47,7 @@ const landingT0 = Date.now();
 const landingPage = await landingCtx.newPage();
 await landingPage.goto(URL);
 await landingPage.getByRole('heading', { name: 'Homes' }).waitFor();
+await landingPage.waitForFunction(() => document.images.length > 1 && [...document.images].every((i) => i.complete && i.naturalWidth > 0));
 await pause(2500); // listings and fonts settle
 const landing = { start: Date.now() - landingT0, hello: duration.hello, intro: duration.intro, gap: 600 };
 await pause(landing.gap + duration.hello + landing.gap);

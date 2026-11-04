@@ -122,11 +122,12 @@ const main = join(TMP, 'main.mp4');
 ff([...phones.flatMap((who) => ['-i', video(who)]), ...audioInputs.flatMap((p) => ['-i', p]), '-filter_complex', f, '-map', '[v]', '-map', '[a]', ...ENC, '-t', String(total), main]);
 
 // Tighten the silences: while nobody speaks (a transaction confirming, a page loading) the footage is
-// fast-forwarded so each pause lasts about GAP_SECS, between 1.5× and 8× speed. Narration plays at 1×.
+// fast-forwarded so each pause lasts about GAP_SECS, between 1.5× and 20× speed. Narration plays at 1×.
+// The setup before the first line is skipped: the phones are only opening.
 const GAP_SECS = Number(process.env.DEMO_GAP_SECS ?? 0.6);
 const clipSecs = (p) => Number(execFileSync('afinfo', [p]).toString().match(/estimated duration: ([\d.]+)/)[1]);
 const segments = [];
-let at = 0;
+let at = Math.max(0, tl.captions[0].start / 1000 - GAP_SECS);
 tl.captions.forEach((c, i) => {
   const s = c.start / 1000;
   if (s > at) segments.push({ from: at, to: s, speed: null });
@@ -135,7 +136,7 @@ tl.captions.forEach((c, i) => {
   at = speechEnd;
 });
 if (total > at) segments.push({ from: at, to: total, speed: null });
-for (const g of segments) if (g.speed === null) g.speed = Math.min(8, Math.max(1.5, (g.to - g.from) / GAP_SECS));
+for (const g of segments) if (g.speed === null) g.speed = Math.min(20, Math.max(1.5, (g.to - g.from) / GAP_SECS));
 const tight = join(TMP, 'main-tight.mp4');
 const parts = segments.filter((g) => g.to - g.from > 0.05);
 let tf = '';

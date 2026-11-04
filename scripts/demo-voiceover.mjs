@@ -25,7 +25,7 @@ export const SCRIPT = {
   mm2: "Mum now holds a lease NFT. It carries the right to her caution fee, and its picture and status are drawn on chain.",
   mm3: "And Handova speaks her language: Yoruba, Hausa, Igbo, Pidgin or English.",
   ll5: "Ade withdraws his rent, in full.",
-  ll5b: "And he can cash it out to his exchange, as USDT on TRON, through NEAR Intents.",
+  ll5b: "Cash-out to USDT on TRON is a live quote. On testnet, nothing is sent.",
   mm4: "Months later, Mum has to move to Abuja. Instead of losing the rest of her rent, she offers her lease to a new tenant.",
   ll6: "Ade checks Tolu's rental passport. A lease never changes hands without him, so he agrees, to Tolu and nobody else.",
   to1: "Tolu needs a flat. He finds the lease on the home page, and asks to take it over.",
