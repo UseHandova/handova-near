@@ -6,6 +6,8 @@
 import { teraToGas } from 'near-api-js';
 import { deploy } from './config';
 import { relayer, summarize, view } from './chain';
+import { BASELINE_FILE } from './inspect';
+import { hasBaseline, rememberBaseline } from './baselines';
 
 interface Timeouts {
   handover_claim_secs: number;
@@ -20,6 +22,9 @@ export interface LeaseLike {
   move_in_dispute: string | null;
   move_in_dispute_at_ms?: number | null;
   landlord?: string;
+  listing_id?: number;
+  /** Verified when the tenant paid; the contract needs this and a badge that still stands. */
+  landlord_verified?: boolean;
   move_out_at_ms: number | null;
   dispute: { opened_at_ms: number } | null;
 }
@@ -34,6 +39,18 @@ export function dueAction(l: LeaseLike, t: Timeouts, nowMs: number, landlordVeri
   return null;
 }
 
+/** The contract's rule: verified when the tenant paid, and still verified now. */
+export function silenceClaimOpen(l: LeaseLike, badgeNow: boolean): boolean {
+  return !!l.landlord_verified && badgeNow;
+}
+
+/** Keep the listing as it stood at the start of the lease, for the move-out inspection. */
+async function snapshotListing(l: LeaseLike) {
+  if (l.listing_id == null || hasBaseline(BASELINE_FILE(), l.id)) return;
+  const listing = await view<{ property_ref?: string } | null>(deploy.escrow, 'get_listing', { listing_id: l.listing_id }).catch(() => null);
+  if (listing?.property_ref != null) rememberBaseline(BASELINE_FILE(), l.id, listing.property_ref, Date.now());
+}
+
 export async function runKeeperOnce(log = console.log): Promise<number> {
   if (!relayer) return 0;
   const { timeouts } = await view<{ timeouts: Timeouts }>(deploy.escrow, 'get_config');
@@ -41,8 +58,9 @@ export async function runKeeperOnce(log = console.log): Promise<number> {
   for (let from = 0; ; from += 100) {
     const page = await view<LeaseLike[]>(deploy.escrow, 'get_leases', { from_index: from, limit: 100 });
     for (const l of page) {
-      const verified = await view<boolean>(deploy.escrow, 'is_verified', { account_id: l.landlord }).catch(() => false);
-      const method = dueAction(l, timeouts, Date.now(), verified);
+      if (l.status === 'Pending' || l.status === 'Active') await snapshotListing(l);
+      const badge = await view<boolean>(deploy.escrow, 'is_verified', { account_id: l.landlord }).catch(() => false);
+      const method = dueAction(l, timeouts, Date.now(), silenceClaimOpen(l, badge));
       if (!method) continue;
       const outcome = await relayer.callFunctionRaw({ contractId: deploy.escrow, methodName: method, args: { lease_id: l.id }, gas: teraToGas('50') }).catch((e: Error) => e);
       if (outcome instanceof Error) log(`keeper: ${method}(${l.id}) failed: ${outcome.message}`);

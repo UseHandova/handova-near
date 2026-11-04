@@ -47,11 +47,11 @@ export function MintbaseListing({ lease, holder, onChange }: { lease: Lease; hol
     if (!session) return;
     setBusy('list');
     try {
-      // 1. The market's listing storage (0.01 NEAR, from this account). 2. Approve the market to sell the NFT.
-      const s = await session.call(market!, 'deposit_storage', {}, { deposit: 10n * MILLINEAR, gas: teraToGas('30') });
+      // Paid by this account: the relayer doesn't carry NEAR deposits. 1. The market's storage. 2. Approve the market to sell the NFT.
+      const s = await session.callDirect(market!, 'deposit_storage', {}, { deposit: 10n * MILLINEAR, gas: teraToGas('30') });
       if (!s.ok) throw new Error(s.error ?? "Mintbase's market didn't accept the storage deposit.");
       const msg = JSON.stringify({ price: price.toString(), ft_contract: cfg.token });
-      const a = await session.call(cfg.escrow, 'nft_approve', { token_id: String(lease.id), account_id: market, msg }, { deposit: 5n * MILLINEAR, gas: teraToGas('100') });
+      const a = await session.callDirect(cfg.escrow, 'nft_approve', { token_id: String(lease.id), account_id: market, msg }, { deposit: 5n * MILLINEAR, gas: teraToGas('100') });
       if (!a.ok) throw new Error(a.error ?? 'Listing on Mintbase did not go through.');
       toast('ok', `Listed on Mintbase's market for ${usd(usdc(price))}.`, txUrl(a.hash));
       load();
@@ -100,7 +100,7 @@ export function MintbaseListing({ lease, holder, onChange }: { lease: Lease; hol
         </button>
       )}
       <p className="text-xs text-faint">
-        Listing uses 0.01 NEAR of your balance for the market's storage. Mintbase takes 1% of a sale; Handova's own takeover above has no fee.{' '}
+        Listing isn't gasless: you sign it and pay from your own NEAR, so your account needs about 0.2 NEAR first (new accounts hold less). Handova's own takeover above is gasless and has no fee; Mintbase takes 1% of a sale.{' '}
         <a className="inline-flex items-center gap-0.5 font-semibold text-accent" href={explorer} target="_blank" rel="noreferrer">{market} <ExternalLink className="h-3 w-3" /></a>
       </p>
     </div>

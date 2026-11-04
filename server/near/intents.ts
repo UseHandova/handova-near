@@ -1,7 +1,7 @@
 /**
  * Pay from any chain with NEAR Intents (1Click API).
  *
- * 1. Quote: "deliver exactly X USDC to <payer>.handova.near; I'll pay in USDC on Base".
+ * 1. Quote: "deliver exactly X USDC to <the payer's NEAR account>; I'll pay in USDC on Base".
  * 2. The payer sends the quoted amount to the deposit address from any wallet on that chain.
  * 3. 1Click swaps/bridges and delivers USDC to the payer's NEAR account.
  * 4. The app pays the escrow from that account with a gasless `ft_transfer_call`.

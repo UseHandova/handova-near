@@ -47,7 +47,7 @@ test('voice-note style text → NEAR AI draft with a verified TEE receipt → pu
   await expect(ll.locator('#a')).toHaveValue(/Surulere/);
   await expect(ll.locator('#r')).toHaveValue('900000');
   await expect(ll.locator('#cf')).toHaveValue('100000');
-  await expect(ll.getByText('Drafted privately in a verified NEAR AI enclave')).toBeVisible();
+  await expect(ll.getByText('Drafted by NEAR AI, receipt checked')).toBeVisible();
   await ll.getByRole('button', { name: /Publish on NEAR/ }).click();
   await ll.waitForURL(/#\/home\/\d+/);
   const listing = await chain.listing(Number(ll.url().split('/').pop()));

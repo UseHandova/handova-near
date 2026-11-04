@@ -1,4 +1,4 @@
-import { act, activeLease, chain, expect, faucet, openLease, signUp, test, toast } from './helpers';
+import { act, activeLease, chain, expect, faucet, fundNear, openLease, signUp, test, toast } from './helpers';
 
 test('landlord cash-out: live NEAR Intents quote to USDT on TRON; a wrong address is refused', async ({ phone }) => {
   const ll = await phone('landlord');
@@ -33,6 +33,11 @@ test("lease sold on Mintbase's market: listed after the landlord agrees, bought 
   await act(by, leaseId, /Ask to take over this lease/, /Asked/);
   await act(ll, leaseId, /Agree to .* taking over/, /Agreed/);
 
+  // Listing isn't gasless: without NEAR of its own, a new account is told what to do.
+  await openLease(tn, leaseId);
+  await tn.getByRole('button', { name: /Also list on Mintbase/ }).click();
+  await toast(tn, /too little NEAR/);
+  await fundNear(tenant, '0.2');
   await openLease(tn, leaseId);
   await tn.getByRole('button', { name: /Also list on Mintbase/ }).click();
   await toast(tn, /Listed on Mintbase/);
@@ -61,7 +66,7 @@ test('AI move-out inspection: the landlord adds a photo, NEAR AI advises with a 
   await ll.getByRole('button', { name: /Compare with NEAR AI/ }).click();
   await toast(ll, /NEAR AI compared the photos/);
   await expect(ll.getByText(/Suggested: landlord keeps/)).toBeVisible();
-  await expect(ll.getByText('Verified NEAR AI receipt')).toBeVisible();
+  await expect(ll.getByText("Receipt checked against NEAR AI's report")).toBeVisible();
   // The tenant sees the same advice.
   await openLease(tn, leaseId);
   await expect(tn.getByText(/Suggested: landlord keeps/)).toBeVisible();

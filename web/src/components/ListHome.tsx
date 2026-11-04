@@ -187,9 +187,9 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
           {transcript && <p className="rounded-xl bg-muted p-3 text-sm"><b>We heard:</b> {transcript}</p>}
           {receipt && (
             <details className="rounded-xl bg-accent-soft p-3 text-sm">
-              <summary className="flex cursor-pointer items-center gap-2 font-semibold text-accent"><ShieldCheck className="h-4 w-4" /> {receipt.verified ? 'Drafted privately in a verified NEAR AI enclave' : 'Drafted by NEAR AI (verification incomplete)'}</summary>
+              <summary className="flex cursor-pointer items-center gap-2 font-semibold text-accent"><ShieldCheck className="h-4 w-4" /> {receipt.verified ? 'Drafted by NEAR AI, receipt checked' : 'Drafted by NEAR AI (verification incomplete)'}</summary>
               <div className="mt-2 space-y-1 text-xs text-ink2">
-                <p>Model <b>{receipt.model}</b> ran inside a TEE. The enclave signed the hashes of our exact request and its answer; we checked the signature and that the key is in the model's attestation report.</p>
+                <p>Model <b>{receipt.model}</b> signed the hashes of our exact request and its answer. We checked the signature and that the key is in NEAR AI's attestation report; we don't verify the hardware quote ourselves.</p>
                 <p>Hashes match: {String(receipt.checks.hashesMatch)} · Signature valid: {String(receipt.checks.signatureValid)} · Key attested: {String(receipt.checks.keyAttested)}</p>
                 <p className="mono">Signer {receipt.signingAddress}</p>
                 <a className="font-semibold text-accent" href={receipt.attestationUrl} target="_blank" rel="noreferrer">Attestation report</a>

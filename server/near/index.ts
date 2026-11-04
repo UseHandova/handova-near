@@ -58,6 +58,13 @@ export function mountNear(app: Express) {
     }
   });
 
+  /** What the server sees as this caller's address, to check rate limits behind Vercel. Admin-only. */
+  app.get('/api/near/ip-check', (req, res) => {
+    const secret = env('ADMIN_SECRET');
+    if (!secret || req.headers.authorization !== `Bearer ${secret}`) return res.status(401).json({ error: 'Admin only' });
+    res.json({ ip: req.ip, forwardedFor: req.headers['x-forwarded-for'] ?? null, realIp: req.headers['x-real-ip'] ?? null, vercel: req.headers['x-vercel-forwarded-for'] ?? null });
+  });
+
   /** Run the timeout keeper now (it also runs every 10 minutes). Admin-only. */
   app.post('/api/near/keeper/run', async (req, res) => {
     const secret = env('ADMIN_SECRET');

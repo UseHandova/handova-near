@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { dueAction, type LeaseLike } from './keeper';
+import { dueAction, silenceClaimOpen, type LeaseLike } from './keeper';
 
 const t = { handover_claim_secs: 3 * 86400, move_out_review_secs: 7 * 86400, dispute_secs: 7 * 86400 };
 const DAY = 86_400_000;
@@ -19,4 +19,11 @@ test('keeper triggers only what the rules allow', () => {
   // A disputed handover the arbiter ignores refunds the payer.
   expect(dueAction({ ...base, handover_at_ms: 0, move_in_dispute: 'no keys', move_in_dispute_at_ms: DAY }, t, 7 * DAY)).toBeNull();
   expect(dueAction({ ...base, handover_at_ms: 0, move_in_dispute: 'no keys', move_in_dispute_at_ms: DAY }, t, 8 * DAY)).toBe('settle_move_in_timeout');
+});
+
+test('a silence claim needs the badge at payment and now, as the contract does', () => {
+  expect(silenceClaimOpen({ ...base, landlord_verified: true }, true)).toBe(true);
+  expect(silenceClaimOpen({ ...base, landlord_verified: false }, true)).toBe(false); // badge came after payment
+  expect(silenceClaimOpen({ ...base, landlord_verified: true }, false)).toBe(false); // badge revoked
+  expect(silenceClaimOpen(base, true)).toBe(false);
 });

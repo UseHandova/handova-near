@@ -1,6 +1,6 @@
 /**
- * Named accounts for people without a NEAR wallet: `ada.handova.testnet` (`ada.handova.near` on
- * mainnet). The key pair is generated on the user's device; the server only ever sees the public
+ * Named accounts for people without a NEAR wallet: `ada.<accountParent>`, with the parent from
+ * deploy/<network>.json (`handova.testnet` on testnet; no mainnet parent exists yet). The key pair is generated on the user's device; the server only ever sees the public
  * key and adds it as the account's full-access key, so the user owns the account outright.
  *
  * The server funds a little NEAR for storage and registers the account with USDC so payouts can

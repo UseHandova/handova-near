@@ -20,7 +20,7 @@ const fromBase64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0
 const SEVERITY: Record<string, string> = { major: 'bg-danger/15 text-danger', moderate: 'bg-warn/15 text-warn', minor: 'bg-muted text-ink2' };
 
 /**
- * NEAR AI move-out inspection: listing photos vs move-out photos, with a verified TEE receipt. Advice for the
+ * NEAR AI move-out inspection: listing photos vs move-out photos, with a signed receipt. Advice for the
  * landlord, the tenant and the council; it never moves money.
  */
 export function InspectionPanel({ lease, holder, onSuggest }: { lease: Lease; holder: string; onSuggest?: (usdcAmount: string) => void }) {
@@ -106,7 +106,7 @@ export function InspectionPanel({ lease, holder, onSuggest }: { lease: Lease; ho
             <button className="btn-ghost w-full !py-2 text-sm" onClick={() => onSuggest(((caution * latest.result.suggestedDeductionPercent) / 100).toFixed(2))}>Use this amount</button>
           )}
           <p className="flex flex-wrap items-center gap-x-2 text-xs text-faint">
-            {latest.receipt.verified && <span className="inline-flex items-center gap-1 font-semibold text-accent"><BadgeCheck className="h-3.5 w-3.5" />Verified NEAR AI receipt</span>}
+            {latest.receipt.verified && <span className="inline-flex items-center gap-1 font-semibold text-accent"><BadgeCheck className="h-3.5 w-3.5" />Receipt checked against NEAR AI's report</span>}
             <span>{latest.receipt.model} · asked by {shortAccount(latest.requestedBy)} · {new Date(latest.at).toLocaleString()}</span>
             <a className="inline-flex items-center gap-0.5" href={latest.receipt.attestationUrl} target="_blank" rel="noreferrer">attestation <ExternalLink className="h-3 w-3" /></a>
           </p>

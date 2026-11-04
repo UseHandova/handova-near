@@ -16,5 +16,9 @@ export default defineConfig({
     fs: { allow: [fileURLToPath(new URL('..', import.meta.url))] },
     proxy: { '/api': process.env.VITE_API_PROXY ?? 'http://localhost:3001' },
   },
-  build: { outDir: fileURLToPath(new URL('../dist/web', import.meta.url)), emptyOutDir: true },
+  build: {
+    outDir: fileURLToPath(new URL('../dist/web', import.meta.url)),
+    emptyOutDir: true,
+    rollupOptions: { output: { manualChunks: { react: ['react', 'react-dom'], near: ['near-api-js'], wallets: ['@hot-labs/near-connect'] } } },
+  },
 });

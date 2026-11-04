@@ -62,7 +62,7 @@ export function CashOut({ balance }: { balance: bigint | null }) {
     if (!session || !addr) return;
     setBusy('send');
     try {
-      await session.call(cfg.token, 'storage_deposit', { account_id: addr, registration_only: true }, { deposit: 1_250_000_000_000_000_000_000n, gas: teraToGas('30') });
+      await session.callDirect(cfg.token, 'storage_deposit', { account_id: addr, registration_only: true }, { deposit: 1_250_000_000_000_000_000_000n, gas: teraToGas('30') });
       const r = await session.call(cfg.token, 'ft_transfer', { receiver_id: addr, amount: units.toString(), memo: 'Handova cash-out' }, { deposit: 1n, gas: teraToGas('30') });
       if (!r.ok) throw new Error(r.error ?? 'The transfer did not go through. Nothing was sent.');
       toast('ok', `Sent. ${quote!.quote.amountOutFormatted} ${token?.symbol} should arrive in about ${Math.ceil(quote!.quote.timeEstimate / 60)} min.`, txUrl(r.hash));

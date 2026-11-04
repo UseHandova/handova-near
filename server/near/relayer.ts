@@ -68,10 +68,12 @@ export interface Policy {
   payoutDeposit?: (sender: string, address: string) => boolean;
 }
 
-const MILLINEAR = 10n ** 21n;
-/** Most a user may attach for NEP-178 approval storage / the market's listing storage (their own NEAR). */
-const MAX_APPROVE_DEPOSIT = 10n * MILLINEAR;
-const MAX_MARKET_STORAGE = 20n * MILLINEAR;
+/**
+ * NEAR attached inside a delegate action is paid by the relayer, and refunded to the sender if the call
+ * fails. So the relayer only forwards the 1 yocto some standards require; anything that needs real NEAR
+ * (storage deposits, NEP-178 approvals) is signed and paid by the account itself.
+ */
+const MAX_DEPOSIT = 1n;
 
 function jsonArgs(fc: any): any {
   try {
@@ -97,8 +99,7 @@ export function decodeSignedDelegate(b64: string): SignedDelegate {
 export function checkDelegate(sd: SignedDelegate, policy: Policy): CheckedDelegate {
   const d: any = sd.delegateAction;
   const receiver = d.receiverId as string;
-  const toMarket = !!policy.market && receiver === policy.market;
-  if (receiver !== policy.escrow && receiver !== policy.token && !toMarket) {
+  if (receiver !== policy.escrow && receiver !== policy.token) {
     throw new Error(`Gasless is only for Handova's contracts, not ${receiver}`);
   }
   if (!d.actions?.length || d.actions.length > MAX_ACTIONS) throw new Error('Expected 1–2 actions');
@@ -111,23 +112,14 @@ export function checkDelegate(sd: SignedDelegate, policy: Policy): CheckedDelega
     const gas = BigInt(fc.gas.toString());
     totalGas += gas;
     if (totalGas > MAX_GAS_TOTAL) throw new Error('Too much gas requested');
-    if (receiver === policy.escrow && fc.methodName === 'nft_approve') {
-      // Listing a lease on Mintbase's market: approvals only for that market, small storage deposit.
-      if (!policy.market || jsonArgs(fc).account_id !== policy.market) throw new Error("Gasless approvals are only for Mintbase's market");
-      if (deposit > MAX_APPROVE_DEPOSIT) throw new Error('Too much NEAR attached to nft_approve');
-    } else if (receiver === policy.escrow) {
+    if (deposit > MAX_DEPOSIT) throw new Error(`Gasless calls can't attach NEAR (${fc.methodName}). Sign it from your own account`);
+    if (receiver === policy.escrow) {
       if (!ESCROW_METHODS.has(fc.methodName)) throw new Error(`${fc.methodName} can't be sent gaslessly`);
       if (deposit !== 0n) throw new Error(`Gasless calls can't attach NEAR (${fc.methodName})`);
-    } else if (toMarket) {
-      if (fc.methodName !== 'deposit_storage') throw new Error(`${fc.methodName} on the market can't be sent gaslessly`);
-      if (deposit > MAX_MARKET_STORAGE) throw new Error('Too much NEAR attached to deposit_storage');
-    } else if (fc.methodName === 'ft_transfer' || fc.methodName === 'storage_deposit') {
-      // Cash-out: USDC to the NEAR Intents deposit address this server issued to the sender (plus its storage).
-      const args = jsonArgs(fc);
-      const to = fc.methodName === 'ft_transfer' ? args.receiver_id : args.account_id;
-      if (!policy.payoutDeposit?.(d.senderId, to)) throw new Error('Only payments into the Handova escrow are gasless');
-      if (fc.methodName === 'ft_transfer' && deposit !== 1n) throw new Error('ft_transfer needs exactly 1 yoctoNEAR');
-      if (fc.methodName === 'storage_deposit' && deposit > MAX_APPROVE_DEPOSIT) throw new Error('Too much NEAR attached to storage_deposit');
+    } else if (fc.methodName === 'ft_transfer') {
+      // Cash-out: USDC to the NEAR Intents deposit address this server issued to the sender.
+      if (!policy.payoutDeposit?.(d.senderId, jsonArgs(fc).receiver_id)) throw new Error('Only payments into the Handova escrow are gasless');
+      if (deposit !== 1n) throw new Error('ft_transfer needs exactly 1 yoctoNEAR');
     } else {
       // Token: paying into the escrow, or buying a Handova lease NFT on Mintbase's market.
       if (fc.methodName !== 'ft_transfer_call') throw new Error('Only payments into the Handova escrow are gasless');

@@ -1,6 +1,6 @@
 import { expect, test as base, type Browser, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
-import { JsonRpcProvider } from 'near-api-js';
+import { Account, JsonRpcProvider, nearToYocto, type KeyPairString } from 'near-api-js';
 import { API, STATE_FILE, deploy, secrets } from './env';
 
 export const WAIT_SECS = 20; // the e2e deployment's waiting period for every rule
@@ -22,6 +22,12 @@ export const chain = {
 
 export function arbiter(): { accountId: string; seedPhrase: string } {
   return JSON.parse(readFileSync(STATE_FILE, 'utf8')).arbiter;
+}
+
+/** Give an account NEAR of its own, for what the relayer won't pay (Mintbase listing). */
+export async function fundNear(accountId: string, near: string) {
+  const funder = new Account(secrets.RELAYER_ACCOUNT_ID!, provider, secrets.RELAYER_PRIVATE_KEY as KeyPairString);
+  await funder.transfer({ receiverId: accountId, amount: nearToYocto(near) });
 }
 
 export async function apiPost(path: string, body: object, admin = false) {
