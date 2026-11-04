@@ -59,7 +59,7 @@ Contract methods, API routes and configuration for the escrow at `escrow-v3.hand
 | `POST /api/faucet {accountId}` | Testnet only: 2,000 test USDC |
 | `POST /api/rpc` | Same-origin JSON-RPC proxy (reads + sending signed transactions), failover across 5 providers |
 | `POST /api/media` | Listing photo upload |
-| `POST /api/near/verify-landlord` · `POST /api/near/keeper/run` | Admin (`Authorization: Bearer $ADMIN_SECRET`) |
+| `POST /api/near/verify-landlord` · `POST /api/near/keeper/run` · `GET /api/near/ip-check` | Admin (`Authorization: Bearer $ADMIN_SECRET`) |
 | `GET /api/fx` | USD→NGN rate for Naira display |
 
 ## Configuration and deployment
@@ -80,7 +80,7 @@ Contract IDs come from `deploy/<network>.json` (or `deploy/<network>.local.json`
 | `NEARAI_API_KEY` | NEAR AI Cloud (optional) |
 | `ONECLICK_JWT` | NEAR Intents partner key (optional) |
 | `MINTBASE_MARKET` | Mintbase market contract (default `market-v2-beta.mintspace2.testnet`, mainnet `simple.market.mintbase1.near`) |
-| `INSPECTION_DATA_FILE` | Where inspections are kept (persistent disk in production) |
+| `INSPECTION_DATA_FILE` | Where inspections are kept (persistent disk in production); `lease-baselines.json`, the listing recorded at the start of each lease, sits beside it |
 | `HIDDEN_LISTINGS` | Listing ids hidden from Handova's home page (comma-separated) |
 | `RELAYER_DAILY_TX`, `RATE_LIMIT_SCALE`, `KEEPER`, `NEAR_RPC_FALLBACKS` | Limits and switches |
 

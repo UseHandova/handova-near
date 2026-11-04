@@ -10,14 +10,13 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 |---|---|
 | ✅ **Real on NEAR testnet** | Escrow + lease NFT contract [`escrow-v3.handova.testnet`](https://testnet.nearblocks.io/address/escrow-v3.handova.testnet) (with a test USDC token; the account has no keys, so its code can't be changed); pay → move-in → NFT → takeover → move-out → caution to the holder ([lease #2](docs/EVIDENCE.md#one-full-lease-on-escrow-v3), team-run demo accounts); takeover and a Mintbase sale only to the buyer the landlord agreed to; gasless app actions (NEP-366); a 2-of-3 Sputnik DAO as arbiter, which has [ruled on a dispute](docs/EVIDENCE.md#a-dao-ruling-on-escrow-v3) (all three members and both votes are team accounts today) |
 | ⚠️ **Simulated** | **Pay from any chain** and **landlord cash-out** (NEAR Intents 1Click): quotes are live, but Intents has no testnet, so the deposit arriving is simulated with test USDC. No real cross-chain payment has been made |
-| ⏳ **Not proven yet** | Real use: two real Lagos homes are listed (Yaba, Ikorodu), nobody has rented through Handova. No mainnet deployment. No security audit. ID checks prove who a landlord is, not that they own the home |
+| ⏳ **Not proven yet** | Real use: two Lagos homes are listed (Yaba, Ikorodu) from one team-run, unverified account; nobody has rented through Handova. No mainnet deployment. No security audit. ID checks prove who a landlord is, not that they own the home |
 
 Who controls what (owner, arbiter, verifier, the deploy key) is in [Trust model and known limits](#trust-model-and-known-limits).
 
 **Built at NEAR HACKATHON (1–14 Nov 2026).** Tracks: `realworld`, `nfts`. Built on an earlier Arc version of Handova; only the NEAR work is the entry — see [Built before / during the hackathon](#built-before--during-the-hackathon).
 
 - 🌍 **Try it live (testnet, phone or desktop):** https://handova-near.vercel.app — web app on Vercel, API (relayer, keeper, accounts, ID checks) on Railway
-- 🎬 **Demo video (3 min, real testnet, four phones, Nigerian narrator):** YOUTUBE_LINK
 - 🧪 **Reproduce it yourself:** [`REPRODUCE.md`](REPRODUCE.md) — three commands, your own testnet accounts, no keys from us
 - 📜 **Contract:** [`contract/src/`](contract/src) · **Server:** [`server/near/`](server/near) · **Web app:** [`web/src/`](web/src) · **Browser tests:** [`e2e/`](e2e)
 
@@ -25,7 +24,7 @@ Who controls what (owner, arbiter, verifier, the deploy key) is in [Trust model 
 
 | ![Home](docs/screenshots/01-home.png) | ![NEAR AI listing draft](docs/screenshots/02-ai-draft.png) | ![Pay from any chain](docs/screenshots/04-intents-quote.png) | ![Lease NFT](docs/screenshots/06-lease-nft.png) |
 |---|---|---|---|
-| Homes, priced in Naira | Voice note → listing (NEAR AI, verified TEE) | Pay from Base, Solana… (NEAR Intents; live quote, deposit simulated on testnet) | Lease NFT holding the caution fee |
+| Homes, priced in Naira | Voice note → listing (NEAR AI, signed receipt) | Pay from Base, Solana… (NEAR Intents; live quote, deposit simulated on testnet) | Lease NFT holding the caution fee |
 | ![Landlord consents to a takeover](docs/screenshots/10-landlord-consent.png) | ![Take over a lease](docs/screenshots/11-takeover-offers.png) | ![DAO arbiter](docs/screenshots/12-dao-arbiter.png) | ![Rental passport](docs/screenshots/13-passport.png) |
 | Landlord sees the next tenant's passport and agrees to them | Leases offered for takeover | Disputes go to a 2-of-3 DAO vote | The tenant's rental passport |
 
@@ -57,7 +56,7 @@ Who controls what (owner, arbiter, verifier, the deploy key) is in [Trust model 
 | 6 | Ade withdraws the full rent | pull-based `withdraw` |
 | 7 | Mum moves out; Ade approves; the caution goes to the NFT holder | `move_out`, `approve_move_out` |
 
-Every step is in the [demo video](YOUTUBE_LINK) (four phones side by side — landlord, nurse abroad, mum, next tenant — recorded from the real app on testnet with [`scripts/record-demo.mjs`](scripts/record-demo.mjs)) and in [`bun run demo:testnet`](scripts/demo-testnet.ts).
+Every step runs in [`bun run demo:testnet`](scripts/demo-testnet.ts).
 
 ## The lease NFT that holds the caution fee
 
@@ -71,7 +70,7 @@ An NFT on NEAR can't hold tokens by itself. So **one contract is both the escrow
 
 The metadata is never stored: `nft_token`, `nft_tokens` and `nft_tokens_for_owner` compute the title (`Handova lease #2 · Active`), description, `extra` JSON (`status`, `caution_held`, `ends_at_ms`…) and an SVG picture from the current lease state.
 
-NEP-171 transfers need exactly 1 yoctoNEAR, which the relayer never pays, so the holder signs a transfer directly (new accounts get 0.05 NEAR for this).
+Direct NFT transfers aren't on the relayer's list, so the holder signs and pays for them (new accounts get 0.05 NEAR).
 
 ### Selling the rest of a lease (takeover)
 
@@ -79,14 +78,14 @@ A tenant who leaves early can hand the home — and the caution right — to the
 
 1. The holder calls `offer_takeover(lease_id, price)`. The price can be 0 (a free handover to family).
 2. The next tenant calls `request_takeover(lease_id)`; the landlord sees their rental passport.
-3. The landlord calls `consent_takeover(lease_id)`, which agrees to **that** account only. A new offer clears the agreement.
+3. The landlord calls `consent_takeover(lease_id)`, which agrees to whoever is the requester when the call lands, and to nobody else after that. A new offer clears the agreement.
 4. The agreed tenant pays the price with one `usdc.ft_transfer_call(escrow, price, '{"take_over": <lease id>}')` — gasless in the app. The seller is credited the price, the NFT moves to the buyer (approvals cleared, NEP-171 `nft_transfer` event), and the buyer becomes the tenant.
 
 Offers show on the home page under **Take over a lease**. The holder can also sell through an external marketplace with standard **NEP-178** approvals and **NEP-199** payouts (tested with Mintbase), but the escrow completes the sale only to the agreed tenant. A plain `nft_transfer`, even to the holder's own second wallet, follows the same rule.
 
 ### Rental passport
 
-`rental_record(account_id)` turns the lease NFTs an account held into a record nobody can edit: leases finished, how many times the caution came back in full, caution kept for damage, homes lived in, months rented and the rent of those leases (after a takeover the buyer counts as the tenant, so the lease's rent is attributed to them). Tenants see it under **Account → My rental passport** (`#/passport/<account>`); a landlord sees a summary of the tenant's record on every lease waiting for a handover or a takeover.
+`rental_record(account_id)` turns the lease NFTs an account held into an on-chain summary: leases finished, how many times the caution came back in full, caution kept for damage, homes lived in, months rented and the rent of those leases (after a takeover the buyer counts as the tenant, so the lease's rent is attributed to them). Tenants see it under **Account → My rental passport** (`#/passport/<account>`); a landlord sees a summary of the tenant's record on every lease waiting for a handover or a takeover.
 
 ## Escrow rules and lease states
 
@@ -137,11 +136,16 @@ Each lease records its arbiter and whether the landlord was verified at the mome
 
 - **Silence claims:** an ID-verified landlord who marks a false handover is paid if the tenant doesn't dispute within 3 days. ID is not proof of ownership or of handing over the keys. A tenant who loses their phone or is offline for 3 days can lose the rent.
 - **Lease transfers:** every route (`nft_transfer`, `nft_transfer_call`, the in-app takeover, a Mintbase/NEP-199 sale) moves the NFT only to the account the landlord agreed to. A new offer clears the agreement. If an `nft_transfer_call` receiver hands the NFT back, the holder keeps the lease.
+- **What the escrow doesn't protect:** the full rent leaves escrow at move-in, so after that only the caution is held. The token is test USDC, and there is no naira on-ramp: a Lagos tenant has no path from naira to USDC in the app. The lease NFT is a right inside this contract, not a legal tenancy right; assigning a tenancy would still need a real agreement between the people involved.
 - **Dispute timeout:** if nobody settles a caution dispute in 7 days, it splits 50/50, capped at the landlord's claim. That keeps money from being stuck, but it is not a fair outcome for an honest side.
-- **Rental passport:** after a takeover, the buyer is counted as the tenant of the whole lease, so the record can overstate their history.
+- **Naming the next tenant:** `consent_takeover` doesn't take a buyer. A new `request_takeover` that lands just before the landlord's call replaces the requester, so the landlord can end up agreeing to someone they didn't review. Check `takeover.buyer` after agreeing.
+- **Payment terms:** the payment message names the listing, not its terms. A landlord can change the term or the listing's details just before a tenant's payment lands.
+- **Inspection photos:** a landlord can edit a listing's photos during a lease. Handova's server records the listing when it first sees a lease and the AI inspection uses that copy, saying if it had to use the current listing. That record is on our server, not on-chain.
+- **Rental passport:** it counts a lease's full term and rent even if the tenant left at once, and after a takeover it counts the buyer as tenant for the whole lease. Two cooperating accounts can build a history cheaply, so treat it as a record of on-chain activity, not proof of good tenancy.
+- **AI receipts:** the server checks that the answer's signature matches a signing address in NEAR AI's attestation report, fetched from NEAR AI. It doesn't verify the TDX or GPU quote itself, so this relies on NEAR AI's report.
 - **Contract:** pull payments; balance restored on failed `ft_transfer`; every waiting state has a timeout. **Accounting:** `total_held` = all USDC locked on leases + all withdrawable balances. It rises only when USDC enters through `ft_transfer_call` (rent, caution, takeover price) and falls only on `withdraw`, which subtracts first and adds back if the transfer fails. So the contract's USDC balance is never below `total_held`. They are equal except while a withdrawal is in flight, or if someone sends USDC with plain `ft_transfer`, which nothing can claim. The sandbox tests check equality after each settled step.
-- **Relayer** ([`relayer.ts`](server/near/relayer.ts)): only function calls to the escrow (fixed method list, zero NEAR attached) or `ft_transfer_call` on USDC (exactly 1 yocto) whose `receiver_id` is the escrow; the ed25519 signature is verified offline and the key must be on the sender's account; arbiter rulings only for the arbiter; total gas ≤ 300 Tgas; per-sender, per-IP and daily limits; balance checks before spending. Also allowed: `nft_approve` only for Mintbase's market (≤ 0.01 NEAR of the user's own balance), `deposit_storage` on that market (≤ 0.02 NEAR), USDC `ft_transfer_call` to the market only when it buys a Handova lease, and cash-out `ft_transfer` only to a NEAR Intents deposit address issued to that same sender within the hour.
-- **Gas:** app actions are gasless. Direct NFT transfers are not: NEP-171 needs exactly 1 yoctoNEAR, which the relayer never attaches, so the holder signs and pays (new accounts get 0.05 NEAR for this).
+- **Relayer** ([`relayer.ts`](server/near/relayer.ts)): NEAR attached inside a relayed call is paid by the relayer, and a failed call refunds it to the sender, so the relayer forwards nothing above the 1 yocto that `ft_transfer_call` and `ft_transfer` require. It allows only: escrow calls (fixed method list, zero NEAR), USDC `ft_transfer_call` to the escrow or to Mintbase's market buying a Handova lease, and cash-out `ft_transfer` to a NEAR Intents deposit address issued to that sender within the hour. The ed25519 signature is verified offline and the key must be on the sender's account; arbiter rulings only for that lease's arbiter; total gas ≤ 300 Tgas; per-sender, per-IP and daily limits; balance checks before spending.
+- **Gas:** escrow actions, paying, the in-app takeover and buying are gasless. Direct NFT transfers and **Mintbase listing** are not: the holder signs them and pays from their own NEAR. Listing needs about 0.2 NEAR, more than a new account's 0.05, so the app says so and asks for a top-up. Cash-out's one-time storage deposit is also self-paid.
 - **Keys:** user keys are generated in the browser and stay there (browser storage: back up the 12-word phrase). Server keys (relayer, account creator, verifier) are only in `.env` (git-ignored). Relayer, keeper, account creator and verifier run on one server.
 - **Storage:** the contract pays storage for listings and leases so users never need NEAR, and nothing in the contract charges for it: many accounts can each create 3 free listings by calling it directly (the 1 USDC minimum rent is a price, not a deposit; rate limits only cover Handova's own server). On 4 Nov 2026 the escrow had under 100 KB of free storage, which we estimate about 80 maximum-size listings would fill. If that runs out, calls that store new data, including `confirm_move_in`, fail until someone sends the account more NEAR, which anyone can do without a key.
 - **Home-page moderation:** the operator can hide test or spam listings from Handova's own home page (`HIDDEN_LISTINGS`). They stay on-chain and visible to any other NEAR client; hiding can't touch money or leases.
@@ -159,7 +163,8 @@ You'll see the 3-day/7-day rules; lease #1, sold through Mintbase's market after
 
 ### B. Contract tests (Rust only)
 ```sh
-cd contract && cargo test
+cd contract && cargo test --lib        # 42 unit tests; the first build takes about 15 minutes
+cargo test --test sandbox              # 3 sandbox tests; 2 to 7 minutes, silent while they run
 ```
 **42 unit tests** + **3 sandbox tests** (a local NEAR node with a real NEP-141 token: family pays for mum; an NFT transfer refused without the landlord's agreement, then allowed, then a 50/50 timeout; a failed withdrawal keeps the money; the contract's USDC balance equals what it owes after every step).
 
@@ -194,10 +199,8 @@ bun run setup:e2e && bunx playwright install chromium && bun run test:e2e
 |---|---|---|
 | Contract unit (`contract/src/tests.rs`) | 42 | Every escrow rule, NFT locking, caution following the NFT, takeover only to the tenant the landlord agreed to; adversarial cases: no transfer without agreement (direct, own wallet, marketplace), no buyer substitution (by request, payment, transfer or marketplace), a new offer resets agreement, a replaced arbiter can't rule on an open lease, a verifier change or revoked badge can't unlock a silence claim; NEP-178 approvals, NEP-199 marketplace payouts (refused without the landlord's consent), rental passport, verified-only silence claims, arbiter timeout and caps, listing limits, 365-day terms, failed-withdraw restore |
 | Sandbox (`contract/tests/sandbox.rs`) | 3 | Real `ft_transfer_call` with a real token on a local node; refunds; an unagreed NFT transfer fails; solvency invariant |
-| Server (`server/near/*.test.ts`) | 17 | Relayer allowlist (incl. Mintbase and cash-out rules), offline signature check, gas cap; NEP-413 hashing checked against near-api-js; keeper rules; Intents quote shapes (pay-in and cash-out); AI inspection limits; NEAR AI signer recovery from a real saved receipt |
+| Server (`server/near/*.test.ts`) | 22 | Relayer allowlist, refusal of any attached NEAR above 1 yocto, offline signature check, gas cap; NEP-413 hashing checked against near-api-js; keeper rules; Intents quote shapes (pay-in and cash-out); AI inspection limits; NEAR AI signer recovery from a real saved receipt |
 | End-to-end (`e2e/*.spec.ts`, Playwright) | 29 | A phone-sized browser drives the real app against a testnet deployment with 20-second waiting periods; balances checked on-chain after each step; any console error fails a test |
-
-The end-to-end cases: happy path; recovery phrase and restore; taken name; family pays for someone else; payer cancel and landlord decline refunds; verified landlord claims after silence; unverified landlord can't, and a silent arbiter means a refund; tenant disputes a fake handover and the arbiter rules both ways; unverified landlord escalates and the arbiter rules moved in; every caution outcome (agreement, arbiter, 50/50, tenant claim, keeper); passing the lease NFT on; listing pause/reprice; Intents quotes (Base, Solana) and simulated arrival; NEAR AI draft with a verified receipt; relayer and admin guards; **lease takeover** (offer, next tenant asks, landlord agrees, buyer pays, caution goes to the buyer); **rental passport** (record after a finished lease, shown to the next landlord); **five languages** (switch and persist); **a real 2-of-3 Sputnik DAO** deciding a caution dispute through the app (one vote isn't enough; the second executes the ruling).
 
 **Latest results on v3:**
 
@@ -221,7 +224,7 @@ The suite found real bugs that were then fixed: pages not refreshing when a dead
 Handova first existed on **Arc** (Circle's L1) as a Solidity + USDC app: [`UseHandova/Handova`](https://github.com/UseHandova/Handova), commit `16fe0e4` (21 Oct 2026). It got little traction there, so we rebuilt it on NEAR during NEAR HACKATHON. **Only the NEAR work is the hackathon entry.**
 
 - The first commit (tag **`baseline-arc`**) imports the Arc-era code unchanged, with no NEAR code and no Solidity. Later the EVM/Circle parts were **deleted** (no `@circle-fin`, wagmi, viem or ConnectKit remain); what carried over: brand assets, `server/media.ts` (photo uploads), the translation wording, and the Didit flow (adapted, see below).
-- Everything after it is hackathon work: the Rust contract (written from scratch, not ported), `server/near/`, `shared/`, `web/`, `e2e/`, `scripts/`, `deploy/`. Diff: `git diff baseline-arc..hackathon-submission --stat` (on GitHub: `compare/baseline-arc...hackathon-submission`).
+- Everything after it is hackathon work: the Rust contract (written from scratch, not ported), `server/near/`, `shared/`, `web/`, `e2e/`, `scripts/`, `deploy/`. Diff: `git diff baseline-arc..main --stat` (on GitHub: [`compare/baseline-arc...main`](https://github.com/UseHandova/handova-near/compare/baseline-arc...main)). The `hackathon-submission` tag is added when the entry is submitted; after that, use it in place of `main`.
 
 ### Libraries and AI-written code
 - Contract: `near-sdk` 5.30, `near-contract-standards` 5.30, `base64`; tests: `near-workspaces` 0.24, `tokio`.
@@ -246,16 +249,16 @@ The team also submitted **PatchBond** (refundable bonds for pull requests), an i
 | Rental passport | ✅ |
 | Arbiter as a Sputnik DAO (2-of-3 council, proposals and votes in the app) | ✅ live: `handova-council.sputnikv2.testnet`; independent members ⏳ |
 | Interface in English, Naijá, Yorùbá, Hausa, Igbo | ✅ main screens (native-speaker review pending) |
-| NEAR AI voice note → listing, with checked TEE receipt | ✅ |
+| NEAR AI voice note → listing, with a signed receipt | ✅ |
 | Pay from any chain (NEAR Intents 1Click) | ⚠️ built but **not run live**: quotes, deposit address, status polling and auto-pay are coded; on testnet the deposit is **simulated** |
 | NEAR AI document pre-check | ⚠️ API only; no admin screen yet |
 | Lease sale on Mintbase's market (NEP-199 payouts, only to the agreed tenant) | ✅ proven on `escrow-v3` with `scripts/mintbase-sale-testnet.ts` (refused before the landlord agreed, completed after; lease #1) |
 | Landlord cash-out to any chain (NEAR Intents) | ⚠️ live quotes on testnet; sending runs on mainnet only (like the payment side) |
-| AI move-out inspection (NEAR AI vision, TEE receipt) | ✅ advisory; landlord, tenant or council decide |
+| AI move-out inspection (NEAR AI vision, signed receipt) | ✅ advisory; landlord, tenant or council decide |
 | Landlord ID verification (Didit → NEP-413 → `set_verified` on NEAR) | ✅ built; live checks need Didit credits on the team's account |
 | Tenant / landlord roles chosen at sign-up, switchable | ✅ |
 | Desktop layout: grid, area tabs, pages, animations | ✅ |
-| Real landlords and tenants | ⏳ two real Lagos homes listed (Yaba, Ikorodu); no rentals yet |
+| Real landlords and tenants | ⏳ two Lagos homes listed (Yaba, Ikorodu) from one team-run account; no rentals yet |
 | Hosted demo | ✅ https://handova-near.vercel.app (web on Vercel, API on Railway). Needs paid credits to work: NEAR AI (drafts, inspection) and Didit (ID checks); the escrow flow needs neither |
 | Full translation of every screen and message | ⏳ planned |
 
@@ -289,8 +292,8 @@ Languages: the main screens are in English, Naijá (Pidgin), Yorùbá, Hausa and
 
 - **Tenants and landlords:** people choose at sign-up whether they're renting or letting (switchable on the Account page); tenants get *My rentals*, landlords get their landlord page with the Didit ID check.
 - **Landlord cash-out** to an exchange on any chain (USDT on TRON or BNB Chain, USDC on Base or Solana…) through NEAR Intents: live quotes, simulated on testnet.
-- **Mintbase:** a leaving tenant can list the lease on Mintbase's NFT market; the sale completes only if the landlord agreed (NEP-199 payouts).
-- **AI move-out inspection:** either side can ask NEAR AI to compare the listing photos with move-out photos and suggest a caution split, with a TEE receipt. Advice only.
+- **Mintbase:** a leaving tenant with about 0.2 NEAR of their own can list the lease on Mintbase's NFT market; the sale completes only to the tenant the landlord agreed to (NEP-199 payouts).
+- **AI move-out inspection:** either side can ask NEAR AI to compare the listing photos with move-out photos and suggest a caution split, with a signed receipt. Advice only.
 - **Layout:** on desktop, homes show in a grid with area tabs and pages, and detail pages split into two columns; on phones everything is one column. A listing's video plays on hover (or while on screen on a phone).
 
 ## License

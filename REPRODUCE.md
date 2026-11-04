@@ -7,13 +7,15 @@ Run Handova end to end on your own testnet accounts. Every step says what to run
 - [near CLI](https://github.com/near/near-cli-rs) (`near --version` → near-cli-rs 0.30+)
 - [Bun](https://bun.sh) 1.3+
 
-## 1. Contract tests (about 15 minutes the first time, 2 minutes after)
+## 1. Contract tests
 ```sh
-cd contract && cargo test
+cd contract
+cargo test --lib          # about 15 minutes the first time (compiling), seconds after
+cargo test --test sandbox # 2 to 7 minutes; prints nothing while the local node runs
 ```
-Expect `test result: ok. 42 passed` (unit) and `test result: ok. 3 passed` (sandbox: a local NEAR node with a real NEP-141 token).
+Expect `test result: ok. 42 passed` (unit), then `test result: ok. 3 passed` (sandbox: a local NEAR node with a real NEP-141 token). Plain `cargo test` runs both.
 
-The first build downloads a NEAR sandbox binary. If it stops with `failed to run custom build command for near-workspaces`, run `cargo test` again (this happened once in two clean builds).
+The first build downloads a NEAR sandbox binary. If it stops with `failed to run custom build command for near-workspaces`, run the command again (this happened once in two clean builds).
 
 ## 2. Your own deployment (about 2 minutes)
 ```sh
@@ -77,7 +79,7 @@ See the README, section "D. The web app", for the click path.
 ```sh
 bun run test:near
 ```
-Expect `17 pass` (6 files): the relayer allowlist (refuses other contracts, other methods, NEAR deposits, token transfers not going to the escrow, bad signatures, too much gas), the keeper's timeout rules, the Intents quote shape, and NEAR AI receipt signature recovery (checked against a real saved receipt — no API key needed).
+Expect `22 pass` (8 files): the relayer allowlist (refuses other contracts, other methods, NEAR deposits, token transfers not going to the escrow, bad signatures, too much gas), the keeper's timeout rules, the Intents quote shape, and NEAR AI receipt signature recovery (checked against a real saved receipt — no API key needed).
 
 ## End-to-end suite (optional, about 25 minutes)
 ```sh

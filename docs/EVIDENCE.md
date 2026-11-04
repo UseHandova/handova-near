@@ -8,6 +8,7 @@ Each main claim, how to check it, and what has not been shown yet. Checked on NE
 |---|---|
 | Contract | `escrow-v3.handova.testnet` |
 | Code hash on-chain | `GbfegqXYhhRVfyDUoGDbHSnvfMc4TLm5yaPmTcptA5Ri` |
+| Wasm SHA-256 (hex) | `e7c0c0ba39f68712d64befba00350895d6c3c27dc84795f4495421c633946fe1`; the on-chain code hash is this value in base58 |
 | Source | `contract/` at commit `bffbc77` (unchanged since the v3 commit `3d5aeec`) |
 | Rebuild | From a clean clone, `cd contract && cargo near build non-reproducible-wasm` gave the same hash (397,079 bytes). Tools: macOS, rustc 1.97.1, cargo-near 0.22.0. This is not a reproducible-build container, so other tools or systems may give a different hash |
 | Access keys | None: `near account list-keys escrow-v3.handova.testnet network-config testnet now` |
@@ -74,6 +75,10 @@ Both votes were signed with team keys (the owner and the verifier), so this show
 ## Test deployment
 
 Browser tests run on `escrow-v5.handova-3b5eb6e5.testnet`, which has the **same code hash** as `escrow-v3`. The difference is configuration: 20-second waiting periods instead of 3 and 7 days, and its own accounts.
+
+## Browser test cases
+
+happy path; recovery phrase and restore; taken name; family pays for someone else; payer cancel and landlord decline refunds; verified landlord claims after silence; unverified landlord can't, and a silent arbiter means a refund; tenant disputes a fake handover and the arbiter rules both ways; unverified landlord escalates and the arbiter rules moved in; every caution outcome (agreement, arbiter, 50/50, tenant claim, keeper); passing the lease NFT on; listing pause/reprice; Intents quotes (Base, Solana) and simulated arrival; NEAR AI draft with a verified receipt; relayer and admin guards; **lease takeover** (offer, next tenant asks, landlord agrees, buyer pays, caution goes to the buyer); **rental passport** (record after a finished lease, shown to the next landlord); **five languages** (switch and persist); **a real 2-of-3 Sputnik DAO** deciding a caution dispute through the app (one vote isn't enough; the second executes the ruling).
 
 ## Who holds power today
 
