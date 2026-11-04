@@ -6,7 +6,7 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 
 | | |
 |---|---|
-| ✅ **Real on NEAR testnet** | Escrow + lease NFT contract [`escrow-v3.handova.testnet`](https://testnet.nearblocks.io/address/escrow-v3.handova.testnet) (with a test USDC token; the account has no keys, so its code can't be changed); pay → move-in → NFT → move-out → caution to the holder; takeover and a Mintbase sale only to the buyer the landlord agreed to; gasless app actions (NEP-366); a 2-of-3 Sputnik DAO as arbiter (all three members are team accounts today) |
+| ✅ **Real on NEAR testnet** | Escrow + lease NFT contract [`escrow-v3.handova.testnet`](https://testnet.nearblocks.io/address/escrow-v3.handova.testnet) (with a test USDC token; the account has no keys, so its code can't be changed); pay → move-in → NFT → takeover → move-out → caution to the holder ([lease #2](docs/EVIDENCE.md#one-full-lease-on-escrow-v3), team-run demo accounts); takeover and a Mintbase sale only to the buyer the landlord agreed to; gasless app actions (NEP-366); a 2-of-3 Sputnik DAO as arbiter (all three members are team accounts today) |
 | ⚠️ **Simulated** | **Pay from any chain** and **landlord cash-out** (NEAR Intents 1Click): quotes are live, but Intents has no testnet, so the deposit arriving is simulated with test USDC. No real cross-chain payment has been made |
 | ⏳ **Not proven yet** | Real use: two real Lagos homes are listed (Yaba, Ikorodu), nobody has rented through Handova. No mainnet deployment. No security audit. ID checks prove who a landlord is, not that they own the home |
 
@@ -202,10 +202,10 @@ The end-to-end cases: happy path; recovery phrase and restore; taken name; famil
 | Suite | Needs | Result |
 |---|---|---|
 | Contract unit, sandbox, server | Nothing live (local only) | 42, 3 and 17 passed from a clean clone of `bffbc77`, 4 Nov 2026 |
-| Browser, 3 Nov 2026 | Testnet, public RPCs, NEAR AI credit | **24 passed first time; 3 passed only on rerun; 2 failed** |
+| Browser, 3–4 Nov 2026 | Testnet, public RPCs, NEAR AI credit | **All 29 have passed, but not in one run:** 24 first time, 3 on rerun, 2 in a separate run with a new NEAR AI key |
 
 - The 3 reruns are the arbiter tests: public-RPC rate limits (HTTP 429) failed them in the full run.
-- The 2 failures are the NEAR AI tests (listing draft, move-out inspection): the API key was over its spend limit (`402 api_key_limit_exceeded`). So these features are **not verified on v3**; they last passed on v2.
+- The 2 NEAR AI tests (listing draft, move-out inspection) failed in the full run because the API key was over its spend limit (`402 api_key_limit_exceeded`), then passed on v3 code with a new key.
 - Browser tests run on a test deployment with the same code hash as `escrow-v3`, with 20-second waiting periods instead of days.
 
 Per-claim proof, the code hash and transaction links are in [`docs/EVIDENCE.md`](docs/EVIDENCE.md).

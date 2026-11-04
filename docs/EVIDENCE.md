@@ -24,14 +24,36 @@ To compare a hash yourself: base58 of the SHA-256 of `contract/target/near/hando
 | A sale is refused before the landlord agrees | ✅ On `escrow-v3` | [Refused buy](https://testnet.nearblocks.io/txns/9fdgdugRwcHfSByKHRX8AaCLGxHZoagWfzbqmnAJtMk5): Mintbase logs `nft_failed_listing`, one receipt fails, the USDC is refunded |
 | The next tenant asks to take over | ✅ On `escrow-v3` | [`request_takeover`](https://testnet.nearblocks.io/txns/Grqt3wEARTGB7NA8GDTywPdMkA8qs3vPyozc9KVk2gPa) |
 | A sale completes after the landlord agrees | ✅ On `escrow-v3` | [Completed sale](https://testnet.nearblocks.io/txns/C3SW13cFZPXLaJZK8FviDy6sRTMBqbQLt2sj2FL4CuT1): `nft_transfer`, `lease_taken_over`, `nft_sale`, no failed receipts. `get_lease(1)` shows the buyer as `tenant` and `nft_holder` |
-| The caution goes to the NFT holder at move-out | ⚠️ Tests only so far | Unit, sandbox and browser tests. No full lease has closed on `escrow-v3` yet: lease #1 is still `Active` |
-| A DAO vote decides a dispute | ⚠️ Tests only so far | Browser test on the test deployment. No DAO ruling on `escrow-v3` yet |
+| The caution goes to the NFT holder at move-out | ✅ On `escrow-v3` | [Lease #2](#one-full-lease-on-escrow-v3): the holder at closing, not the payer, received the caution left after an agreed split. A caution returned in full is shown by tests only |
+| App actions are gasless | ✅ On `escrow-v3` | All 14 transactions of lease #2 were signed by `handova-relayer.testnet` |
+| A DAO vote decides a dispute | ⚠️ Tests only so far | Browser test on the test deployment. No DAO ruling on `escrow-v3` yet; lease #2's dispute ended in an agreed split |
 | A replaced arbiter can't rule on an open lease | ✅ Unit test | `contract/src/tests.rs` |
 | A verifier change or revoked badge can't unlock a silence claim | ✅ Unit test | `contract/src/tests.rs` |
 | Failed withdrawals keep the money | ✅ Unit and sandbox tests | `failed_withdrawal_keeps_the_money` |
-| The contract's USDC covers what it owes | ✅ Sandbox tests after each settled step; live values matched on 4 Nov | `get_config.total_held` against `ft_balance_of` on the token (both 12,000,000) |
+| The contract's USDC covers what it owes | ✅ Sandbox tests after each settled step; live values matched on 4 Nov | `get_config.total_held` against `ft_balance_of` on the token; the two should match when no withdrawal is in flight |
 | Paying from another chain, landlord cash-out | ❌ Not shown | Live quotes only; arrival simulated with test USDC. No real Intents settlement has run |
 | Real rentals | ❌ None | Nobody outside the team has used it for a rental |
+
+## One full lease on escrow-v3
+
+Lease #2, run on 4 Nov 2026 with team-run demo accounts and test USDC. It is not a real rental. Check the result with `get_lease` (`lease_id` 2): `payer` is `nurse-wnjg8.handova.testnet`, `closed_holder` is `tolu-wnjg8.handova.testnet`, rent 1,485.88, caution 148.59, `caution_to_landlord` 10, `caution_to_holder` 138.59, status `Closed`. All 14 transactions succeeded with no failed receipts.
+
+| Step | Events | Transaction |
+|---|---|---|
+| Landlord lists the home | `listing_created` | [`9ZCbBTb9…`](https://testnet.nearblocks.io/txns/9ZCbBTb9yNJD2uLqAftbXTmfX6bKWaogJbaZATkrin6W) |
+| The nurse pays for the tenant | `lease_paid` | [`AwoFxNnp…`](https://testnet.nearblocks.io/txns/AwoFxNnpW2D7GmEzcrSitVisWwKCkhTWUF1RXniVBXMg) |
+| Landlord marks the handover | `handover_marked` | [`4NQMoaYe…`](https://testnet.nearblocks.io/txns/4NQMoaYethyLZMSvoxsB63N6B3s7yY11zBsWJJytXqhC) |
+| Move-in confirmed, lease NFT minted | `moved_in`, `nft_mint` | [`8uzjG2vL…`](https://testnet.nearblocks.io/txns/8uzjG2vLpqNbnUjvQ8S1R8HXEc54UShsGTivuX8XStBB) |
+| Landlord withdraws the rent | `withdrawn` | [`9tneNvUk…`](https://testnet.nearblocks.io/txns/9tneNvUkeJ9Z919dvwBq5YiShjo1YX17gG2z85PGF5j1) |
+| Holder offers the lease | `takeover_offered` | [`APMjbSKu…`](https://testnet.nearblocks.io/txns/APMjbSKukyeNXsDYyEwwDPbsBoXbyftUxPqgFhH6QmVN) |
+| Next tenant asks | `takeover_requested` | [`Dh7xKi3g…`](https://testnet.nearblocks.io/txns/Dh7xKi3gfk1yMtFqT4EqUR3ynJTVwnV3F31GvXegdich) |
+| Landlord agrees to them | `takeover_consented` | [`2KEbaDa6…`](https://testnet.nearblocks.io/txns/2KEbaDa6RZc31SbU3ivQv54CK8KQqnadUJa4YpP5bVVi) |
+| Next tenant pays; the NFT moves | `nft_transfer`, `lease_taken_over` | [`DapZ2oiU…`](https://testnet.nearblocks.io/txns/DapZ2oiUmVoLv2XHANySp554iQtpnNfmU48hpCvarJDr) |
+| Move-out starts | `move_out_started` | [`EZpNHfsH…`](https://testnet.nearblocks.io/txns/EZpNHfsHCHacVG6SHTFaWKJdAaX6DMZ52TsUjZMDVHTq) |
+| Landlord disputes 20 USDC | `caution_disputed` | [`6BRiKRiM…`](https://testnet.nearblocks.io/txns/6BRiKRiMtX37oXQYiHDyZ3JP8JBvj3zAn9yVArWFe8ZP) |
+| First side proposes 10 USDC | `split_proposed` | [`DmkFN3xY…`](https://testnet.nearblocks.io/txns/DmkFN3xYjAMSB7Qt8Ym2n2CPD4c8f7vEW4tfu9TFvoor) |
+| Second side agrees; lease closes | `split_proposed`, `lease_closed` | [`7VdSNPJx…`](https://testnet.nearblocks.io/txns/7VdSNPJxaGBBAUAFNAj3spdHTvjGEYrH2CRUEfdwKDL5) |
+| Caution withdrawn | `withdrawn` | [`BdFZz32C…`](https://testnet.nearblocks.io/txns/BdFZz32CMByyH5WAT4nVBkyY3qVP99CzMHxqkQXoPmi5) |
 
 ## Test deployment
 
