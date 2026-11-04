@@ -8,6 +8,8 @@
 # Creates: usdc.$ROOT (open-mint test USDC), escrow.$ROOT (the Handova contract),
 #          verifier.$ROOT (server key that marks verified landlords).
 # Set TOKEN=3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af to use Circle's testnet USDC instead.
+# ESCROW_NEAR sets the escrow account's starting balance. The code locks about 4 NEAR; the rest pays for
+# storage, and each open lease keeps 0.04 NEAR of it back.
 # LOCK=1 deletes every access key of the escrow account at the end: nobody (us included) can ever deploy
 # other code there, so the published rules are the rules for good.
 set -euo pipefail
@@ -59,7 +61,7 @@ fi
 
 echo "▶ Accounts"
 sub "$VERIFIER" 0.5
-sub "$ESCROW" 5
+sub "$ESCROW" "${ESCROW_NEAR:-5}"
 
 echo "▶ Deploying Handova to $ESCROW"
 near contract deploy "$ESCROW" use-file contract/target/near/handova.wasm \

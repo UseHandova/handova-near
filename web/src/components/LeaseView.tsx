@@ -210,7 +210,7 @@ export function LeaseView({ id }: { id: number }) {
         }
       }
       if (isLandlord && buyer && !offer.landlord_consent) {
-        actions.push(btn('consent_takeover', `Agree to ${shortAccount(buyer)} taking over`, `Agreed. Only ${shortAccount(buyer)} can take over the lease.`));
+        actions.push(btn('consent_takeover', `Agree to ${shortAccount(buyer)} taking over`, `Agreed. Only ${shortAccount(buyer)} can take over the lease.`, { buyer }));
       }
       if (session && !isHolder && !isLandlord) {
         if (!offer.landlord_consent && buyer !== me) {

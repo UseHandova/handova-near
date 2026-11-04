@@ -59,7 +59,7 @@ await api('/api/faucet', { accountId: tenant.accountId });
 
 console.log('▶ Rent a home, then move out');
 const listingId = await call('create_listing', landlord, deploy.escrow, 'create_listing', { rent: String(10n * USDC), caution: String(4n * USDC), term_months: 12, property_ref: 'dao-ruling-check' });
-await call('pay', tenant, deploy.token, 'ft_transfer_call', { receiver_id: deploy.escrow, amount: String(14n * USDC), msg: JSON.stringify({ listing_id: Number(listingId) }) }, 1n, 150n * TGAS);
+await call('pay', tenant, deploy.token, 'ft_transfer_call', { receiver_id: deploy.escrow, amount: String(14n * USDC), msg: JSON.stringify({ listing_id: Number(listingId), rent: String(10n * USDC), caution: String(4n * USDC), term_months: 12 }) }, 1n, 150n * TGAS);
 const leases = await view<any[]>(deploy.escrow, 'get_leases_for', { account_id: tenant.accountId });
 const leaseId = leases.at(-1).id as number;
 await call('confirm_move_in', tenant, deploy.escrow, 'confirm_move_in', { lease_id: leaseId });

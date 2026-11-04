@@ -54,7 +54,7 @@ await api('/api/faucet', { accountId: buyer.accountId });
 
 console.log('▶ Rent a home');
 const listingId = await call(landlord, deploy.escrow, 'create_listing', { rent: String(10n * USDC), caution: String(2n * USDC), term_months: 12, property_ref: 'mintbase-check' }, 0n, 25n * TGAS);
-await call(tenant, deploy.token, 'ft_transfer_call', { receiver_id: deploy.escrow, amount: String(12n * USDC), msg: JSON.stringify({ listing_id: Number(listingId) }) }, 1n, 100n * TGAS);
+await call(tenant, deploy.token, 'ft_transfer_call', { receiver_id: deploy.escrow, amount: String(12n * USDC), msg: JSON.stringify({ listing_id: Number(listingId), rent: String(10n * USDC), caution: String(2n * USDC), term_months: 12 }) }, 1n, 100n * TGAS);
 const leases = await view<any[]>(deploy.escrow, 'get_leases_for', { account_id: tenant.accountId });
 const leaseId = leases.at(-1).id as number;
 await call(tenant, deploy.escrow, 'confirm_move_in', { lease_id: leaseId });
@@ -80,7 +80,7 @@ if (owner1 !== tenant.accountId) throw new Error('sold without the landlord agre
 
 console.log('▶ The buyer asks, the landlord agrees to them; buy on Mintbase');
 await call(buyer, deploy.escrow, 'request_takeover', { lease_id: leaseId }, 0n, 30n * TGAS);
-await call(landlord, deploy.escrow, 'consent_takeover', { lease_id: leaseId }, 0n, 30n * TGAS);
+await call(landlord, deploy.escrow, 'consent_takeover', { lease_id: leaseId, buyer: buyer.accountId }, 0n, 30n * TGAS);
 // Mintbase drops a listing whose sale was refused, without freeing its storage: deposit again and re-list.
 // (The app only offers Mintbase once the landlord has agreed, so this doesn't happen there.)
 await call(tenant, MARKET, 'deposit_storage', {}, milliNear(10), 30n * TGAS);

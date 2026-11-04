@@ -139,7 +139,8 @@ function PaySheet({ open, onClose, listing }: { open: boolean; onClose: () => vo
     const r = await session!.call(cfg.token, 'ft_transfer_call', {
       receiver_id: cfg.escrow,
       amount: total.toString(),
-      msg: JSON.stringify(tenant ? { listing_id: listing.id, tenant } : { listing_id: listing.id }),
+      // The terms shown on this page: the escrow refuses the payment if the listing has changed since.
+      msg: JSON.stringify({ listing_id: listing.id, rent: listing.rent, caution: listing.caution, term_months: listing.term_months, ...(tenant ? { tenant } : {}) }),
     }, { deposit: 1n, gas: teraToGas('150') });
     if (!r.ok) throw new Error(r.error ?? 'The payment failed. Nothing was taken. Try again.');
     const ev = r.events.find((e) => e.event === 'lease_paid');

@@ -83,6 +83,12 @@ pub struct Lease {
     /// Whether the landlord was ID-verified when the tenant paid. Claiming rent by the tenant's
     /// silence needs this, so a verifier changed mid-lease can't unlock it.
     pub landlord_verified: bool,
+    /// The listing details when the tenant paid. The AI inspection's "before" photos come from
+    /// here, so editing the listing later can't change the baseline.
+    pub property_ref: String,
+    /// When the current tenant's time in the home began: move-in, or the takeover that made them
+    /// the tenant. The rental passport counts months from here.
+    pub tenant_since_ms: Option<u64>,
     /// Current lease NFT holder. Filled in by views; not stored.
     #[borsh(skip)]
     pub nft_holder: Option<AccountId>,
@@ -94,12 +100,16 @@ pub struct PayMsg {
     pub listing_id: u64,
     /// Who will live there. Defaults to the sender. Set it to pay for someone else.
     pub tenant: Option<AccountId>,
+    /// The terms the payer saw. The payment is refused if the listing no longer matches them.
+    pub rent: U128,
+    pub caution: U128,
+    pub term_months: u16,
 }
 
 #[near]
 impl FungibleTokenReceiver for Contract {
     /// Pay rent + caution for a listing in one transaction:
-    /// `usdc.ft_transfer_call({receiver_id: <this>, amount, msg: '{"listing_id":1}'})`.
+    /// `usdc.ft_transfer_call({receiver_id: <this>, amount, msg: '{"listing_id":1,"rent":"…","caution":"…","term_months":12}'})`.
     /// Anything above rent + caution is sent back. If the payment can't be accepted the call
     /// fails and the token contract refunds the whole amount.
     fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> PromiseOrValue<U128> {
@@ -109,18 +119,24 @@ impl FungibleTokenReceiver for Contract {
             return PromiseOrValue::Value(U128(self.buy_takeover(sender_id, amount.0, t.take_over)));
         }
         let req: PayMsg = near_sdk::serde_json::from_str(&msg)
-            .unwrap_or_else(|_| env::panic_str(r#"Invalid msg. Expected {"listing_id": <id>, "tenant": "<optional account>"}"#));
+            .unwrap_or_else(|_| env::panic_str(r#"Invalid msg. Expected {"listing_id": <id>, "rent": "<amount>", "caution": "<amount>", "term_months": <months>, "tenant": "<optional account>"}"#));
         let tenant = req.tenant.unwrap_or_else(|| sender_id.clone());
+        self.assert_storage_room();
 
         let listing = self.listings.get_mut(&req.listing_id).unwrap_or_else(|| env::panic_str("Listing not found"));
         require!(listing.available, "This home is not taking payments right now");
         require!(listing.active_lease.is_none(), "This home is already taken");
         require!(tenant != listing.landlord, "The landlord can't rent their own home");
+        require!(
+            listing.rent == req.rent && listing.caution == req.caution && listing.term_months == req.term_months,
+            "The landlord changed this listing's terms. Check the new terms and pay again"
+        );
         let total = listing.rent.0 + listing.caution.0;
         require!(amount.0 >= total, format!("Payment too small: this home needs {} (rent + caution)", total));
 
         let lease_id = self.next_lease_id;
         self.next_lease_id += 1;
+        self.open_leases += 1;
         listing.active_lease = Some(lease_id);
         let lease = Lease {
             id: lease_id,
@@ -146,6 +162,8 @@ impl FungibleTokenReceiver for Contract {
             closed_holder: None,
             arbiter: self.arbiter.clone(),
             landlord_verified: self.verified.contains_key(&listing.landlord),
+            property_ref: listing.property_ref.clone(),
+            tenant_since_ms: None,
             takeover: None,
             nft_holder: None,
         };
@@ -429,6 +447,7 @@ impl Contract {
         let lease = self.lease_mut(lease_id);
         lease.status = LeaseStatus::Active;
         lease.moved_in_at_ms = Some(now);
+        lease.tenant_since_ms = Some(now);
         lease.ends_at_ms = Some(now + lease.term_months as u64 * MONTH_SECS * 1000);
         let (landlord, tenant, rent) = (lease.landlord.clone(), lease.tenant.clone(), lease.rent.0);
 
@@ -452,6 +471,7 @@ impl Contract {
         lease.closed_at_ms = Some(now);
         let (payer, total, listing_id) = (lease.payer.clone(), lease.rent.0 + lease.caution.0, lease.listing_id);
         self.credit(&payer, total);
+        self.open_leases -= 1;
         self.free_listing(listing_id);
         events::emit("lease_cancelled", json!({ "lease_id": lease_id, "by": by, "refund_to": payer, "amount": U128(total) }));
     }
@@ -471,6 +491,7 @@ impl Contract {
         let (landlord, listing_id) = (lease.landlord.clone(), lease.listing_id);
         self.credit(&landlord, to_landlord);
         self.credit(&holder, to_holder);
+        self.open_leases -= 1;
         self.free_listing(listing_id);
         events::emit(
             "lease_closed",

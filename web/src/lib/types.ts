@@ -42,6 +42,10 @@ export interface Lease {
   arbiter: string;
   /** Whether the landlord was ID-verified when the tenant paid (needed to claim rent by silence). */
   landlord_verified: boolean;
+  /** The listing details when the tenant paid; editing the listing later doesn't change these. */
+  property_ref: string;
+  /** When the current tenant's time in the home began: move-in, or their takeover. */
+  tenant_since_ms: number | null;
   nft_holder: string | null;
 }
 

@@ -9,6 +9,9 @@
 //!   it is paid to the holder unless the landlord disputes. The NFT's metadata is live — it shows
 //!   the lease status and how much caution it holds.
 //!
+//! The contract pays for storage so users never need NEAR, and keeps back enough for every open
+//! lease to finish (see `assert_storage_room`).
+//!
 //! Money is pull-based: every payout is credited to a balance and leaves with `withdraw`.
 //! Nobody — not the owner, not the arbiter — can move money outside these rules. The arbiter can
 //! only split a disputed caution fee or decide a disputed move-in.
@@ -40,6 +43,9 @@ pub const MAX_REASON_LEN: usize = 500;
 pub const MAX_LISTINGS_PER_LANDLORD: u32 = 50;
 /// Until the verifier marks a landlord ID-verified, they can list only a few homes.
 pub const MAX_LISTINGS_UNVERIFIED: u32 = 3;
+/// Storage kept back for each open lease: its record, the NFT, the balances it credits and two
+/// dispute reasons, in the worst case. The sandbox test `worst_case_lease_fits_its_reserve` measures it.
+pub const LEASE_RESERVE_BYTES: u64 = 4096;
 
 #[near(serializers = [borsh])]
 #[derive(BorshStorageKey)]
@@ -118,6 +124,10 @@ pub struct ConfigView {
     pub total_held: U128,
     pub listings: u64,
     pub leases: u64,
+    /// Leases not yet closed or cancelled. Each keeps `LEASE_RESERVE_BYTES` of storage back.
+    pub open_leases: u64,
+    /// NEAR beyond what current storage locks, in yocto.
+    pub storage_spare: U128,
 }
 
 #[near(contract_state)]
@@ -138,6 +148,7 @@ pub struct Contract {
     listing_counts: LookupMap<AccountId, u32>,
     leases: IterableMap<u64, Lease>,
     next_lease_id: u64,
+    open_leases: u64,
     /// Lease ids for every account involved (tenant, landlord, payer).
     leases_by_account: LookupMap<AccountId, Vec<u64>>,
 
@@ -176,6 +187,7 @@ impl Contract {
             listing_counts: LookupMap::new(StorageKey::ListingCounts),
             leases: IterableMap::new(StorageKey::Leases),
             next_lease_id: 1,
+            open_leases: 0,
             leases_by_account: LookupMap::new(StorageKey::LeasesByAccount),
             balances: LookupMap::new(StorageKey::Balances),
             total_held: 0,
@@ -201,6 +213,7 @@ impl Contract {
         term_months: u16,
         property_ref: String,
     ) -> u64 {
+        self.assert_storage_room();
         let landlord = env::predecessor_account_id();
         require!(rent.0 >= self.one_token(), "Rent must be at least 1 USDC");
         require!(term_months > 0 && term_months <= 120, "Term must be 1 to 120 months");
@@ -247,6 +260,9 @@ impl Contract {
         property_ref: Option<String>,
         available: Option<bool>,
     ) {
+        if property_ref.is_some() {
+            self.assert_storage_room();
+        }
         let caller = env::predecessor_account_id();
         let one = self.one_token();
         let listing = self.listings.get_mut(&listing_id).unwrap_or_else(|| env::panic_str("Listing not found"));
@@ -319,6 +335,8 @@ impl Contract {
             total_held: U128(self.total_held),
             listings: self.next_listing_id - 1,
             leases: self.next_lease_id - 1,
+            open_leases: self.open_leases,
+            storage_spare: U128(self.storage_spare()),
         }
     }
 
@@ -377,6 +395,22 @@ impl Contract {
     /// can't be used to fill contract storage with pay/cancel cycles.
     fn one_token(&self) -> u128 {
         10u128.pow(self.token_decimals as u32)
+    }
+
+    /// NEAR this account holds beyond what its current storage locks.
+    fn storage_spare(&self) -> u128 {
+        let locked = env::storage_usage() as u128 * env::storage_byte_cost().as_yoctonear();
+        env::account_balance().as_yoctonear().saturating_sub(locked)
+    }
+
+    /// Called before storing anything optional. The room that open leases need is kept for them,
+    /// so storage filling up can stop new listings but never a move-in, a dispute or a refund.
+    pub(crate) fn assert_storage_room(&self) {
+        let needed = (self.open_leases as u128 + 1) * LEASE_RESERVE_BYTES as u128 * env::storage_byte_cost().as_yoctonear();
+        require!(
+            self.storage_spare() >= needed,
+            "Handova is short of storage for new records. Open leases are safe. Anyone can send this account NEAR to free it"
+        );
     }
 
     fn assert_owner(&self) {

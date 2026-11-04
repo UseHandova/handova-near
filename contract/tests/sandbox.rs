@@ -86,7 +86,11 @@ async fn assert_solvent(e: &Env) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn pay(e: &Env, from: &Account, amount: u128, msg: Value) -> anyhow::Result<near_workspaces::result::ExecutionFinalResult> {
+/// Pay for a home with the terms every test listing has.
+async fn pay(e: &Env, from: &Account, amount: u128, mut msg: Value) -> anyhow::Result<near_workspaces::result::ExecutionFinalResult> {
+    msg["rent"] = RENT.to_string().into();
+    msg["caution"] = CAUTION.to_string().into();
+    msg["term_months"] = 12.into();
     Ok(from
         .call(e.usdc.id(), "ft_transfer_call")
         .args_json(json!({ "receiver_id": e.handova.id(), "amount": amount.to_string(), "msg": msg.to_string() }))
@@ -166,7 +170,7 @@ async fn nft_transfer_moves_the_caution_and_dispute_times_out_50_50() -> anyhow:
     // Offer (free), mum asks, the landlord agrees to mum.
     e.nurse.call(e.handova.id(), "offer_takeover").args_json(json!({ "lease_id": 1, "price": "0" })).transact().await?.into_result()?;
     e.mum.call(e.handova.id(), "request_takeover").args_json(json!({ "lease_id": 1 })).transact().await?.into_result()?;
-    e.landlord.call(e.handova.id(), "consent_takeover").args_json(json!({ "lease_id": 1 })).transact().await?.into_result()?;
+    e.landlord.call(e.handova.id(), "consent_takeover").args_json(json!({ "lease_id": 1, "buyer": e.mum.id() })).transact().await?.into_result()?;
 
     // NEP-171 transfer needs exactly 1 yoctoNEAR.
     e.nurse
@@ -218,6 +222,66 @@ async fn failed_withdrawal_keeps_the_money() -> anyhow::Result<()> {
     assert!(r.logs().iter().any(|l| l.contains("withdraw_failed")), "{:?}", r.logs());
     let bal: String = e.handova.view("balance_of").args_json(json!({ "account_id": unregistered.id() })).await?.json()?;
     assert_eq!(bal, RENT.to_string(), "balance restored after the failed transfer");
+    assert_solvent(&e).await?;
+    Ok(())
+}
+
+/// `LEASE_RESERVE_BYTES` must cover everything one lease can store once it is open: longest account
+/// names, longest listing details, both dispute reasons, three new balances and index entries.
+#[tokio::test]
+async fn worst_case_lease_fits_its_reserve() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let long = |c: &str| c.repeat(64 - ".test.near".len());
+    let landlord = account(&e.worker, &long("a")).await?;
+    let tenant = account(&e.worker, &long("b")).await?;
+    let payer = account(&e.worker, &long("c")).await?;
+    e.usdc.call("mint").args_json(json!({ "account_id": payer.id(), "amount": (RENT + CAUTION).to_string() })).transact().await?.into_result()?;
+    let listing: u64 = landlord
+        .call(e.handova.id(), "create_listing")
+        .args_json(json!({ "rent": RENT.to_string(), "caution": CAUTION.to_string(), "term_months": 12, "property_ref": "x".repeat(1024) }))
+        .transact()
+        .await?
+        .into_result()?
+        .json()?;
+    let reason = "y".repeat(500);
+    let before = e.handova.view_account().await?.storage_usage;
+
+    pay(&e, &payer, RENT + CAUTION, json!({ "listing_id": listing, "tenant": tenant.id() })).await?.into_result()?;
+    landlord.call(e.handova.id(), "mark_handover").args_json(json!({ "lease_id": 1 })).transact().await?.into_result()?;
+    tenant.call(e.handova.id(), "dispute_move_in").args_json(json!({ "lease_id": 1, "reason": reason })).transact().await?.into_result()?;
+    tenant.call(e.handova.id(), "confirm_move_in").args_json(json!({ "lease_id": 1 })).max_gas().transact().await?.into_result()?;
+    tenant.call(e.handova.id(), "move_out").args_json(json!({ "lease_id": 1 })).transact().await?.into_result()?;
+    landlord
+        .call(e.handova.id(), "dispute_caution")
+        .args_json(json!({ "lease_id": 1, "landlord_claim": "1", "reason": reason }))
+        .transact()
+        .await?
+        .into_result()?;
+    tenant.call(e.handova.id(), "propose_split").args_json(json!({ "lease_id": 1, "landlord_amount": "1" })).transact().await?.into_result()?;
+    assert_eq!(lease(&e, 1).await?["status"], "Closed");
+
+    let grew = e.handova.view_account().await?.storage_usage - before;
+    println!("worst-case lease stored {grew} bytes");
+    assert!(grew <= 4096, "a lease stored {grew} bytes, more than LEASE_RESERVE_BYTES");
+    Ok(())
+}
+
+/// A payment for terms the listing no longer has is refused, and the USDC goes back to the payer.
+#[tokio::test]
+async fn payment_refused_for_changed_terms_refunds_the_payer() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let listing = create_listing(&e, &e.landlord).await?;
+    e.landlord
+        .call(e.handova.id(), "update_listing")
+        .args_json(json!({ "listing_id": listing, "term_months": 1 }))
+        .transact()
+        .await?
+        .into_result()?;
+    let start = ft_balance(&e, &e.nurse).await?;
+    pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?;
+    assert_eq!(ft_balance(&e, &e.nurse).await?, start, "the token contract refunds a refused payment");
+    let cfg: Value = e.handova.view("get_config").await?.json()?;
+    assert_eq!(cfg["leases"], 0);
     assert_solvent(&e).await?;
     Ok(())
 }

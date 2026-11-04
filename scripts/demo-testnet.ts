@@ -73,7 +73,7 @@ try {
   console.log(`\n3) The nurse pays for mum from abroad (listing #${listingId})`);
   const paid = step(
     await gaslessCall(API, nurse, deploy.token, 'ft_transfer_call', {
-      receiver_id: deploy.escrow, amount: (RENT + CAUTION).toString(), msg: JSON.stringify({ listing_id: listingId, tenant: mum.accountId }),
+      receiver_id: deploy.escrow, amount: (RENT + CAUTION).toString(), msg: JSON.stringify({ listing_id: listingId, tenant: mum.accountId, rent: RENT.toString(), caution: CAUTION.toString(), term_months: 12 }),
     }, { deposit: 1n, gas: 150_000_000_000_000n }),
     'ft_transfer_call → escrow',
   );

@@ -22,11 +22,13 @@ fn acc(s: &str) -> AccountId {
 struct T {
     c: Contract,
     now_ms: u64,
+    /// The contract's NEAR balance in yocto, when a test needs it low.
+    balance: Option<u128>,
 }
 
 impl T {
     fn new() -> Self {
-        let mut t = T { c: setup_contract(), now_ms: 1_700_000_000_000 };
+        let mut t = T { c: setup_contract(), now_ms: 1_700_000_000_000, balance: None };
         t.as_("landlord.near");
         t
     }
@@ -38,7 +40,17 @@ impl T {
             .signer_account_id(acc(who))
             .block_timestamp(self.now_ms * 1_000_000)
             .attached_deposit(NearToken::from_yoctonear(deposit));
+        if let Some(y) = self.balance {
+            b.account_balance(NearToken::from_yoctonear(y));
+        }
         testing_env!(b.build());
+    }
+
+    /// Leave the contract with room for exactly `leases` leases of storage reserve.
+    fn room_for(&mut self, leases: u128) {
+        self.ctx("landlord.near", 0);
+        let used = near_sdk::env::storage_usage() as u128;
+        self.balance = Some((used + leases * LEASE_RESERVE_BYTES as u128) * near_sdk::env::storage_byte_cost().as_yoctonear());
     }
 
     fn as_(&mut self, who: &str) -> &mut Contract {
@@ -56,6 +68,12 @@ impl T {
 
     /// The USDC contract calling ft_on_transfer after `sender` did ft_transfer_call.
     fn pay(&mut self, sender: &str, amount: u128, msg: &str) -> u128 {
+        let msg = with_terms(msg);
+        self.pay_exact(sender, amount, &msg)
+    }
+
+    /// Same, sending `msg` exactly as given.
+    fn pay_exact(&mut self, sender: &str, amount: u128, msg: &str) -> u128 {
         self.ctx("usdc.near", 0);
         match self.c.ft_on_transfer(acc(sender), U128(amount), msg.into()) {
             PromiseOrValue::Value(v) => v.0,
@@ -75,7 +93,7 @@ impl T {
     fn agree(&mut self, holder: &str, buyer: &str, price: u128) {
         self.as_(holder).offer_takeover(1, U128(price));
         self.as_(buyer).request_takeover(1);
-        self.as_("landlord.near").consent_takeover(1);
+        self.as_("landlord.near").consent_takeover(1, acc(buyer));
     }
 
     /// Paid and moved in: lease 1, NFT "1" owned by tenant.near.
@@ -85,6 +103,16 @@ impl T {
         self.as_("tenant.near").confirm_move_in(1);
         1
     }
+}
+
+/// Adds the listing's usual terms to a payment message that doesn't name its own.
+fn with_terms(msg: &str) -> String {
+    let mut v: near_sdk::serde_json::Value = near_sdk::serde_json::from_str(msg).unwrap();
+    let m = v.as_object_mut().unwrap();
+    m.entry("rent").or_insert(RENT.to_string().into());
+    m.entry("caution").or_insert(CAUTION.to_string().into());
+    m.entry("term_months").or_insert(12.into());
+    v.to_string()
 }
 
 fn setup_contract() -> Contract {
@@ -516,10 +544,10 @@ fn lease_takeover_needs_landlord_consent_then_moves_nft_and_pays_holder() {
     t.as_("tenant.near").offer_takeover(1, U128(price));
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.pay("newtenant.near", price, r#"{"take_over":1}"#)));
     assert!(r.is_err(), "landlord hasn't consented");
-    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.as_("landlord.near").consent_takeover(1)));
+    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.as_("landlord.near").consent_takeover(1, acc("newtenant.near"))));
     assert!(r.is_err(), "nobody has asked yet, so there is nobody to agree to");
     t.as_("newtenant.near").request_takeover(1);
-    t.as_("landlord.near").consent_takeover(1);
+    t.as_("landlord.near").consent_takeover(1, acc("newtenant.near"));
     let unused = t.pay("newtenant.near", price + 2 * USDC, r#"{"take_over":1}"#);
     assert_eq!(unused, 2 * USDC);
     let lease = t.lease(1);
@@ -552,7 +580,7 @@ fn marketplace_sale_needs_landlord_consent_and_pays_the_holder() {
     assert!(r.is_err(), "no consent, no sale");
     t.as_("tenant.near").offer_takeover(1, U128(250 * USDC));
     t.as_("buyer.near").request_takeover(1);
-    t.as_("landlord.near").consent_takeover(1);
+    t.as_("landlord.near").consent_takeover(1, acc("buyer.near"));
     // The landlord can't buy their own lease.
     sale();
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.c.nft_transfer_payout(acc("landlord.near"), "1".into(), Some(1), None, U128(250 * USDC), Some(10))));
@@ -615,7 +643,7 @@ fn rental_passport_counts_finished_leases() {
     assert_eq!(r.caution_partly_kept, 1);
     assert_eq!(r.caution_returned_total.0, 2 * CAUTION - 10 * USDC);
     assert_eq!(r.leases_moved_in, 2);
-    assert_eq!(r.months_rented, 24);
+    assert_eq!(r.months_rented, 0, "both leases ended the day they began");
     assert_eq!(r.rent_paid_total.0, 2 * RENT);
     assert_eq!(r.active_leases, 0);
 }
@@ -686,7 +714,7 @@ fn consent_is_for_one_person_only() {
     assert!(refused(|| { t.pay("alice.near", 60 * USDC, r#"{"take_over":1}"#); }));
     // The agreed person can take over.
     t.as_("alice.near").request_takeover(1);
-    t.as_("landlord.near").consent_takeover(1);
+    t.as_("landlord.near").consent_takeover(1, acc("alice.near"));
     t.pay("alice.near", 60 * USDC, r#"{"take_over":1}"#);
     assert_eq!(t.lease(1).tenant, acc("alice.near"));
     assert_eq!(t.lease(1).nft_holder, Some(acc("alice.near")));
@@ -737,4 +765,148 @@ fn a_revoked_badge_also_stops_a_silence_claim() {
     t.as_("landlord.near").mark_handover(1);
     t.wait_days(4);
     assert!(refused(|| t.as_("anyone.near").claim_move_in(1)));
+}
+
+// ---------- Consent names a person ----------
+
+#[test]
+fn consent_is_for_the_person_the_landlord_reviewed() {
+    let mut t = T::new();
+    t.active_lease();
+    t.as_("tenant.near").offer_takeover(1, U128(USDC));
+    t.as_("reviewed.near").request_takeover(1);
+    // A second request lands just before the landlord's call.
+    t.as_("stranger.near").request_takeover(1);
+    assert!(refused(|| t.as_("landlord.near").consent_takeover(1, acc("reviewed.near"))), "the landlord agreed to someone else");
+    let offer = t.lease(1).takeover.unwrap();
+    assert!(!offer.landlord_consent);
+    assert!(refused(|| { t.pay("stranger.near", USDC, r#"{"take_over":1}"#); }));
+    // The landlord can still agree to the person now asking, by naming them.
+    t.as_("landlord.near").consent_takeover(1, acc("stranger.near"));
+    assert!(t.lease(1).takeover.unwrap().landlord_consent);
+}
+
+// ---------- Payment terms ----------
+
+#[test]
+fn payment_is_refused_if_the_listing_changed_after_the_payer_saw_it() {
+    let mut t = T::new();
+    let l = t.list();
+    t.as_("landlord.near").update_listing(l, None, None, Some(1), None, None);
+    assert!(refused(|| { t.pay("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#); }), "term cut from 12 months to 1");
+    t.as_("landlord.near").update_listing(l, None, Some(U128(CAUTION + USDC)), Some(12), None, None);
+    assert!(refused(|| { t.pay("tenant.near", RENT + CAUTION + USDC, r#"{"listing_id":1}"#); }), "caution raised, overpayment would hide it");
+    t.as_("landlord.near").update_listing(l, Some(U128(RENT + USDC)), Some(U128(CAUTION)), None, None, None);
+    assert!(refused(|| { t.pay("tenant.near", RENT + CAUTION + USDC, r#"{"listing_id":1}"#); }), "rent raised, overpayment would hide it");
+    assert_eq!(t.c.get_config().leases, 0);
+}
+
+#[test]
+fn payment_must_name_its_terms() {
+    let mut t = T::new();
+    t.list();
+    assert!(refused(|| { t.pay_exact("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#); }));
+}
+
+// ---------- Listing details are fixed per lease ----------
+
+#[test]
+fn lease_keeps_the_details_it_was_paid_under() {
+    let mut t = T::new();
+    t.active_lease();
+    t.as_("landlord.near").update_listing(1, None, None, None, Some("other-photos".into()), None);
+    assert_eq!(t.c.get_listing(1).unwrap().listing.property_ref, "other-photos");
+    assert_eq!(t.lease(1).property_ref, "lagos-yaba-2bed");
+}
+
+// ---------- Passport counts time lived ----------
+
+#[test]
+fn passport_counts_months_lived_not_the_term() {
+    let mut t = T::new();
+    t.active_lease();
+    assert_eq!(t.c.rental_record(acc("tenant.near")).months_rented, 0, "just moved in");
+    t.wait_days(92);
+    t.as_("tenant.near");
+    assert_eq!(t.c.rental_record(acc("tenant.near")).months_rented, 3, "three months in");
+    t.as_("tenant.near").move_out(1);
+    t.as_("landlord.near").approve_move_out(1);
+    t.wait_days(300);
+    t.as_("tenant.near");
+    assert_eq!(t.c.rental_record(acc("tenant.near")).months_rented, 3, "the count stops at move-out");
+}
+
+#[test]
+fn passport_never_counts_more_than_the_term() {
+    let mut t = T::new();
+    t.active_lease();
+    t.wait_days(800);
+    t.as_("tenant.near");
+    assert_eq!(t.c.rental_record(acc("tenant.near")).months_rented, 12);
+}
+
+#[test]
+fn takeover_tenant_counts_from_the_takeover_and_pays_no_rent_on_their_record() {
+    let mut t = T::new();
+    t.active_lease();
+    t.wait_days(150);
+    t.agree("tenant.near", "friend.near", USDC);
+    t.pay("friend.near", USDC, r#"{"take_over":1}"#);
+    t.wait_days(31);
+    t.as_("friend.near");
+    let r = t.c.rental_record(acc("friend.near"));
+    assert_eq!(r.months_rented, 1);
+    assert_eq!(r.rent_paid_total.0, 0, "the rent was paid by the first tenant");
+}
+
+#[test]
+fn takeover_by_direct_transfer_also_restarts_the_count() {
+    let mut t = T::new();
+    t.active_lease();
+    t.wait_days(150);
+    t.agree("tenant.near", "friend.near", USDC);
+    t.ctx("tenant.near", 1);
+    t.c.nft_transfer(acc("friend.near"), "1".into(), None, None);
+    t.as_("friend.near");
+    assert_eq!(t.c.rental_record(acc("friend.near")).months_rented, 0);
+}
+
+// ---------- Storage reserve ----------
+
+#[test]
+fn nothing_new_is_stored_when_the_reserve_is_short() {
+    let mut t = T::new();
+    t.list();
+    t.room_for(0);
+    assert!(refused(|| { t.list(); }), "new listing");
+    assert!(refused(|| { t.pay("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#); }), "new lease");
+    assert!(refused(|| t.as_("landlord.near").update_listing(1, None, None, None, Some("x".into()), None)), "bigger details");
+    // Pausing a listing stores nothing new, so it still works.
+    t.as_("landlord.near").update_listing(1, None, None, None, None, Some(false));
+}
+
+#[test]
+fn an_open_lease_keeps_its_reserve() {
+    let mut t = T::new();
+    t.list();
+    t.room_for(1);
+    t.pay("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#);
+    assert_eq!(t.c.get_config().open_leases, 1);
+    assert!(refused(|| { t.list(); }), "that room belongs to the open lease");
+    // The lease itself is never held back, however low the balance is.
+    t.as_("tenant.near").confirm_move_in(1);
+    assert!(refused(|| t.as_("tenant.near").offer_takeover(1, U128(USDC))), "a takeover is optional and stores more");
+    t.as_("tenant.near").move_out(1);
+    t.as_("landlord.near").approve_move_out(1);
+    assert_eq!(t.c.get_config().open_leases, 0);
+}
+
+#[test]
+fn a_cancelled_lease_releases_its_reserve() {
+    let mut t = T::new();
+    let l = t.list();
+    t.pay("tenant.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l}}}"#));
+    assert_eq!(t.c.get_config().open_leases, 1);
+    t.as_("landlord.near").cancel_lease(1);
+    assert_eq!(t.c.get_config().open_leases, 0);
 }

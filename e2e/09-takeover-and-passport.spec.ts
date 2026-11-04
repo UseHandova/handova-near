@@ -60,7 +60,7 @@ test('rental passport: a finished lease shows on the tenant passport and to the 
   await tn.getByRole('link', { name: /My rental passport/ }).click();
   await expect(tn.getByText('Every caution fee returned in full')).toBeVisible();
   const r = await chain.passport(tenant);
-  expect(r).toMatchObject({ leases_completed: 1, caution_returned_in_full: 1, caution_partly_kept: 0, leases_moved_in: 1, months_rented: 12 });
+  expect(r).toMatchObject({ leases_completed: 1, caution_returned_in_full: 1, caution_partly_kept: 0, leases_moved_in: 1, months_rented: 0 });
 
   // The same tenant rents again: the landlord sees the record before handing over keys.
   await tn.goto(`/#/home/${listingId}`);

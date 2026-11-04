@@ -9,14 +9,15 @@
 //! - **No way around the landlord:** every transfer of a lease NFT needs that consent for that
 //!   receiver (see `assert_consented_receiver`); a consent ends when the offer changes, another
 //!   person asks before the landlord agrees, or the NFT moves.
-//! - **Rental passport:** finished lease NFTs are a tenant's record — how many leases they finished
-//!   and whether their caution came back in full. Landlords can read it before handing over keys.
+//! - **Rental passport:** finished lease NFTs are a tenant's record — how many leases they finished,
+//!   whether their caution came back in full and how many months they actually lived there.
+//!   Landlords can read it before handing over keys.
 
 use near_sdk::json_types::U128;
 use near_sdk::serde_json::json;
 use near_sdk::{env, near, require, AccountId};
 
-use crate::{events, Contract, ContractExt, LeaseStatus};
+use crate::{events, Contract, ContractExt, LeaseStatus, MONTH_SECS};
 
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug)]
@@ -58,6 +59,7 @@ impl Contract {
     /// Lease holder: offer the lease to a new tenant for `price` (USDC base units). Replaces any
     /// earlier offer and needs the landlord's consent again.
     pub fn offer_takeover(&mut self, lease_id: u64, price: U128) {
+        self.assert_storage_room();
         let holder = self.holder(lease_id);
         require!(env::predecessor_account_id() == holder, "Only the lease holder can offer a takeover");
         let lease = self.leases.get_mut(&lease_id).unwrap_or_else(|| env::panic_str("Lease not found"));
@@ -90,13 +92,15 @@ impl Contract {
         events::emit("takeover_cancelled", json!({ "lease_id": lease_id }));
     }
 
-    /// Landlord: agree that this lease may pass to the person who asked for it, and to nobody else.
-    pub fn consent_takeover(&mut self, lease_id: u64) {
+    /// Landlord: agree that this lease may pass to `buyer`, and to nobody else. `buyer` must be the
+    /// person asking now, so a request that lands just before this call can't take the consent.
+    pub fn consent_takeover(&mut self, lease_id: u64, buyer: AccountId) {
         let lease = self.leases.get_mut(&lease_id).unwrap_or_else(|| env::panic_str("Lease not found"));
         require!(env::predecessor_account_id() == lease.landlord, "Only the landlord can consent");
         require!(lease.status == LeaseStatus::Active, "Only an active lease can be handed over");
         let t = lease.takeover.as_mut().unwrap_or_else(|| env::panic_str("There is no takeover offer"));
-        let buyer = t.buyer.clone().unwrap_or_else(|| env::panic_str("Nobody has asked to take this lease over yet"));
+        let asking = t.buyer.as_ref().unwrap_or_else(|| env::panic_str("Nobody has asked to take this lease over yet"));
+        require!(*asking == buyer, "Someone else has asked since. Review the person asking now");
         t.landlord_consent = true;
         events::emit("takeover_consented", json!({ "lease_id": lease_id, "buyer": buyer }));
     }
@@ -104,6 +108,7 @@ impl Contract {
     /// The account's rental passport, computed from the leases it took part in.
     pub fn rental_record(&self, account_id: AccountId) -> RentalRecord {
         let mut r = RentalRecord { account_id: Some(account_id.clone()), ..Default::default() };
+        let now = env::block_timestamp_ms();
         let (mut returned, mut kept, mut rent) = (0u128, 0u128, 0u128);
         let ids = self.leases_by_account.get(&account_id).cloned().unwrap_or_default();
         let mut seen = std::collections::HashSet::new();
@@ -116,11 +121,16 @@ impl Contract {
                 if l.caution_to_landlord.0 == 0 { r.caution_returned_in_full += 1 } else { r.caution_partly_kept += 1 }
             }
             if l.tenant == account_id {
-                if let Some(at) = l.moved_in_at_ms {
+                if let (Some(moved_in), Some(since)) = (l.moved_in_at_ms, l.tenant_since_ms) {
                     r.leases_moved_in += 1;
-                    r.months_rented += l.term_months as u32;
-                    rent += l.rent.0;
-                    r.first_move_in_ms = Some(r.first_move_in_ms.map_or(at, |f| f.min(at)));
+                    // Whole months in the home, up to move-out, never more than the term.
+                    let lived = l.move_out_at_ms.unwrap_or(now).saturating_sub(since) / (MONTH_SECS * 1000);
+                    r.months_rented += lived.min(l.term_months as u64) as u32;
+                    // Someone who took the lease over paid its holder, not the rent.
+                    if since == moved_in {
+                        rent += l.rent.0;
+                    }
+                    r.first_move_in_ms = Some(r.first_move_in_ms.map_or(since, |f| f.min(since)));
                 }
             }
             if matches!(l.status, LeaseStatus::Active | LeaseStatus::Ending | LeaseStatus::Disputed) && self.holder(id) == account_id {
@@ -147,6 +157,7 @@ impl Contract {
     pub(crate) fn hand_over(&mut self, lease_id: u64, to: &AccountId) {
         if let Some(l) = self.leases.get_mut(&lease_id) {
             l.tenant = to.clone();
+            l.tenant_since_ms = Some(env::block_timestamp_ms());
             l.takeover = None;
         }
         self.index_lease(to, lease_id);
@@ -162,6 +173,7 @@ impl Contract {
         require!(t.buyer.as_ref() == Some(&buyer), "The landlord agreed to a different tenant");
         require!(amount >= t.price.0, format!("Payment too small: this takeover costs {}", t.price.0));
         lease.tenant = buyer.clone();
+        lease.tenant_since_ms = Some(env::block_timestamp_ms());
         lease.takeover = None;
 
         self.credit(&holder, t.price.0);
