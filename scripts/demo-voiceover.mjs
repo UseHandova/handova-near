@@ -2,7 +2,10 @@
  * Narration for the demo video. HELLO and INTRO play over the landing page, SCRIPT over the phones
  * (also shown as captions), OUTRO on the closing card.
  */
-export const HELLO = 'Hi, my name is Philip, and this is my project submission for the NEAR hackathon. It is called Handova.';
+/** Who presents. DEMO_PRESENTER=Philip rebuilds the umar version, whose recorded opening says that name. */
+export const PRESENTER = process.env.DEMO_PRESENTER ?? 'crazydevvy';
+
+export const HELLO = `Hi, my name is ${PRESENTER}, and this is my project submission for the NEAR hackathon. It is called Handova.`;
 
 export const INTRO =
   'In Lagos, renting a home often means paying a full year up front, plus agent fees, to people you have just met. Getting your caution deposit back depends on goodwill. Handova puts the rent in escrow on NEAR, until you move in. Here is how it works.';

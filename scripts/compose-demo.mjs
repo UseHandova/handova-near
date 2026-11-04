@@ -8,7 +8,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { HELLO, INTRO, OUTRO } from './demo-voiceover.mjs';
+import { HELLO, INTRO, OUTRO, PRESENTER } from './demo-voiceover.mjs';
 
 const REC = resolve(process.argv[2]);
 const OUT = resolve(process.argv[3] ?? 'handova-demo.mp4');
@@ -75,7 +75,7 @@ const intro = (() => {
     `drawbox=x=0:y=0:w=iw:h=ih:color=${BG}@0.88:t=fill:enable='lt(t,${introAt / 1000})'`,
     `drawtext=fontfile='${BOLD}':text='Handova':fontsize=140:fontcolor=white:x=(w-text_w)/2:y=330:enable='lt(t,${introAt / 1000})'`,
     `drawbox=x=(iw-180)/2:y=500:w=180:h=6:color=${GREEN}:t=fill:enable='lt(t,${introAt / 1000})'`,
-    `drawtext=fontfile='${FONT}':text='NEAR Hackathon submission by Philip':fontsize=52:fontcolor=0xd2d8d4:x=(w-text_w)/2:y=545:enable='lt(t,${introAt / 1000})'`,
+    `drawtext=fontfile='${FONT}':text='NEAR Hackathon submission by ${PRESENTER}':fontsize=52:fontcolor=0xd2d8d4:x=(w-text_w)/2:y=545:enable='lt(t,${introAt / 1000})'`,
     cap('cap-hello', HELLO, helloAt, introAt),
     cap('cap-intro', INTRO, introAt, secs * 1000),
     `drawtext=fontfile='${FONT}':text='NEAR testnet · real app':fontsize=20:fontcolor=0x6c7671:x=w-text_w-24:y=h-40`,
