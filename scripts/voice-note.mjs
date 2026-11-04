@@ -73,11 +73,21 @@ function compare(a, b) {
   return { said: t[0][0], score: t[0][0] / Math.max(a.length, b.length, 1), missing, extra };
 }
 
+const likelyWrong = [], listenTo = [];
+
 function report(id, heard) {
-  const { missing, extra } = compare(words(LINES[id]), words(heard));
+  const line = words(LINES[id]);
+  const { missing, extra } = compare(line, words(heard));
   if (!missing.length && !extra.length) return true;
+  // A word or two off is usually Whisper mishearing an accent or a name; a big gap is usually a real change.
+  (missing.length / line.length >= 0.3 ? likelyWrong : listenTo).push(id);
   console.log(`\n✗ ${id}\n  script: ${LINES[id]}\n  heard:  ${heard}\n  missing: ${missing.join(' ') || '-'}\n  extra:   ${extra.join(' ') || '-'}`);
   return false;
+}
+
+function summary() {
+  if (likelyWrong.length) console.log(`Likely wrong, listen first: ${likelyWrong.join(', ')}`);
+  if (listenTo.length) console.log(`Small differences, probably mishearings: ${listenTo.join(', ')}`);
 }
 
 /** Stretches of speech in a recording, from ffmpeg's silence detector. */
@@ -95,8 +105,8 @@ function passages(src) {
 
 /**
  * Gives each passage a line, in reading order: the choice that matches the most words overall, so a line read
- * wrongly still lands in its own place. Passages on one line are retakes if each stands alone (the last
- * wins), or pieces of one take if a long pause split the line.
+ * wrongly still lands in its own place. Passages on one line are retakes if they repeat the same words (the
+ * last wins), or pieces of one take if they add new words, as when a long pause splits the line.
  */
 function takes(parts) {
   const ids = Object.keys(LINES);
@@ -123,13 +133,14 @@ function takes(parts) {
   for (let i = parts.length - 1; i >= 0; i--) { line[i] = l; l = from[i][l]; }
   const out = {};
   parts.forEach((p, i) => {
-    const id = ids[line[i]], size = words(LINES[id]).length;
-    const whole = said[i][line[i]] / size >= MATCH;
-    if (out[id] && !whole) { // a piece of the take before it, or a stray word
-      if (said[i][line[i]] / Math.max(words(p.text).length, 1) < 0.3) { console.log(`  skipped at ${p.from.toFixed(1)}s: "${p.text.slice(0, 70)}"`); return; }
+    const id = ids[line[i]], script = words(LINES[id]), alone = said[i][line[i]];
+    if (!out[id]) { out[id] = { id, from: p.from, to: p.to, heard: p.text }; return; }
+    // New words of the line: the next piece of the same take. The same words again: a retake.
+    if (compare(script, words(`${out[id].heard} ${p.text}`)).said >= Math.max(alone, compare(script, words(out[id].heard)).said) + 2) {
       out[id].to = p.to;
       out[id].heard += ` ${p.text}`;
-    } else out[id] = { id, from: p.from, to: p.to, heard: p.text };
+    } else if (alone / script.length >= MATCH) out[id] = { id, from: p.from, to: p.to, heard: p.text };
+    else console.log(`  skipped at ${p.from.toFixed(1)}s: "${p.text.slice(0, 70)}"`);
   });
   return out;
 }
@@ -147,6 +158,7 @@ function split(src, dir) {
   if (missing.length) console.log(`Not found: ${missing.join(', ')}`);
   const clean = Object.values(take).filter((t) => report(t.id, t.heard)).length;
   console.log(`\n${clean} lines match the script word for word.`);
+  summary();
   process.exitCode = missing.length ? 1 : 0;
 }
 
@@ -162,6 +174,7 @@ function check(dir) {
     if (report(id, transcribe(w))) clean++;
   }
   console.log(`\n${clean} of ${Object.keys(LINES).length} lines match the script word for word.`);
+  summary();
   if (missing.length) console.log(`No clip for: ${missing.join(', ')}`);
 }
 
