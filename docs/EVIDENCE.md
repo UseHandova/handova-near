@@ -26,7 +26,7 @@ To compare a hash yourself: base58 of the SHA-256 of `contract/target/near/hando
 | A sale completes after the landlord agrees | ✅ On `escrow-v3` | [Completed sale](https://testnet.nearblocks.io/txns/C3SW13cFZPXLaJZK8FviDy6sRTMBqbQLt2sj2FL4CuT1): `nft_transfer`, `lease_taken_over`, `nft_sale`, no failed receipts. `get_lease(1)` shows the buyer as `tenant` and `nft_holder` |
 | The caution goes to the NFT holder at move-out | ✅ On `escrow-v3` | [Lease #2](#one-full-lease-on-escrow-v3): the holder at closing, not the payer, received the caution left after an agreed split. A caution returned in full is shown by tests only |
 | App actions are gasless | ✅ On `escrow-v3` | All 14 transactions of lease #2 were signed by `handova-relayer.testnet` |
-| A DAO vote decides a dispute | ⚠️ Tests only so far | Browser test on the test deployment. No DAO ruling on `escrow-v3` yet; lease #2's dispute ended in an agreed split |
+| A DAO vote decides a dispute | ✅ On `escrow-v3`, by team keys | [Lease #4](#a-dao-ruling-on-escrow-v3): proposal #0 of `handova-council.sputnikv2.testnet`. This proves the mechanism, not independent arbitration |
 | A replaced arbiter can't rule on an open lease | ✅ Unit test | `contract/src/tests.rs` |
 | A verifier change or revoked badge can't unlock a silence claim | ✅ Unit test | `contract/src/tests.rs` |
 | Failed withdrawals keep the money | ✅ Unit and sandbox tests | `failed_withdrawal_keeps_the_money` |
@@ -54,6 +54,22 @@ Lease #2, run on 4 Nov 2026 with team-run demo accounts and test USDC. It is not
 | First side proposes 10 USDC | `split_proposed` | [`DmkFN3xY…`](https://testnet.nearblocks.io/txns/DmkFN3xYjAMSB7Qt8Ym2n2CPD4c8f7vEW4tfu9TFvoor) |
 | Second side agrees; lease closes | `split_proposed`, `lease_closed` | [`7VdSNPJx…`](https://testnet.nearblocks.io/txns/7VdSNPJxaGBBAUAFNAj3spdHTvjGEYrH2CRUEfdwKDL5) |
 | Caution withdrawn | `withdrawn` | [`BdFZz32C…`](https://testnet.nearblocks.io/txns/BdFZz32CMByyH5WAT4nVBkyY3qVP99CzMHxqkQXoPmi5) |
+
+## A DAO ruling on escrow-v3
+
+Lease #4, run on 4 Nov 2026 with [`scripts/dao-ruling-testnet.ts`](../scripts/dao-ruling-testnet.ts), demo accounts and test USDC. The council awarded the landlord 1 USDC of the 3 claimed, and the holder 3 USDC. Check it with `get_lease` (`lease_id` 4) on the escrow and `get_proposal` (`id` 0) on the DAO. All 7 transactions succeeded with no failed receipts.
+
+Both votes were signed with team keys (the owner and the verifier), so this shows that a 2-of-3 vote can decide a dispute, not that the council is independent.
+
+| Step | Events | Transaction |
+|---|---|---|
+| Tenant pays | `lease_paid` | [`7X19hrS9…`](https://testnet.nearblocks.io/txns/7X19hrS9PW4QCG7hDiNkXRoDVzUF5sUnRJnmEnUQb3wv) |
+| Tenant confirms move-in | `moved_in`, `nft_mint` | [`B7MwPqjy…`](https://testnet.nearblocks.io/txns/B7MwPqjyPH8t1AbY3zV8d9t7nYAUZ3GZ5NWbWDWkJb9s) |
+| Tenant moves out | `move_out_started` | [`FHxSMD7u…`](https://testnet.nearblocks.io/txns/FHxSMD7uNito8XRhgDc4JJMnSXne8x84p5iAvjL33RsE) |
+| Landlord claims 3 of the 4 USDC caution | `caution_disputed` | [`9axGsbhF…`](https://testnet.nearblocks.io/txns/9axGsbhF83wQ3xxEQGLDjEiYeP1o9KU58MDJcCCbSi3a) |
+| `handova.testnet` proposes `resolve_dispute` with 1 USDC to the landlord |  | [`3pvRPWB6…`](https://testnet.nearblocks.io/txns/3pvRPWB6kqdfgtCYSQjUDDpDLPWfKJhAuEFiyusqeE85) |
+| Vote 1, `handova.testnet`: not enough alone |  | [`FWicWbpL…`](https://testnet.nearblocks.io/txns/FWicWbpLtUUa8GkNBeDAtxt7UUpNpbkno5ownDr7Kan1) |
+| Vote 2, `verifier.handova.testnet`: the DAO calls the escrow | `lease_closed` | [`3ZtekcWN…`](https://testnet.nearblocks.io/txns/3ZtekcWNNmfyUA3Adx6NUgfcte8wZVbtYFeaVWqUChP2) |
 
 ## Test deployment
 
