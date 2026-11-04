@@ -1,0 +1,52 @@
+# Checks that need no keys and no testnet. The browser tests (e2e/) need a funded testnet deployment,
+# so they run by hand: see REPRODUCE.md.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Contract (unit + sandbox tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.97.1
+          targets: wasm32-unknown-unknown
+          components: rust-src
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            contract
+            contract/mock-ft
+      - name: Install cargo-near
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
+      - name: Test
+        working-directory: contract
+        run: cargo test
+
+  app:
+    name: Server tests, types and web build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test server/
+      - run: bun run build
