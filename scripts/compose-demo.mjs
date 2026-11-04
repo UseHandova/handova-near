@@ -5,7 +5,7 @@
  *
  *   FFMPEG=/path/to/ffmpeg node scripts/compose-demo.mjs <recording-dir> <out.mp4>
  */
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { HELLO, INTRO, OUTRO } from './demo-voiceover.mjs';
@@ -158,3 +158,44 @@ const SPEED = Number(process.env.DEMO_SPEED ?? 1.2);
 if (SPEED === 1) ff(['-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', OUT]);
 else ff(['-f', 'concat', '-safe', '0', '-i', list, '-filter_complex', `[0:v]setpts=PTS/${SPEED}[v];[0:a]atempo=${SPEED}[a]`, '-map', '[v]', '-map', '[a]', ...ENC, '-movflags', '+faststart', OUT]);
 console.log(`wrote ${OUT}`);
+
+// The transcript, timed to the finished video: an .srt for YouTube and plain text for the submission.
+const clipLength = (p) => { const m = spawnSync(FF, ['-hide_banner', '-i', p], { encoding: 'utf8' }).stderr.match(/Duration: (\d+):(\d+):([\d.]+)/); return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]); };
+const tightAt = (t) => {
+  let out = 0;
+  for (const g of parts) {
+    if (t >= g.to) { out += (g.to - g.from) / g.speed; continue; }
+    if (t > g.from) out += (t - g.from) / g.speed;
+    break;
+  }
+  return out;
+};
+const introSecs = clipLength(intro);
+const said = [
+  { a: lp.gap / 1000, b: (lp.gap + lp.hello) / 1000, text: HELLO },
+  { a: (lp.gap * 2 + lp.hello) / 1000, b: (lp.gap * 2 + lp.hello + lp.intro) / 1000, text: INTRO },
+  ...tl.captions.map((c, i) => {
+    const a = introSecs + tightAt(c.start / 1000);
+    return { a, b: a + clipSecs(audioInputs[i]), text: c.text };
+  }),
+];
+const outroAt = introSecs + clipLength(tight);
+said.push({ a: outroAt, b: outroAt + clipLength(outro) - 1.2, text: OUTRO });
+const stamp = (x) => {
+  const ms = Math.round((x / SPEED) * 1000);
+  const p = (n, w = 2) => String(n).padStart(w, '0');
+  return `${p(Math.floor(ms / 3600000))}:${p(Math.floor(ms / 60000) % 60)}:${p(Math.floor(ms / 1000) % 60)},${p(ms % 1000, 3)}`;
+};
+// One subtitle per sentence, timed by its share of the line.
+const subtitles = said.flatMap((c) => {
+  const parts = c.text.match(/[^.?!]+[.?!]+(\s|$)/g) ?? [c.text];
+  let at = c.a;
+  return parts.map((text) => {
+    const a = at;
+    at += ((c.b - c.a) * text.length) / c.text.length;
+    return { a, b: at, text: text.trim() };
+  });
+});
+writeFileSync(OUT.replace(/\.mp4$/, '.srt'), subtitles.map((c, i) => `${i + 1}\n${stamp(c.a)} --> ${stamp(c.b)}\n${c.text}\n`).join('\n'));
+writeFileSync(OUT.replace(/\.mp4$/, '.txt'), `${said.map((c) => c.text).join('\n\n')}\n`);
+console.log(`wrote the transcript: ${OUT.replace(/\.mp4$/, '.srt')} and .txt`);
