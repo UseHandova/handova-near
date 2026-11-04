@@ -1,5 +1,7 @@
 # Handova — rent in Lagos straight from the landlord, with the rent in escrow on NEAR
 
+[![CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml/badge.svg)](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml)
+
 Handova lets a tenant rent a home directly from the landlord, with no agent. The tenant (or family abroad) pays rent and the caution fee in USDC into a NEAR smart contract. The landlord is paid when the tenant confirms they moved in (or, only for an ID-verified landlord, if the tenant ignores a marked handover for 3 days). The tenant then holds a **lease NFT that carries the right to the caution fee**: at move-out the contract pays the caution to whoever holds that NFT, unless the landlord disputes it. A tenant leaving early can **sell the rest of their lease** to a next tenant the landlord agreed to.
 
 **What is real, what is simulated, what is not proven yet:**
@@ -207,6 +209,8 @@ The end-to-end cases: happy path; recovery phrase and restore; taken name; famil
 - The 3 reruns are the arbiter tests: public-RPC rate limits (HTTP 429) failed them in the full run.
 - The 2 NEAR AI tests (listing draft, move-out inspection) failed in the full run because the API key was over its spend limit (`402 api_key_limit_exceeded`), then passed on v3 code with a new key.
 - Browser tests run on a test deployment with the same code hash as `escrow-v3`, with 20-second waiting periods instead of days.
+
+[CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml) runs the contract unit and sandbox tests, the server tests, type checks and the web build. Browser tests are not in CI, because they need a funded testnet deployment; they run by hand ([`REPRODUCE.md`](REPRODUCE.md)).
 
 Per-claim proof, the code hash and transaction links are in [`docs/EVIDENCE.md`](docs/EVIDENCE.md).
 
