@@ -91,7 +91,8 @@ export async function view<T>(contractId: string, method: string, args: Record<s
 
 export async function accountExists(accountId: string): Promise<boolean> {
   try {
-    await provider.viewAccount({ accountId });
+    // Not the failover wrapper: it takes "no such account" for a failure and asks every RPC in turn.
+    await firstAvailable(senders.map((p) => () => p.viewAccount({ accountId })), 8_000);
     return true;
   } catch {
     return false;

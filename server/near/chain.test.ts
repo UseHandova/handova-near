@@ -30,6 +30,10 @@ describe('sending through several RPCs', () => {
     await expect(firstAvailable([async () => { throw rateLimited; }, async () => { throw new Error('fetch failed'); }])).rejects.toThrow('fetch failed');
   });
 
+  test('"no such account" is a real answer, not a busy RPC', () => {
+    expect(rpcUnavailable(new Error('Account tolu.handova.testnet does not exist at block height 5'))).toBe(false);
+  });
+
   test('tells a busy RPC from a real answer', () => {
     for (const m of ['Exceeded 2 attempts for https://x.', 'Rate limits exceeded', 'Timeout error', 'https://x Bad Gateway', 'https://x unavailable', 'Internal server error', 'fetch failed', 'Unable to connect']) {
       expect(rpcUnavailable(new Error(m))).toBe(true);
