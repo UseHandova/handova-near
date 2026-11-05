@@ -80,9 +80,6 @@ pub struct Lease {
     /// The arbiter when the tenant paid. Only this account can rule on this lease, so changing
     /// the contract's arbiter later never affects a lease that is already open.
     pub arbiter: AccountId,
-    /// Whether the landlord was ID-verified when the tenant paid. Claiming rent by the tenant's
-    /// silence needs this, so a verifier changed mid-lease can't unlock it.
-    pub landlord_verified: bool,
     /// The listing details when the tenant paid. The AI inspection's "before" photos come from
     /// here, so editing the listing later can't change the baseline.
     pub property_ref: String,
@@ -161,7 +158,6 @@ impl FungibleTokenReceiver for Contract {
             caution_to_holder: U128(0),
             closed_holder: None,
             arbiter: self.arbiter.clone(),
-            landlord_verified: self.verified.contains_key(&listing.landlord),
             property_ref: listing.property_ref.clone(),
             tenant_since_ms: None,
             takeover: None,
@@ -187,8 +183,8 @@ impl FungibleTokenReceiver for Contract {
 
 #[near]
 impl Contract {
-    /// Landlord: "I handed over the keys." If the tenant stays silent past the handover window,
-    /// the landlord can claim move-in.
+    /// Landlord: "I handed over the keys." The rent stays in escrow until the tenant confirms or
+    /// the arbiter rules: silence never moves it.
     pub fn mark_handover(&mut self, lease_id: u64) {
         let lease = self.lease_mut(lease_id);
         require!(env::predecessor_account_id() == lease.landlord, "Only the landlord can mark the handover");
@@ -206,36 +202,19 @@ impl Contract {
         self.activate(lease_id);
     }
 
-    /// Anyone, after an ID-verified landlord marked the handover and the tenant stayed silent for
-    /// the handover window (3 days). Same result as the tenant confirming. Unverified landlords
-    /// always need the tenant's confirmation, so a fake listing can't collect rent by silence.
-    pub fn claim_move_in(&mut self, lease_id: u64) {
-        let lease = self.lease_ref(lease_id);
-        require!(
-            lease.landlord_verified && self.verified.contains_key(&lease.landlord),
-            "Only landlords who were ID-verified when the tenant paid can claim move-in without the tenant. Ask the tenant to confirm"
-        );
-        require!(lease.status == LeaseStatus::Pending, "This lease is not waiting for move-in");
-        let handover = lease.handover_at_ms.unwrap_or_else(|| env::panic_str("The landlord hasn't marked the handover"));
-        require!(lease.move_in_dispute.is_none(), "The tenant disputed the handover; the arbiter decides");
-        require!(
-            env::block_timestamp_ms() >= handover + self.timeouts.handover_claim_secs * 1000,
-            "The tenant still has time to respond to the handover"
-        );
-        self.activate(lease_id);
-    }
-
-    /// Ask the arbiter to decide the move-in. Either side can:
-    /// - tenant: "the landlord marked a handover but I don't have the keys" (stops any claim);
-    /// - landlord: "I handed over the keys and the tenant won't confirm" (the way out for a
-    ///   landlord who isn't ID-verified and so can't claim by silence).
+    /// Ask the arbiter to decide the move-in. Any side can:
+    /// - tenant or payer: "the landlord marked a handover but the keys never came";
+    /// - landlord: "I handed over the keys and the tenant won't confirm".
     /// Ends when the tenant confirms, the landlord cancels, or the arbiter decides; if the arbiter
     /// is silent for the dispute window, the payer is refunded. It can be opened once.
     pub fn dispute_move_in(&mut self, lease_id: u64, reason: String) {
         require!(reason.len() <= MAX_REASON_LEN, "Reason is too long (max 500 characters)");
         let caller = env::predecessor_account_id();
         let lease = self.lease_mut(lease_id);
-        require!(caller == lease.tenant || caller == lease.landlord, "Only the tenant or landlord can ask the arbiter");
+        require!(
+            caller == lease.tenant || caller == lease.payer || caller == lease.landlord,
+            "Only the tenant, payer or landlord can ask the arbiter"
+        );
         require!(lease.status == LeaseStatus::Pending, "This lease is not waiting for move-in");
         require!(lease.handover_at_ms.is_some(), "There is no handover to dispute");
         require!(lease.move_in_dispute.is_none(), "The arbiter is already deciding this handover");
@@ -378,18 +357,19 @@ impl Contract {
         self.close(lease_id, landlord_amount.0, "arbiter");
     }
 
-    /// Anyone, after a dispute stayed open for the dispute window: split the caution 50/50.
+    /// Anyone, after a dispute stayed open for the dispute window. A claim nobody ruled on pays
+    /// nothing: the landlord gets only what the holder last offered, never more than they claimed,
+    /// and the holder gets the rest.
     pub fn settle_dispute_timeout(&mut self, lease_id: u64) {
         let lease = self.lease_ref(lease_id);
         require!(lease.status == LeaseStatus::Disputed, "This lease has no open dispute");
-        let opened = lease.dispute.as_ref().unwrap().opened_at_ms;
+        let d = lease.dispute.as_ref().unwrap();
+        let (opened, offered, claim) = (d.opened_at_ms, d.tenant_offer.map_or(0, |o| o.0), d.landlord_claim.0);
         require!(
             env::block_timestamp_ms() >= opened + self.timeouts.dispute_secs * 1000,
             "The dispute window is still open"
         );
-        // Split 50/50, but never more to the landlord than they claimed.
-        let half = (lease.caution.0 / 2).min(lease.dispute.as_ref().unwrap().landlord_claim.0);
-        self.close(lease_id, half, "timeout_split");
+        self.close(lease_id, offered.min(claim), "dispute_timeout");
     }
 
     /// Send your whole balance (or `amount`) to your account. If the transfer fails — for example

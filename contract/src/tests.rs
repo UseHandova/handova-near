@@ -217,21 +217,33 @@ fn tenant_cannot_cancel_after_handover() {
 }
 
 #[test]
-fn landlord_claims_move_in_after_3_silent_days() {
+fn silence_never_moves_the_rent_the_arbiter_decides() {
     let mut t = T::new();
     t.as_("verifier.near").set_verified(acc("landlord.near"), true);
     let l = t.list();
     t.pay("tenant.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l}}}"#));
     t.as_("landlord.near").mark_handover(1);
-    t.wait_days(2);
-    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.as_("landlord.near").claim_move_in(1)));
-    assert!(r.is_err(), "tenant still has time");
-    t.wait_days(1);
-    // Anyone may trigger it (e.g. Handova's keeper); the result is fixed by the rules.
-    t.as_("keeper.near").claim_move_in(1);
+    t.wait_days(365);
+    assert_eq!(t.lease(1).status, LeaseStatus::Pending, "even a verified landlord waits for a yes");
+    assert_eq!(t.bal("landlord.near"), 0);
+    t.as_("landlord.near").dispute_move_in(1, "Tenant moved in and won't confirm".into());
+    t.as_("arbiter.near").resolve_move_in(1, true);
     assert_eq!(t.lease(1).status, LeaseStatus::Active);
     assert_eq!(t.bal("landlord.near"), RENT);
     assert_eq!(t.lease(1).nft_holder, Some(acc("tenant.near")));
+}
+
+#[test]
+fn the_payer_can_dispute_a_handover() {
+    let mut t = T::new();
+    let l = t.list();
+    t.pay("nurse.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l},"tenant":"mum.near"}}"#));
+    t.as_("landlord.near").mark_handover(1);
+    assert!(refused(|| t.as_("stranger.near").dispute_move_in(1, "No keys".into())));
+    t.as_("nurse.near").dispute_move_in(1, "Mum has no keys".into());
+    t.wait_days(7);
+    t.as_("anyone.near").settle_move_in_timeout(1);
+    assert_eq!(t.bal("nurse.near"), RENT + CAUTION);
 }
 
 #[test]
@@ -242,8 +254,6 @@ fn tenant_disputes_fake_handover_and_arbiter_refunds() {
     t.as_("landlord.near").mark_handover(1);
     t.as_("tenant.near").dispute_move_in(1, "No keys, house locked".into());
     t.wait_days(4);
-    let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.as_("landlord.near").claim_move_in(1)));
-    assert!(r.is_err(), "dispute blocks the automatic claim");
     let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| t.as_("landlord.near").resolve_move_in(1, true)));
     assert!(r.is_err(), "only the arbiter decides");
     t.as_("arbiter.near").resolve_move_in(1, false);
@@ -292,15 +302,40 @@ fn dispute_decided_by_arbiter() {
 }
 
 #[test]
-fn dispute_nobody_acts_splits_50_50() {
+fn dispute_nobody_settles_returns_the_caution_to_the_holder() {
     let mut t = T::new();
     t.active_lease();
     t.as_("tenant.near").move_out(1);
     t.as_("landlord.near").dispute_caution(1, U128(150 * USDC), "Damage".into());
     t.wait_days(7);
     t.as_("anyone.near").settle_dispute_timeout(1);
-    assert_eq!(t.bal("landlord.near"), RENT + 75 * USDC);
-    assert_eq!(t.bal("tenant.near"), 75 * USDC);
+    assert_eq!(t.bal("landlord.near"), RENT, "a claim nobody ruled on pays nothing");
+    assert_eq!(t.bal("tenant.near"), CAUTION);
+}
+
+#[test]
+fn unsettled_dispute_pays_the_landlord_what_the_holder_offered() {
+    let mut t = T::new();
+    t.active_lease();
+    t.as_("tenant.near").move_out(1);
+    t.as_("landlord.near").dispute_caution(1, U128(100 * USDC), "Damage".into());
+    t.as_("tenant.near").propose_split(1, U128(20 * USDC));
+    t.wait_days(7);
+    t.as_("anyone.near").settle_dispute_timeout(1);
+    assert_eq!(t.bal("landlord.near"), RENT + 20 * USDC);
+    assert_eq!(t.bal("tenant.near"), CAUTION - 20 * USDC);
+}
+
+#[test]
+fn unsettled_dispute_never_pays_more_than_the_landlord_claimed() {
+    let mut t = T::new();
+    t.active_lease();
+    t.as_("tenant.near").move_out(1);
+    t.as_("landlord.near").dispute_caution(1, U128(20 * USDC), "Scuffed wall".into());
+    t.as_("tenant.near").propose_split(1, U128(30 * USDC));
+    t.wait_days(7);
+    t.as_("anyone.near").settle_dispute_timeout(1);
+    assert_eq!(t.bal("landlord.near"), RENT + 20 * USDC);
 }
 
 #[test]
@@ -452,17 +487,6 @@ fn rent_has_a_minimum() {
 }
 
 #[test]
-#[should_panic(expected = "Only landlords who were ID-verified when the tenant paid")]
-fn unverified_landlord_cannot_collect_by_silence() {
-    let mut t = T::new();
-    let l = t.list();
-    t.pay("tenant.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l}}}"#));
-    t.as_("landlord.near").mark_handover(1);
-    t.wait_days(30);
-    t.as_("keeper.near").claim_move_in(1);
-}
-
-#[test]
 fn disputed_handover_refunds_payer_if_arbiter_silent() {
     let mut t = T::new();
     let l = t.list();
@@ -510,18 +534,6 @@ fn unverified_landlord_escalates_to_arbiter_when_tenant_wont_confirm() {
     t.as_("arbiter.near").resolve_move_in(1, true);
     assert_eq!(t.lease(1).status, LeaseStatus::Active);
     assert_eq!(t.bal("landlord.near"), RENT);
-}
-
-#[test]
-fn timeout_split_never_gives_landlord_more_than_claimed() {
-    let mut t = T::new();
-    t.active_lease();
-    t.as_("tenant.near").move_out(1);
-    t.as_("landlord.near").dispute_caution(1, U128(20 * USDC), "Scuffed wall".into());
-    t.wait_days(7);
-    t.as_("anyone.near").settle_dispute_timeout(1);
-    assert_eq!(t.bal("landlord.near"), RENT + 20 * USDC);
-    assert_eq!(t.bal("tenant.near"), CAUTION - 20 * USDC);
 }
 
 #[test]
@@ -737,34 +749,6 @@ fn a_new_arbiter_cannot_rule_on_a_lease_that_was_already_open() {
     let l = t.list();
     t.pay("tenant2.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l}}}"#));
     assert_eq!(t.lease(2).arbiter, acc("friendly-arbiter.near"));
-}
-
-#[test]
-fn a_verifier_changed_mid_lease_cannot_unlock_a_silence_claim() {
-    let mut t = T::new();
-    let l = t.list();
-    t.pay("tenant.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l}}}"#));
-    assert!(!t.lease(1).landlord_verified);
-    // The owner installs a new verifier, which verifies the landlord after the tenant paid.
-    t.as_("owner.near").set_verifier(acc("new-verifier.near"));
-    t.as_("new-verifier.near").set_verified(acc("landlord.near"), true);
-    t.as_("landlord.near").mark_handover(1);
-    t.wait_days(4);
-    assert!(refused(|| t.as_("anyone.near").claim_move_in(1)), "not verified when the tenant paid");
-    assert_eq!(t.lease(1).status, LeaseStatus::Pending);
-}
-
-#[test]
-fn a_revoked_badge_also_stops_a_silence_claim() {
-    let mut t = T::new();
-    t.as_("verifier.near").set_verified(acc("landlord.near"), true);
-    let l = t.list();
-    t.pay("tenant.near", RENT + CAUTION, &format!(r#"{{"listing_id":{l}}}"#));
-    assert!(t.lease(1).landlord_verified);
-    t.as_("verifier.near").set_verified(acc("landlord.near"), false);
-    t.as_("landlord.near").mark_handover(1);
-    t.wait_days(4);
-    assert!(refused(|| t.as_("anyone.near").claim_move_in(1)));
 }
 
 // ---------- Consent names a person ----------

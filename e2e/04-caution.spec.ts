@@ -49,7 +49,7 @@ test('caution dispute decided by the arbiter', async ({ phone }) => {
   expect(await chain.escrowBalance(tenant)).toBe(caution - 1_000_000n);
 });
 
-test('dispute nobody settles: 50/50 after the window', async ({ phone }) => {
+test('dispute nobody settles: the caution goes back to the holder', async ({ phone }) => {
   const ll = await phone('landlord');
   const tn = await phone('tenant');
   const landlord = await signUp(ll, 'll');
@@ -57,12 +57,12 @@ test('dispute nobody settles: 50/50 after the window', async ({ phone }) => {
   const { leaseId, rent, caution } = await activeLease(ll, tn, tenant);
   await disputed(ll, tn, leaseId, usdc(caution));
   await openLease(tn, leaseId);
-  await expect(tn.getByRole('button', { name: /Settle 50\/50/ })).toHaveCount(0);
+  await expect(tn.getByRole('button', { name: /Return the caution/ })).toHaveCount(0);
   await waitPeriod(tn);
-  await act(tn, leaseId, /Settle 50\/50/, /Settled 50\/50/);
+  await act(tn, leaseId, /Return the caution/, /Settled/);
   await expectLease(leaseId, 'Closed');
-  expect(await chain.escrowBalance(landlord)).toBe(rent + caution / 2n);
-  expect(await chain.escrowBalance(tenant)).toBe(caution - caution / 2n);
+  expect(await chain.escrowBalance(landlord)).toBe(rent);
+  expect(await chain.escrowBalance(tenant)).toBe(caution);
 });
 
 test('landlord silent after move-out: tenant claims the caution', async ({ phone }) => {

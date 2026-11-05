@@ -82,7 +82,6 @@ export function VerifyIdentity() {
       </div>
       <ul className="space-y-1 pl-1 text-sm text-ink2">
         <li>✓ A verified badge on all your listings: tenants trust you faster</li>
-        <li>✓ Get paid if a tenant goes silent 3 days after you hand over the keys</li>
         <li>✓ List more than 3 homes</li>
       </ul>
       {state === 'review' ? (

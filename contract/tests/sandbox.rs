@@ -47,7 +47,7 @@ async fn setup() -> anyhow::Result<Env> {
         .args_json(json!({
             "owner": admin.id(), "verifier": admin.id(), "arbiter": admin.id(), "token": usdc.id(),
             "timeouts": {
-                "handover_claim_secs": WAIT_SECS, "cancel_after_secs": WAIT_SECS,
+                "cancel_after_secs": WAIT_SECS,
                 "move_out_review_secs": WAIT_SECS, "dispute_secs": WAIT_SECS,
             },
         }))
@@ -152,7 +152,7 @@ async fn diaspora_pays_mum_moves_in_landlord_paid_caution_returns() -> anyhow::R
 }
 
 #[tokio::test]
-async fn nft_transfer_moves_the_caution_and_dispute_times_out_50_50() -> anyhow::Result<()> {
+async fn nft_transfer_moves_the_caution_and_unsettled_dispute_returns_it() -> anyhow::Result<()> {
     let e = setup().await?;
     let listing = create_listing(&e, &e.landlord).await?;
     pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?.into_result()?;
@@ -203,7 +203,7 @@ async fn nft_transfer_moves_the_caution_and_dispute_times_out_50_50() -> anyhow:
 
     let mum_bal: String = e.handova.view("balance_of").args_json(json!({ "account_id": e.mum.id() })).await?.json()?;
     let nurse_bal: String = e.handova.view("balance_of").args_json(json!({ "account_id": e.nurse.id() })).await?.json()?;
-    assert_eq!(mum_bal, (CAUTION / 2).to_string(), "half the caution to the current NFT holder");
+    assert_eq!(mum_bal, CAUTION.to_string(), "an unsettled claim leaves the caution with the current NFT holder");
     assert_eq!(nurse_bal, "0", "the previous holder gets nothing");
     assert_solvent(&e).await?;
     Ok(())
@@ -283,5 +283,19 @@ async fn payment_refused_for_changed_terms_refunds_the_payer() -> anyhow::Result
     let cfg: Value = e.handova.view("get_config").await?.json()?;
     assert_eq!(cfg["leases"], 0);
     assert_solvent(&e).await?;
+    Ok(())
+}
+
+/// The contract has no way to release rent on silence, whoever calls and however long they wait.
+#[tokio::test]
+async fn silence_never_releases_the_rent() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let listing = create_listing(&e, &e.landlord).await?;
+    pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?.into_result()?;
+    e.landlord.call(e.handova.id(), "mark_handover").args_json(json!({ "lease_id": 1 })).transact().await?.into_result()?;
+    e.worker.fast_forward(20).await?;
+    let claim = e.landlord.call(e.handova.id(), "claim_move_in").args_json(json!({ "lease_id": 1 })).transact().await?;
+    assert!(claim.is_failure(), "there is no such method");
+    assert_eq!(lease(&e, 1).await?["status"], "Pending");
     Ok(())
 }

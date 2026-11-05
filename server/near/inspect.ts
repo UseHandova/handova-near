@@ -2,8 +2,8 @@
  * Move-out inspection with NEAR AI: compares the listing's photos (the condition the landlord advertised)
  * with photos taken at move-out, lists clear damage and suggests how much of the caution fee the landlord
  * could fairly keep. Every answer has a signed receipt the server checks against NEAR AI's attestation
- * report (see ai.ts). The "before" photos are the listing as the keeper recorded it when the lease began
- * (see baselines.ts); a lease it hasn't seen yet falls back to the current listing, and the result says which.
+ * report (see ai.ts). The "before" photos are the ones in the listing details the escrow copied onto the
+ * lease when the tenant paid, so editing the listing later can't change them.
  *
  * Advice only. The landlord and the tenant agree a split, or the arbiter (a DAO council) decides; the
  * escrow never reads this. Only the landlord or the lease holder can ask, proven with a NEP-413 signed
@@ -13,11 +13,10 @@
 import type { Express } from 'express';
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 import { PublicKey } from 'near-api-js';
 import { nep413Hash } from '../../shared/nep413';
 import { verifiedJson, VISION_MODEL, type Receipt } from './ai';
-import { baselineFor, type Baseline } from './baselines';
 import { deploy, env } from './config';
 import { provider, view } from './chain';
 import { RateLimit } from './rate-limit';
@@ -36,9 +35,6 @@ export interface Inspection {
   at: number;
   requestedBy: string;
   before: string[];
-  /** 'snapshot': the listing when the lease began. 'current': the keeper hadn't recorded it. */
-  beforeSource: Baseline['source'];
-  beforeHash: string;
   after: string[];
   result: InspectionResult;
   receipt: Receipt;
@@ -73,12 +69,9 @@ const ACCOUNT_RE = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
 /** Photos are read from Handova's own media store by name, never fetched from a URL the caller chose. */
 const MEDIA_RE = /^https?:\/\/[^/]+\/api\/media\/([a-f0-9]{24}\.(jpg|png|webp))$/;
 
-const inspectionFile = () => env('INSPECTION_DATA_FILE') ?? 'server/data/inspections.json';
-/** Beside the inspections, so it lands on the same persistent disk in production. */
-export const BASELINE_FILE = () => join(dirname(inspectionFile()), 'lease-baselines.json');
 
 export function mountInspect(app: Express) {
-  const dataFile = inspectionFile();
+  const dataFile = env('INSPECTION_DATA_FILE') ?? 'server/data/inspections.json';
   const challenges = new Map<string, { accountId: string; leaseId: number; message: string; expiresAt: number }>();
   const perIp = new RateLimit(20, 60 * 60_000);
   const perLease = new RateLimit(6, 24 * 60 * 60_000);
@@ -138,10 +131,8 @@ export function mountInspect(app: Express) {
     if (!afterUrls.length) return res.status(400).json({ error: 'Add at least one move-out photo.' });
     if (!perLease.take(String(c.leaseId))) return res.status(429).json({ error: 'This lease has had enough inspections today.' });
 
-    const listing: any = await view(deploy.escrow, 'get_listing', { listing_id: lease.listing_id }).catch(() => null);
-    const before: Baseline = baselineFor(BASELINE_FILE(), lease.id, listing?.property_ref ?? '{}');
     let beforeUrls: string[] = [];
-    try { beforeUrls = (JSON.parse(before.propertyRef).p ?? []).map(String).filter((u: string) => MEDIA_RE.test(u)).slice(0, 3); } catch { /* listing without photos */ }
+    try { beforeUrls = (JSON.parse(lease.property_ref).p ?? []).map(String).filter((u: string) => MEDIA_RE.test(u)).slice(0, 3); } catch { /* listing without photos */ }
 
     try {
       const beforeImgs = beforeUrls.map(dataUrl);
@@ -150,7 +141,7 @@ export function mountInspect(app: Express) {
       beforeImgs.forEach((u, i) => content.push({ type: 'text', text: `BEFORE ${i + 1}` }, { type: 'image_url', image_url: { url: u } }));
       afterImgs.forEach((u, i) => content.push({ type: 'text', text: `AFTER ${i + 1}` }, { type: 'image_url', image_url: { url: u } }));
       const { data, receipt } = await verifiedJson<InspectionResult>(VISION_MODEL, [{ role: 'system', content: PROMPT }, { role: 'user', content }], 1500);
-      const inspection: Inspection = { at: Date.now(), requestedBy: accountId, before: beforeUrls, beforeSource: before.source, beforeHash: before.hash, after: afterUrls, result: cleanResult(data), receipt };
+      const inspection: Inspection = { at: Date.now(), requestedBy: accountId, before: beforeUrls, after: afterUrls, result: cleanResult(data), receipt };
       const all = load();
       all[String(c.leaseId)] = [...(all[String(c.leaseId)] ?? []), inspection];
       save(all);

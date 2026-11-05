@@ -80,7 +80,7 @@ Contract IDs come from `deploy/<network>.json` (or `deploy/<network>.local.json`
 | `NEARAI_API_KEY` | NEAR AI Cloud (optional) |
 | `ONECLICK_JWT` | NEAR Intents partner key (optional) |
 | `MINTBASE_MARKET` | Mintbase market contract (default `market-v2-beta.mintspace2.testnet`, mainnet `simple.market.mintbase1.near`) |
-| `INSPECTION_DATA_FILE` | Where inspections are kept (persistent disk in production); `lease-baselines.json`, the listing recorded at the start of each lease, sits beside it |
+| `INSPECTION_DATA_FILE` | Where inspections are kept (persistent disk in production) |
 | `HIDDEN_LISTINGS` | Listing ids hidden from Handova's home page (comma-separated) |
 | `RELAYER_DAILY_TX`, `RATE_LIMIT_SCALE`, `KEEPER`, `NEAR_RPC_FALLBACKS` | Limits and switches |
 

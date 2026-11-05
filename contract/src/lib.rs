@@ -66,20 +66,17 @@ enum StorageKey {
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug)]
 pub struct Timeouts {
-    /// Landlord marked the handover and the tenant is silent this long → landlord can claim move-in.
-    pub handover_claim_secs: u64,
     /// No handover this long after payment → tenant or payer can cancel for a full refund.
     pub cancel_after_secs: u64,
     /// Landlord's review window after move-out. Silence → the NFT holder claims the caution fee.
     pub move_out_review_secs: u64,
-    /// A caution dispute nobody settles within this time splits 50/50.
+    /// A caution dispute nobody settles within this time goes back to the holder, less their offer.
     pub dispute_secs: u64,
 }
 
 impl Default for Timeouts {
     fn default() -> Self {
         Self {
-            handover_claim_secs: 3 * DAY_SECS,
             cancel_after_secs: 7 * DAY_SECS,
             move_out_review_secs: 7 * DAY_SECS,
             dispute_secs: 7 * DAY_SECS,

@@ -8,8 +8,8 @@
  *   4. POST /api/verify/didit/complete|resume    → reads Didit's decision; if approved, the verifier
  *                                                  account calls `set_verified(account, true)` on the escrow
  *
- * Only an approved landlord gets the on-chain badge, and only verified landlords can collect rent when a
- * tenant stays silent after a handover (see the contract). One ID document can verify one account; IDs are
+ * Only an approved landlord gets the on-chain badge, which tenants see on listings and which lifts the
+ * 3-home limit. One ID document can verify one account; IDs are
  * kept only as a keyed hash. Personal data (names, ID numbers, photos) is never logged or stored: Didit holds it.
  */
 import type { Express, Request, Response } from 'express';

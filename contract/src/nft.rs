@@ -217,7 +217,7 @@ impl Contract {
                 held_str
             ),
             LeaseStatus::Disputed => format!(
-                "Caution fee of {} USDC is disputed. It is split by agreement, by the arbiter, or 50/50 if nobody acts.",
+                "Caution fee of {} USDC is disputed. It is split by agreement or by the arbiter. If neither happens, it returns to the holder, less anything they offered.",
                 held_str
             ),
             _ => format!(

@@ -29,7 +29,7 @@ Save each recording with the name in the **File** column (for example `hello.m4a
 
 | # | File | Scene | Say |
 |---|---|---|---|
-| 1 | `hello` | Opening, over the landing page | Hi, my name is Philip, and this is my project submission for the NEAR hackathon. It is called Handova. |
+| 1 | `hello` | Opening, over the landing page | Hi, my name is crazydevvy, and this is my project submission for the NEAR hackathon. It is called Handova. |
 | 2 | `intro` | Opening, over the landing page | In Lagos, renting a home often means paying a full year up front, plus agent fees, to people you have just met. Getting your caution deposit back depends on goodwill. Handova puts the rent in escrow on NEAR, until you move in. Here is how it works. |
 | 3 | `ll1` | Landlord (Ade) | Meet Ade, a landlord in Lagos. He signs up as a landlord in seconds. The key stays on his phone. No wallet app, no gas. |
 | 4 | `ll1b` | Landlord (Ade) | Landlords can verify their ID with Didit. The verified badge is written on NEAR, so tenants know who they are paying. |

@@ -25,7 +25,7 @@ OUT="${OUT:-deploy/testnet.json}"
 # Optional: one waiting period (seconds) for every rule, e.g. TIMEOUT_SECS=20 for end-to-end tests.
 TIMEOUTS_JSON=""
 if [ -n "${TIMEOUT_SECS:-}" ]; then
-  TIMEOUTS_JSON=",\"timeouts\":{\"handover_claim_secs\":$TIMEOUT_SECS,\"cancel_after_secs\":$TIMEOUT_SECS,\"move_out_review_secs\":$TIMEOUT_SECS,\"dispute_secs\":$TIMEOUT_SECS}"
+  TIMEOUTS_JSON=",\"timeouts\":{\"cancel_after_secs\":$TIMEOUT_SECS,\"move_out_review_secs\":$TIMEOUT_SECS,\"dispute_secs\":$TIMEOUT_SECS}"
 fi
 cd "$(dirname "$0")/.."
 

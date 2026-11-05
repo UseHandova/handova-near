@@ -40,8 +40,6 @@ export interface Lease {
   takeover: { price: string; buyer: string | null; landlord_consent: boolean; offered_at_ms: number } | null;
   /** The arbiter when the tenant paid; only it can rule on this lease. */
   arbiter: string;
-  /** Whether the landlord was ID-verified when the tenant paid (needed to claim rent by silence). */
-  landlord_verified: boolean;
   /** The listing details when the tenant paid; editing the listing later doesn't change these. */
   property_ref: string;
   /** When the current tenant's time in the home began: move-in, or their takeover. */
@@ -64,7 +62,6 @@ export interface RentalRecord {
 }
 
 export interface Timeouts {
-  handover_claim_secs: number;
   cancel_after_secs: number;
   move_out_review_secs: number;
   dispute_secs: number;

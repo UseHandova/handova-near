@@ -1,6 +1,6 @@
 import { act, apiPost, arbiter, chain, expect, expectLease, faucet, listHome, pay, signInWithPhrase, signUp, test, toast, waitPeriod, openLease } from './helpers';
 
-test('tenant silent after handover: a verified landlord claims the rent', async ({ phone }) => {
+test('tenant silent after handover: even a verified landlord waits for a yes or a ruling', async ({ phone }) => {
   const ll = await phone('landlord');
   const tn = await phone('tenant');
   const landlord = await signUp(ll, 'll');
@@ -10,16 +10,15 @@ test('tenant silent after handover: a verified landlord claims the rent', async 
   await faucet(tenant);
   const leaseId = await pay(tn, listingId);
   await act(ll, leaseId, /handed over the keys/, /Handover marked/);
-  await expect(ll.getByText(/you can claim in/)).toBeVisible();
-  await expect(ll.getByRole('button', { name: /Claim the rent/ })).toHaveCount(0);
   // The tenant can no longer cancel once the handover is marked.
   await openLease(tn, leaseId);
   await expect(tn.getByRole('button', { name: /Cancel and get a full refund/ })).toHaveCount(0);
   await waitPeriod(ll);
-  await act(ll, leaseId, /Claim the rent/, /Move-in claimed/);
-  await expectLease(leaseId, 'Active');
-  expect(await chain.escrowBalance(landlord)).toBe(BigInt((await chain.lease(leaseId)).rent));
-  expect((await chain.nft(leaseId)).owner_id).toBe(tenant);
+  await openLease(ll, leaseId);
+  await expect(ll.getByText(/Silence never releases the rent/)).toBeVisible();
+  await expect(ll.getByRole('button', { name: /Claim the rent/ })).toHaveCount(0);
+  expect((await chain.lease(leaseId)).status).toBe('Pending');
+  expect(await chain.escrowBalance(landlord)).toBe(0n);
 });
 
 test('fake handover: tenant disputes, landlord cannot claim, arbiter refunds; second case arbiter rules moved in', async ({ phone }) => {
@@ -66,7 +65,7 @@ test('fake handover: tenant disputes, landlord cannot claim, arbiter refunds; se
   expect(await chain.escrowBalance(landlord)).toBe(BigInt((await chain.lease(lease2)).rent));
 });
 
-test('unverified landlord cannot collect by silence; an arbiter who stays silent means a refund', async ({ phone }) => {
+test('silence pays nobody; an arbiter who stays silent means a refund', async ({ phone }) => {
   const ll = await phone('landlord');
   const tn = await phone('tenant');
   await signUp(ll, 'll');
@@ -84,9 +83,8 @@ test('unverified landlord cannot collect by silence; an arbiter who stays silent
   await toast(tn, /Dispute sent/);
 
   await waitPeriod(ll);
-  // Fake-listing protection: an unverified landlord never gets a claim button.
   await openLease(ll, lease1);
-  await expect(ll.getByText(/Only ID-verified landlords can collect/)).toBeVisible();
+  await expect(ll.getByText(/Silence never releases the rent/)).toBeVisible();
   await expect(ll.getByRole('button', { name: /Claim the rent/ })).toHaveCount(0);
   expect((await chain.lease(lease1)).status).toBe('Pending');
 

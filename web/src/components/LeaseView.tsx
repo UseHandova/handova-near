@@ -130,21 +130,17 @@ export function LeaseView({ id }: { id: number }) {
   const notes: string[] = [];
   if (lease.status === 'Pending' && t) {
     const cancelAt = lease.paid_at_ms + s(t.cancel_after_secs);
-    const claimAt = (lease.handover_at_ms ?? 0) + s(t.handover_claim_secs);
-    const verifiedLandlord = !!listing?.landlord_verified;
     if (isTenant) {
       actions.push(btn('confirm_move_in', tr('I have the keys — confirm move-in'), 'Moved in! The landlord is paid and your lease NFT holds your caution fee.'));
-      if (lease.handover_at_ms && !lease.move_in_dispute) {
-        notes.push(verifiedLandlord
-          ? `The landlord says they handed over the keys. If you don't respond in ${timeLeft(claimAt - now)}, the landlord can claim the rent.`
-          : 'The landlord says they handed over the keys. The rent stays in escrow until you confirm.');
-        actions.push(
-          <div key="dmi" className="space-y-2 rounded-xl border border-line p-3">
-            <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="What happened? e.g. no keys, house locked" maxLength={500} />
-            <button className="btn-danger w-full" disabled={!!busy || reason.length < 5} onClick={() => act('dispute_move_in', { reason }, 'Dispute sent. The landlord can no longer claim the rent; the arbiter will decide.')}><Busy busy={busy === 'dispute_move_in'}>{tr("I didn't get the keys")}</Busy></button>
-          </div>,
-        );
-      }
+    }
+    if ((isTenant || isPayer) && lease.handover_at_ms && !lease.move_in_dispute) {
+      notes.push('The landlord says they handed over the keys. The rent stays in escrow until the tenant confirms or the arbiter rules.');
+      actions.push(
+        <div key="dmi" className="space-y-2 rounded-xl border border-line p-3">
+          <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="What happened? e.g. no keys, house locked" maxLength={500} />
+          <button className="btn-danger w-full" disabled={!!busy || reason.length < 5} onClick={() => act('dispute_move_in', { reason }, 'Dispute sent. The arbiter will decide.')}><Busy busy={busy === 'dispute_move_in'}>{tr("I didn't get the keys")}</Busy></button>
+        </div>,
+      );
     }
     if ((isTenant || isPayer) && !lease.handover_at_ms) {
       if (now >= cancelAt) actions.push(btn('cancel_lease', 'Cancel and get a full refund', `Cancelled. ${usd(usdc(BigInt(lease.rent) + BigInt(lease.caution)))} is back in ${lease.payer}'s Handova balance.`, {}, 'btn-danger'));
@@ -161,10 +157,10 @@ export function LeaseView({ id }: { id: number }) {
       actions.push(btn('resolve_move_in', 'Rule: no handover — refund the payer', 'Ruled: refund. The payer got everything back.', { moved_in: false }, 'btn-danger'));
     }
     if (isLandlord) {
-      if (!lease.handover_at_ms) actions.push(btn('mark_handover', tr("I've handed over the keys"), 'Handover marked. The tenant has 3 days to confirm.'));
+      if (!lease.handover_at_ms) actions.push(btn('mark_handover', tr("I've handed over the keys"), 'Handover marked. The rent stays in escrow until the tenant confirms.'));
       else if (lease.move_in_dispute) notes.push(`The tenant disputed the handover: "${lease.move_in_dispute}". The arbiter decides; you can also decline and refund.`);
-      else if (!verifiedLandlord) {
-        notes.push("Waiting for the tenant to confirm. Only ID-verified landlords can collect if the tenant stays silent — if they moved in and won't confirm, ask the arbiter.");
+      else {
+        notes.push("Waiting for the tenant to confirm. Silence never releases the rent: if they moved in and won't confirm, ask the arbiter.");
         actions.push(
           <div key="ldm" className="space-y-2 rounded-xl border border-line p-3">
             <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="What happened? e.g. tenant moved in but won't confirm" maxLength={500} />
@@ -172,8 +168,6 @@ export function LeaseView({ id }: { id: number }) {
           </div>,
         );
       }
-      else if (now >= claimAt) actions.push(btn('claim_move_in', 'Claim the rent (tenant silent)', 'Move-in claimed. Rent added to your balance.'));
-      else notes.push(`Waiting for the tenant to confirm. If they stay silent, you can claim in ${timeLeft(claimAt - now)}.`);
       actions.push(btn('cancel_lease', 'Decline and refund the tenant', 'Declined. The payer was refunded in full.', {}, 'btn-danger'));
     }
   }
@@ -276,8 +270,8 @@ export function LeaseView({ id }: { id: number }) {
         </div>,
       );
     }
-    if (now >= until) actions.push(btn('settle_dispute_timeout', 'Settle 50/50 (nobody agreed in time)', 'Settled 50/50.', {}, 'btn-ghost'));
-    else notes.push(`If nobody agrees in ${timeLeft(until - now)}, the arbiter decides or it splits 50/50.`);
+    if (now >= until) actions.push(btn('settle_dispute_timeout', 'Return the caution (nobody settled in time)', "Settled. The caution went back to the holder, less anything they offered.", {}, 'btn-ghost'));
+    else notes.push(`If nobody agrees in ${timeLeft(until - now)} and the arbiter hasn't ruled, the caution goes back to the holder, less anything they offered.`);
   }
 
   const steps: Array<[string, number | null, string?]> = [

@@ -22,7 +22,6 @@ export const ESCROW_METHODS = new Set([
   'update_listing',
   'mark_handover',
   'confirm_move_in',
-  'claim_move_in',
   'dispute_move_in',
   'cancel_lease',
   'move_out',
