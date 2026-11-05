@@ -196,7 +196,7 @@ export function mountRelayer(app: Express) {
       return res.status(503).json({ error: "Handova's free-gas budget for today is used up. Try tomorrow, or use a NEAR wallet (you pay a tiny fee)." });
     }
     const started = Date.now();
-    const took = (result: string) => console.log(`relay ${checked.methods.join(',')} ${result} ${((Date.now() - started) / 1000).toFixed(1)}s`);
+    const took = (result: string) => console.warn(`relay ${checked.methods.join(',')} ${result} ${((Date.now() - started) / 1000).toFixed(1)}s`);
     try {
       // Safe to retry: the delegate's nonce makes it run at most once.
       const outcome = await withRetry(() =>
