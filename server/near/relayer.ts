@@ -159,6 +159,13 @@ const perIp = new RateLimit(120, 60 * 60_000);
 /** Daily budget for the whole relayer (each relayed call costs it roughly 0.001 NEAR or less). */
 const daily = new RateLimit(Number(process.env.RELAYER_DAILY_TX ?? 2000), 24 * 60 * 60_000);
 
+/** A retry whose delegate nonce is already used: the first send landed, so this is not a failure. */
+export function alreadySent(error: string | undefined): boolean {
+  return /DelegateActionInvalidNonce/.test(error ?? '');
+}
+
+const MAY_HAVE_LANDED = "We couldn't confirm this step, and it may already have gone through. Refresh to check before trying again.";
+
 export function mountRelayer(app: Express) {
   app.post('/api/relay', async (req, res) => {
     if (!relayer) return res.status(503).json({ error: 'Gasless payments are switched off on this server. Use a NEAR wallet instead.' });
@@ -188,6 +195,8 @@ export function mountRelayer(app: Express) {
     if (!daily.take('all')) {
       return res.status(503).json({ error: "Handova's free-gas budget for today is used up. Try tomorrow, or use a NEAR wallet (you pay a tiny fee)." });
     }
+    const started = Date.now();
+    const took = (result: string) => console.log(`relay ${checked.methods.join(',')} ${result} ${((Date.now() - started) / 1000).toFixed(1)}s`);
     try {
       // Safe to retry: the delegate's nonce makes it run at most once.
       const outcome = await withRetry(() =>
@@ -199,14 +208,15 @@ export function mountRelayer(app: Express) {
         }),
       );
       const s = summarize(outcome);
+      took(s.ok ? 'ok' : `failed: ${s.error}`);
+      if (alreadySent(s.error)) return res.status(409).json({ error: MAY_HAVE_LANDED });
       res.status(s.ok ? 200 : 422).json({ ...s, methods: checked.methods });
     } catch (e) {
       const msg = (e as Error).message ?? '';
+      took(`error: ${msg.slice(0, 200)}`);
       const expired = /expired|nonce|DelegateActionExpired|InvalidNonce/i.test(msg);
       res.status(expired ? 409 : 502).json({
-        error: expired
-          ? 'This request expired or was already sent. Try the action again.'
-          : 'The NEAR network did not accept the transaction. Try again in a minute.',
+        error: expired ? 'This request expired or was already sent. Refresh to check before trying again.' : MAY_HAVE_LANDED,
         detail: msg.slice(0, 300),
       });
     }

@@ -23,6 +23,7 @@ export async function firstAvailable<T>(senders: (() => Promise<T>)[], limitMs =
       return await Promise.race([send(), silent]);
     } catch (e) {
       if (!rpcUnavailable(e)) throw e;
+      console.warn(`send: RPC busy, trying the next one: ${(e as Error).message?.slice(0, 120)}`);
       last = e;
     } finally {
       clearTimeout(timer);

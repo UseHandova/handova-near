@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { actions, encodeSignedDelegate, KeyPair, buildDelegateAction, Signature, type SignedDelegate } from 'near-api-js';
-import { checkDelegate, decodeSignedDelegate, signatureValid } from './relayer';
+import { alreadySent, checkDelegate, decodeSignedDelegate, signatureValid } from './relayer';
 import { KeyPairSigner } from 'near-api-js';
 
 const policy = { escrow: 'escrow.handova.testnet', token: 'usdc.handova.testnet' };
@@ -111,5 +111,13 @@ describe('relayer policy: cash-out', () => {
 
   test('refuses any other address', () => {
     expect(() => checkDelegate(roundTrip(signed(p.token, [call('ft_transfer', { receiver_id: 'thief.near', amount: '5' }, 1n)])), p)).toThrow(/Only payments/);
+  });
+});
+
+describe('a step that may already have landed', () => {
+  test('a used delegate nonce means it was already sent, not that it failed', () => {
+    expect(alreadySent('{"ActionError":{"kind":{"DelegateActionInvalidNonce":{"ak_nonce":7,"delegate_nonce":7}}}}')).toBe(true);
+    expect(alreadySent('This listing is taken')).toBe(false);
+    expect(alreadySent(undefined)).toBe(false);
   });
 });

@@ -8,7 +8,7 @@ import { deploy, env } from './config';
 import { RateLimit } from './rate-limit';
 
 const PROVIDERS: Record<string, string[]> = {
-  testnet: ['https://test.rpc.fastnear.com', 'https://rpc.testnet.fastnear.com', 'https://rpc.testnet.near.org', 'https://near-testnet.drpc.org', 'https://testnet-rpc.intea.rs'],
+  testnet: ['https://test.rpc.fastnear.com', 'https://rpc.testnet.fastnear.com', 'https://rpc.testnet.near.org', 'https://testnet-rpc.intea.rs'],
   mainnet: ['https://free.rpc.fastnear.com', 'https://rpc.mainnet.fastnear.com', 'https://rpc.mainnet.near.org', 'https://near.drpc.org'],
 };
 export const rpcUrls = [deploy.rpc, ...(env('NEAR_RPC_FALLBACKS')?.split(',') ?? PROVIDERS[deploy.network] ?? [])].filter((u, i, a) => a.indexOf(u) === i);
