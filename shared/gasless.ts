@@ -8,6 +8,9 @@ import type { TxSummary } from './outcome';
 
 export type RelayResult = TxSummary;
 
+/** How long a person waits on a relayed step before being told what to do. */
+const RELAY_LIMIT_MS = 60_000;
+
 function toBase64(bytes: Uint8Array): string {
   let s = '';
   for (const b of bytes) s += String.fromCharCode(b);
@@ -35,6 +38,10 @@ export async function gaslessCall(
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ signedDelegate: toBase64(encodeSignedDelegate(signedDelegate)) }),
+    signal: AbortSignal.timeout(RELAY_LIMIT_MS),
+  }).catch((e: Error) => {
+    if (e.name !== 'TimeoutError') throw new Error('Could not reach Handova. Check your connection and try again.');
+    throw new Error('The NEAR network is slow and this step may still go through. Refresh in a minute to check before trying again.');
   });
   const body = await r.json().catch(() => ({}));
   if (!r.ok && !body.hash) throw new Error(body.error ?? `Relayer error ${r.status}`);

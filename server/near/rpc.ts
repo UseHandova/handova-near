@@ -30,8 +30,9 @@ export async function forward(raw: string): Promise<{ status: number; body: stri
     try {
       const r = await fetch(rpcUrls[idx], { method: 'POST', headers: { 'content-type': 'application/json' }, body: raw, signal: AbortSignal.timeout(15_000) });
       const body = await r.text();
-      // JSON-RPC errors (unknown account, contract panics) come back as 200 and are real answers.
-      if (r.ok && body.startsWith('{')) {
+      // JSON-RPC errors (unknown account, contract panics) come back as 200 and are real answers;
+      // a rate limit is not, even when it arrives as a 200.
+      if (r.ok && body.startsWith('{') && !/"code":\s*-429/.test(body)) {
         preferred = idx;
         return { status: 200, body };
       }
