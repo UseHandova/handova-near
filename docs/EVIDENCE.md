@@ -6,16 +6,19 @@ Each main claim, how to check it, and what has not been shown yet. Checked on NE
 
 | | |
 |---|---|
-| Contract | `escrow-v4.handova.testnet` |
-| Code hash on-chain | `22xuM4pC4rqG4Tbu6CoPXvKKatVaNGCvzXqzhjYgacvZ` |
-| Wasm SHA-256 (hex) | `0f5c7a16eeddd4303e769c76ccf4798fad415ec2a3fafdf9f894a0f8ba582686` (399,321 bytes); the on-chain code hash is this value in base58 |
-| Source | `contract/` at `166baad` (unchanged since `95c45f7`) |
+| Contract | `escrow-v5.handova.testnet` |
+| Code hash on-chain | `76d4GThLisp93P62BHtXs8Q2zy8TSj96f6JfVbKDJvZo` |
+| Wasm SHA-256 (hex) | `5a96cb6bd9b0bae8c1fa09c999ff9a28203ed2094fc20f7c501c1cc545066d0a` (409,763 bytes); the on-chain code hash is this value in base58. Rebuilt from a clean clone of `355915b` on 6 Nov: same hash |
+| Source | `contract/` at `355915b` (deployed; the contract last changed in `9b8fd5e`) |
 | Rebuild | `cd contract && cargo near build non-reproducible-wasm` (rustc 1.97.1, cargo-near 0.22.0, macOS). Not a reproducible-build container, so other tools may give a different hash |
-| Access keys | None: `near account list-keys escrow-v4.handova.testnet network-config testnet now` |
+| Access keys | None: `near account list-keys escrow-v5.handova.testnet network-config testnet now` |
 | Upgrade path in the code | None: no `deploy_contract`, `migrate` or `init(ignore_state)` in `contract/src/` |
 | Token | `usdc.handova.testnet`, a test token anyone can mint, not Circle USDC |
+| Settings | Arbiter `handova-council.sputnikv2.testnet`, verifier `verifier.handova.testnet`, every waiting period 7 days; `listing_deposit` 0.06 NEAR, `lease_storage` 0.04096 NEAR. Funded with 6 NEAR, about 4.1 of it locked by the code's own storage |
 
-Deployment: [create](https://testnet.nearblocks.io/txns/HceuZQ8vozPFQPuDT3DmXuaYMsuPeFxGsaaVdBZLYpnb) · [deploy and init](https://testnet.nearblocks.io/txns/5XNSgvSraX1CgcxgJPVyuDJ2T7Ag9ghunns3BcExL9fW) · [token registration](https://testnet.nearblocks.io/txns/234XbuBtYF5XSKAG248c7YvR48aCeXQcU9uvh3yG2M5N) · [lock: last key deleted](https://testnet.nearblocks.io/txns/rBoduTiQyybp1wLm6p2RjHmH11V7NXGxn12WHpkeBdi). The two Lagos listings were copied from v3 with the same terms ([#1](https://testnet.nearblocks.io/txns/GxEhWh9r8ABgWPVDev5GLrxZpryUCU3RFHXXg1fmrGFG), [#2](https://testnet.nearblocks.io/txns/FHJVX9nHwWg5a66Lk4JnkjM4vLCcZs5jYJMgHf2SAki3)), from the team-run account `lagos-homes.handova.testnet`.
+Deployment: [create](https://testnet.nearblocks.io/txns/4MaAwjz5dAkfBQcZEM5ikFzMUxQX7QXVm9BZvyvvtK8e) · [deploy and init](https://testnet.nearblocks.io/txns/6ywSieF4mkDVpzPxf1BmUypNKrRMS1D7f4QTsqrWTjeb) · [token registration](https://testnet.nearblocks.io/txns/HsXQWAypyQ99rAp8UTJUjLswsC4MYqEH3aTXKcN7j3n8) · [lock: last key deleted](https://testnet.nearblocks.io/txns/B6mnknQkomMeVMyerXLEL4eb5P1QtXeTV7MVysrwaodL). The two Lagos listings were copied from v4 with the same terms and paid their own deposits ([#1](https://testnet.nearblocks.io/txns/CQAe4hv8t7QDFYFMjMjqMpKVL49A67WpN2B8nkGminVL), [#2](https://testnet.nearblocks.io/txns/FK7Tnjw6KkgM91yYK4m6aR64Yu662CwDLTiHn232iYiE)), from the team-run account `lagos-homes.handova.testnet`.
+
+Every transaction below was looked up on testnet RPC on 6 Nov 2026 and succeeded (the one refused purchase is marked). Listings #3–#7 are test runs, hidden from the app's home page (`HIDDEN_LISTINGS`); #8 was removed.
 
 ## Claims
 
@@ -23,67 +26,107 @@ Deployment: [create](https://testnet.nearblocks.io/txns/HceuZQ8vozPFQPuDT3DmXuaY
 |---|---|---|
 | Silence never releases rent | ✅ Code and tests | No `claim_move_in` in `contract/src/`; unit tests and browser test "silence pays nobody" |
 | A payment is refused if the listing's terms changed | ✅ Unit tests | `PayMsg` in `contract/src/escrow.rs` carries rent, caution and term |
-| The caution goes to the NFT holder, not the payer | ✅ On `escrow-v4` | [Lease #4](#a-full-lease-on-escrow-v4): the nurse paid, mum held the NFT and received the full 150 USDC caution |
-| App actions are gasless | ✅ On `escrow-v4` | Lease #4's steps were relayed by `handova-relayer.testnet`; the nurse's NEAR balance didn't change |
+| The caution goes to the NFT holder, not the payer | ✅ On `escrow-v5` | [Lease #4](#a-full-lease-on-escrow-v5): the nurse paid, mum held the NFT and received the full 150 USDC caution |
+| Tenants and payers need no NEAR | ✅ On `escrow-v5` | Lease #4's steps after listing were relayed; the demo printed the nurse's NEAR change as 0 |
+| Listings pay for their own storage | ✅ Unit and sandbox tests; on `escrow-v5` | `create_listing` attaches `listing_deposit`; [hosted check](#the-hosted-app-on-escrow-v5): a new landlord got 0.15 NEAR, listed #8, removed it gaslessly and kept 0.1497 NEAR |
+| A takeover runs to closing, with the caution paid to the new holder | ✅ On `escrow-v5` | [Lease #5](#a-takeover-on-escrow-v5): `nft_token("5")` is owned by Tolu, `caution_to_holder` 4 USDC |
 | The lease NFT moves only to the tenant the landlord named | ✅ Unit and sandbox tests; live sale | `consent_takeover(lease_id, buyer)`; `contract/tests/sandbox.rs` |
-| A Mintbase sale is refused before the landlord names the buyer, and completes after | ✅ On `escrow-v4` | Lease #1 with [`scripts/mintbase-sale-testnet.ts`](../scripts/mintbase-sale-testnet.ts): `get_lease(1)` shows the buyer as `tenant` and `nft_holder` and the first tenant as `payer`. The script doesn't print hashes; they are on [the escrow's page](https://testnet.nearblocks.io/address/escrow-v4.handova.testnet) |
-| A DAO vote decides a dispute | ✅ On `escrow-v4`, by team keys | [Lease #2](#a-dao-ruling-on-escrow-v4), proposal #1. Proves the mechanism, not independent arbitration |
+| A Mintbase sale is refused before the landlord names the buyer, and completes after | ✅ On `escrow-v5` | [Lease #1](#a-mintbase-sale-on-escrow-v5): `get_lease(1)` shows the buyer as `tenant` and `nft_holder` and the first tenant as `payer` |
+| A DAO vote decides a dispute | ✅ On `escrow-v5`, by team keys | [Lease #3](#a-dao-ruling-on-escrow-v5), proposal #2. Proves the mechanism, not independent arbitration |
 | An unsettled caution dispute pays the landlord only what the holder offered | ✅ Unit tests | `settle_dispute_timeout` in `contract/src/escrow.rs` |
 | A replaced arbiter can't rule on an open lease | ✅ Unit test | Each lease stores its `arbiter` |
 | Inspection "before" photos are fixed at payment | ✅ Code | The lease stores `property_ref`; `server/near/inspect.ts` reads it |
 | The passport counts months actually lived | ✅ Unit tests | `rental_record` in `contract/src/market.rs` |
-| Storage can't block open leases | ✅ Sandbox test | Each open lease reserves 4,096 bytes; the worst case measured 3,857. `get_config.storage_spare` |
+| Storage can't block open leases | ✅ Sandbox test | Each lease takes 4,096 bytes from its listing's credit; the worst case measured 3,857. Payments also keep a reserve per open lease (`get_config.storage_spare`) |
 | Failed withdrawals keep the money | ✅ Unit and sandbox tests | `failed_withdrawal_keeps_the_money` |
-| The contract's USDC covers what it owes | ✅ Sandbox tests; live values matched on 6 Nov | `get_config.total_held` against `ft_balance_of` on the token; they match when no withdrawal is in flight |
-| Takeover through to closing, with the caution paid to the buyer | ⚠️ On `escrow-v3` only | [Earlier deployment](#earlier-deployment-escrow-v3). On v4 the sold lease (#1) is still open |
+| The contract's USDC covers what it owes | ✅ Sandbox tests; live values matched on 6 Nov | `get_config.total_held` and the token's `ft_balance_of(escrow-v5)` were both 50 USDC |
 | Paying from another chain, landlord cash-out | ❌ Not shown | Live quotes only; arrival simulated with test USDC. No real Intents settlement has run |
 | Real rentals | ❌ None | Nobody outside the team has used it for a rental |
 
-## A full lease on escrow-v4
+## A full lease on escrow-v5
 
-Lease #4, from `bun run demo:testnet` on 5 Nov 2026 with demo accounts and test USDC. It is not a real rental. `get_lease` (`lease_id` 4): `payer` `nurse-mw4vb4cb.handova.testnet`, `tenant` and `closed_holder` `mum-mw4vb8am.handova.testnet`, caution 150, `caution_to_holder` 150, status `Closed`. The NFT reads "Handova lease #4 · Closed".
+Lease #4 (listing #6), from `bun run demo:testnet` on 6 Nov 2026 with demo accounts and test USDC. It is not a real rental. `get_lease` (`lease_id` 4): `payer` `nurse-mw5i34a1.handova.testnet`, `tenant` and `closed_holder` `mum-mw5i384b.handova.testnet`, `caution_to_holder` 150 USDC, status `Closed`. The landlord signed the listing with its deposit; every later step was relayed, and the nurse's NEAR balance changed by 0.
 
-| Step | Events | Transaction |
-|---|---|---|
-| The nurse pays for mum (relayed) | `lease_paid` | [`4p1yFkLo…`](https://testnet.nearblocks.io/txns/4p1yFkLo9uDSd6p1WLyckLLBCgjs8Ue7gjrFQKeW7PWa) |
-| Mum confirms move-in (relayed) | `moved_in`, `nft_mint` | [`EnZKgh7A…`](https://testnet.nearblocks.io/txns/EnZKgh7AuAsD7msqh8vuEnkLAMEjMJMfUu83DWE8YHa4) |
-| Mum withdraws the caution (relayed) | `withdrawn` | [`3gK7kFC6…`](https://testnet.nearblocks.io/txns/3gK7kFC6oWGEvUsCqsTWZfkKUB8C6LeAmgzUY12VNqcn) |
+| Step | Transaction |
+|---|---|
+| Landlord lists the home (signed, 0.06 NEAR deposit) | [`EVDBw8VX…`](https://testnet.nearblocks.io/txns/EVDBw8VXjM7VjkGmYDGvTZpXmrgvgLJ4SGrbdWtxtEBB) |
+| The nurse pays for mum | [`GzVnAVcx…`](https://testnet.nearblocks.io/txns/GzVnAVcxqBAeAApB7f7RCppsYHvd1XNy2gvX6bN1eMEX) |
+| Landlord marks the handover | [`ED7vKpvZ…`](https://testnet.nearblocks.io/txns/ED7vKpvZSvU3EfCA4qLU6ajJwH5229hSDcDsEzMyZhyW) |
+| Mum confirms move-in; lease NFT minted | [`6KJ7LVhy…`](https://testnet.nearblocks.io/txns/6KJ7LVhyvecXKQ51PHN5aUoBJXNpufChNPYCXaXBdmvk) |
+| Landlord withdraws the rent | [`2HUXnAeU…`](https://testnet.nearblocks.io/txns/2HUXnAeULNhzkevKKNitBdcX2y3uc8AqyEXB9R59jUEX) |
+| Mum moves out | [`Dzt8a2cc…`](https://testnet.nearblocks.io/txns/Dzt8a2ccpFjs9ThLK6MZ4QpNp9kcrbtLFQNE5XnHPBSC) |
+| Landlord approves; lease closes | [`6Uy8r6cC…`](https://testnet.nearblocks.io/txns/6Uy8r6cC9YG9owaMKGjiVagXRoG1zbmy46suRMgQ2NRm) |
+| Mum withdraws the caution | [`8gsaiNoL…`](https://testnet.nearblocks.io/txns/8gsaiNoLhrojrCriD6E2thVrvmCiuWxgbmqpp7LgmAg4) |
 
-## A DAO ruling on escrow-v4
+## A takeover on escrow-v5
 
-Lease #2, from [`scripts/dao-ruling-testnet.ts`](../scripts/dao-ruling-testnet.ts). The landlord claimed 3 of the 4 USDC caution; the council's proposal #1 awarded the landlord 1 and the holder 3. Check with `get_lease` (`lease_id` 2) and `get_proposal` (`id` 1) on `handova-council.sputnikv2.testnet`. Both votes came from team keys (the owner and the verifier).
+Lease #5 (listing #7), from [`scripts/takeover-testnet.ts`](../scripts/takeover-testnet.ts): Ade rents, hands the lease to Tolu with the landlord's agreement, and at move-out the 4 USDC caution goes to Tolu, the holder by then. Check `get_lease` (`lease_id` 5) and `nft_token` (`"5"`).
 
-| Step | Events | Transaction |
-|---|---|---|
-| Landlord disputes the caution | `caution_disputed` | [`PGZc96WG…`](https://testnet.nearblocks.io/txns/PGZc96WGfr3uDx8tiS95ctNPq8nJDeCLA5qbnzrcniX) |
-| `handova.testnet` proposes `resolve_dispute` |  | [`9mmf1eSE…`](https://testnet.nearblocks.io/txns/9mmf1eSEobaLFpquYZQ3mpEJmUoGy5C9y9uCtrxhB694) |
-| Vote 1, `handova.testnet`: not enough alone |  | [`ECASKWpT…`](https://testnet.nearblocks.io/txns/ECASKWpT42Y1n8yM16p3CRp1V7R4XmUpPLaUs7Ljro5v) |
-| Vote 2, `verifier.handova.testnet`: the DAO calls the escrow | `lease_closed` | [`4Cou7UN3…`](https://testnet.nearblocks.io/txns/4Cou7UN3pA1CbKkrL5EfA7kdY5gJsUyaDAMfzYfvF8mW) |
+| Step | Transaction |
+|---|---|
+| Landlord lists the home | [`4MJ12aZF…`](https://testnet.nearblocks.io/txns/4MJ12aZFi2LkQ8hWmRrjrDmejukmmcRHExyZtsRj6GkT) |
+| Ade pays | [`GB57LNuy…`](https://testnet.nearblocks.io/txns/GB57LNuygqZHH7azzxXC4DPVPzgW3nkwB9B9JbAzv8SS) |
+| Landlord marks the handover | [`BE1PmG8d…`](https://testnet.nearblocks.io/txns/BE1PmG8dX6oHKv8x6QULqcbxZZErAu6tghvdR5jc7k1E) |
+| Ade confirms move-in | [`BJi3XPby…`](https://testnet.nearblocks.io/txns/BJi3XPbyWoPa8cU2RTgvEA73vgnjYusokZqLMGFwEx87) |
+| Ade offers the lease | [`E8CB1gVu…`](https://testnet.nearblocks.io/txns/E8CB1gVuCG49aJoKiBLsfejoDtLxhVPTAjV4TKbBmZv) |
+| Tolu asks to take it over | [`Hh9HtxwR…`](https://testnet.nearblocks.io/txns/Hh9HtxwRNE2z1Rpe1mAm9d9PXbUHEpjqDsjz4P9Jgztk) |
+| Landlord agrees to Tolu (`consent_takeover`) | [`B7dCJXE3…`](https://testnet.nearblocks.io/txns/B7dCJXE3SCxSZiqtAmuhwYiA9toBggeTL6himUGZSYB9) |
+| Tolu pays the price; the NFT moves | [`7zsSLTw7…`](https://testnet.nearblocks.io/txns/7zsSLTw7QnUnfLGLss4ifUGkV7RcvEeDdssvdcLqo1ou) |
+| Tolu moves out | [`5sfpuBPi…`](https://testnet.nearblocks.io/txns/5sfpuBPix71NKFgJyBQfCEBh1shcRZqXJwJXfAjzvCoR) |
+| Landlord approves; caution to Tolu | [`5grzGnEm…`](https://testnet.nearblocks.io/txns/5grzGnEmyM1LycQQzfH5FRuFgG8fePYMjA1KfaATccJQ) |
+| Tolu withdraws the caution | [`8qCic5ha…`](https://testnet.nearblocks.io/txns/8qCic5haDyJeEzsWNP7MB1X1PQh1PQn8rQgiSSCqvoru) |
+| Ade withdraws the price | [`BvHANT6C…`](https://testnet.nearblocks.io/txns/BvHANT6C4nNFtfSgLcybn17TnCEfT1b3rcPQjRVwqowv) |
 
-## Earlier deployment (escrow-v3)
+## A Mintbase sale on escrow-v5
 
-`escrow-v3.handova.testnet` stays on-chain under the old rules (silence could release rent for a verified landlord; consent didn't name a buyer). Its lease #2 is still the only run where a lease was taken over and then closed, with the caution paid to the buyer: payer `nurse-wnjg8`, closing holder `tolu-wnjg8`, 138.59 USDC to the holder after an agreed 10 USDC split.
+Lease #1 (listing #3), from [`scripts/mintbase-sale-testnet.ts`](../scripts/mintbase-sale-testnet.ts) on Mintbase's market `market-v2-beta.mintspace2.testnet`. The first purchase came before the landlord named the buyer and was refused (the buyer's USDC came back). After `consent_takeover` the same purchase completed: the buyer holds the NFT, and the seller received 4.95 USDC. The lease is still `Active`.
 
-| Step | Events | Transaction |
-|---|---|---|
-| Landlord lists the home | `listing_created` | [`9ZCbBTb9…`](https://testnet.nearblocks.io/txns/9ZCbBTb9yNJD2uLqAftbXTmfX6bKWaogJbaZATkrin6W) |
-| The nurse pays for the tenant | `lease_paid` | [`AwoFxNnp…`](https://testnet.nearblocks.io/txns/AwoFxNnpW2D7GmEzcrSitVisWwKCkhTWUF1RXniVBXMg) |
-| Landlord marks the handover | `handover_marked` | [`4NQMoaYe…`](https://testnet.nearblocks.io/txns/4NQMoaYethyLZMSvoxsB63N6B3s7yY11zBsWJJytXqhC) |
-| Move-in confirmed, lease NFT minted | `moved_in`, `nft_mint` | [`8uzjG2vL…`](https://testnet.nearblocks.io/txns/8uzjG2vLpqNbnUjvQ8S1R8HXEc54UShsGTivuX8XStBB) |
-| Landlord withdraws the rent | `withdrawn` | [`9tneNvUk…`](https://testnet.nearblocks.io/txns/9tneNvUkeJ9Z919dvwBq5YiShjo1YX17gG2z85PGF5j1) |
-| Holder offers the lease | `takeover_offered` | [`APMjbSKu…`](https://testnet.nearblocks.io/txns/APMjbSKukyeNXsDYyEwwDPbsBoXbyftUxPqgFhH6QmVN) |
-| Next tenant asks | `takeover_requested` | [`Dh7xKi3g…`](https://testnet.nearblocks.io/txns/Dh7xKi3gfk1yMtFqT4EqUR3ynJTVwnV3F31GvXegdich) |
-| Landlord agrees to them | `takeover_consented` | [`2KEbaDa6…`](https://testnet.nearblocks.io/txns/2KEbaDa6RZc31SbU3ivQv54CK8KQqnadUJa4YpP5bVVi) |
-| Next tenant pays; the NFT moves | `nft_transfer`, `lease_taken_over` | [`DapZ2oiU…`](https://testnet.nearblocks.io/txns/DapZ2oiUmVoLv2XHANySp554iQtpnNfmU48hpCvarJDr) |
-| Move-out starts | `move_out_started` | [`EZpNHfsH…`](https://testnet.nearblocks.io/txns/EZpNHfsHCHacVG6SHTFaWKJdAaX6DMZ52TsUjZMDVHTq) |
-| Landlord disputes 20 USDC | `caution_disputed` | [`6BRiKRiM…`](https://testnet.nearblocks.io/txns/6BRiKRiMtX37oXQYiHDyZ3JP8JBvj3zAn9yVArWFe8ZP) |
-| First side proposes 10 USDC | `split_proposed` | [`DmkFN3xY…`](https://testnet.nearblocks.io/txns/DmkFN3xYjAMSB7Qt8Ym2n2CPD4c8f7vEW4tfu9TFvoor) |
-| Second side agrees; lease closes | `split_proposed`, `lease_closed` | [`7VdSNPJx…`](https://testnet.nearblocks.io/txns/7VdSNPJxaGBBAUAFNAj3spdHTvjGEYrH2CRUEfdwKDL5) |
-| Caution withdrawn | `withdrawn` | [`BdFZz32C…`](https://testnet.nearblocks.io/txns/BdFZz32CMByyH5WAT4nVBkyY3qVP99CzMHxqkQXoPmi5) |
+| Step | Transaction |
+|---|---|
+| Landlord lists the home | [`5RUfvS9w…`](https://testnet.nearblocks.io/txns/5RUfvS9wchA8NTQqsx8cy8DBmCbnNauChcGfztDWtopQ) |
+| Tenant pays | [`GdMVxmLF…`](https://testnet.nearblocks.io/txns/GdMVxmLFZjuLnUKNCX8LYGy2MLuG38vj4c3i6CLzPj6C) |
+| Tenant confirms move-in | [`JBtxxeep…`](https://testnet.nearblocks.io/txns/JBtxxeepiSJ2nip1dRMRqUnwacGUSWFu3hX2ue9qWEHJ) |
+| Tenant offers the lease | [`5BpnX8fU…`](https://testnet.nearblocks.io/txns/5BpnX8fUeztEstbnuVCHHyT7uGoPeJCdB7NbndoudKCX) |
+| Tenant pays Mintbase storage | [`5vYq73G4…`](https://testnet.nearblocks.io/txns/5vYq73G4a7P2ERtyE3GsgvgdQnDoDzJYW5MVJaGWP5BU) |
+| Tenant lists it (`nft_approve`) | [`F5KMCFTV…`](https://testnet.nearblocks.io/txns/F5KMCFTVrZYjeUmbJgPVmiYpsFEf3UPLnP8TLaYZLB98) |
+| Buyer buys before the landlord agreed: **refused**, refunded | [`9c3sf8im…`](https://testnet.nearblocks.io/txns/9c3sf8imFvSU3JwB8iggwdn5XGfkLmiAd99WVCrk3jeC) |
+| Buyer asks to take it over | [`DpCWmhva…`](https://testnet.nearblocks.io/txns/DpCWmhvaY92DPYCSQB8yaBmPB79fy9MgM1Jz7wFN66HY) |
+| Landlord agrees to the buyer | [`GuUEt8Jh…`](https://testnet.nearblocks.io/txns/GuUEt8Jhg31pwzFsfh2xcVekpWVq3w5o86fXNqMBVnSB) |
+| Tenant pays Mintbase storage again | [`GviGqpTE…`](https://testnet.nearblocks.io/txns/GviGqpTEziZr3kEm2WxuooUwped8j8k1L6DL1HZfRWJa) |
+| Tenant lists it again | [`2AZHsqRq…`](https://testnet.nearblocks.io/txns/2AZHsqRqH5DeUhMnoagwRJDLXD6mwzBNmZJWnxx3V6Cr) |
+| Buyer buys; the NFT moves | [`mjtDiYqx…`](https://testnet.nearblocks.io/txns/mjtDiYqxF2qRgyo9mBg6NuAyLJP14tvgyNtpe9QegXr) |
+
+## A DAO ruling on escrow-v5
+
+Lease #3 (listing #5), from [`scripts/dao-ruling-testnet.ts`](../scripts/dao-ruling-testnet.ts). The landlord disputed the 4 USDC caution; the council's proposal #2 awarded the landlord 1 and the holder 3 (`caution_to_landlord` 1, `caution_to_holder` 3). Both votes came from team keys (the owner and the verifier).
+
+| Step | Transaction |
+|---|---|
+| Landlord lists the home | [`DHZximYe…`](https://testnet.nearblocks.io/txns/DHZximYeeXRWyYSCU6paYnzN8M2NomjPL7nKJFfrdE9V) |
+| Tenant pays | [`9aDKeVeY…`](https://testnet.nearblocks.io/txns/9aDKeVeY9dnCihsPnPAhfeeuTwqtXK7yq5zFpx5z2esp) |
+| Tenant confirms move-in | [`7CBgyVZM…`](https://testnet.nearblocks.io/txns/7CBgyVZMcb2qw4UVAcyvPX5M35qk5Le4RMLkK86xj5xq) |
+| Tenant moves out | [`8diDdcrG…`](https://testnet.nearblocks.io/txns/8diDdcrGB3jrLGhUitoQSLCdgyww4tcvUHocLmPbt4KM) |
+| Landlord disputes the caution | [`8BTcGSr4…`](https://testnet.nearblocks.io/txns/8BTcGSr4VUQkVKRffdvWUBrm49tDfxLxgQCB4cdQoySS) |
+| `handova.testnet` proposes `resolve_dispute` | [`74zXG6bN…`](https://testnet.nearblocks.io/txns/74zXG6bN8mPVKk6B2De7SaF9h2hS1eYZmdC2TGGU2jYT) |
+| Vote 1, `handova.testnet`: not enough alone | [`9iyp99uG…`](https://testnet.nearblocks.io/txns/9iyp99uGvPGF9MgvTnjD61HM8yWTV3diMR7ahLAo7Y2R) |
+| Vote 2, `verifier.handova.testnet`: the DAO calls the escrow; lease closes | [`3sbUsTqN…`](https://testnet.nearblocks.io/txns/3sbUsTqNkVGfyZTq8X6cwLnRr6CekdPjFMrS69UtXdZ9) |
+| Landlord pauses the listing | [`HgwTKewB…`](https://testnet.nearblocks.io/txns/HgwTKewB6cEsTZsMKArNAF6tzLwoE5gQj9HKvoXUm7oN) |
+
+An earlier DAO run (lease #2, listing #4) stopped when its landlord ran short of NEAR for the listing deposit, before the script was fixed (`f053a24`). That lease is in `Ending` since 6 Nov; if nobody acts, the keeper returns its caution to the holder after the 7-day review.
+
+## The hosted app on escrow-v5
+
+Through https://handova-near.vercel.app on 6 Nov 2026: a new landlord account got 0.15 NEAR at sign-up, listed #8 (signed, with the deposit) [`6YoksMCU…`](https://testnet.nearblocks.io/txns/6YoksMCUhbNXJtaaPmyRniURW3JFdupt2tehUTnjcZ5s) and removed it gaslessly [`4kS1XnEU…`](https://testnet.nearblocks.io/txns/4kS1XnEU6dw73EkTnkQFF6TLuixP989RV6xv5hiJjaix), ending with 0.1497 NEAR: the deposit came back, minus the listing fee.
+
+## Earlier deployments
+
+- `escrow-v4.handova.testnet` (code hash `22xuM4pC4rqG4Tbu6CoPXvKKatVaNGCvzXqzhjYgacvZ`, no keys): same escrow rules, but the contract paid for listings' storage, so anyone could fill it with free listings. Its demo lease #4, Mintbase sale (lease #1) and DAO ruling (lease #2, proposal #1) stay on-chain.
+- `escrow-v3.handova.testnet`: silence could release rent for a verified landlord, and consent didn't name a buyer. Its lease #2 was the first takeover run to closing (caution to the new holder `tolu-wnjg8`).
+- `escrow` and `escrow-v2`: early test history; v2 had a deploy key.
 
 ## Test deployment
 
-Browser tests run on `escrow-v7.handova-3b5eb6e5.testnet`, which has the **same code hash** as `escrow-v4`. The difference is configuration: 20-second waiting periods instead of 7 days, and its own accounts.
+Browser tests run on `escrow-v8.handova-3b5eb6e5.testnet`, which has the **same code hash** as `escrow-v5`. The difference is configuration: 20-second waiting periods instead of 7 days, its own accounts, and it is not locked.
 
 ## Browser test cases
 
@@ -117,9 +160,9 @@ Browser tests run on `escrow-v7.handova-3b5eb6e5.testnet`, which has the **same 
 28. landlord pauses, resumes and reprices; price locks while a lease is open
 29. the app speaks Yorùbá, Hausa, Igbo and Pidgin, and remembers the choice
 
-These are the test titles as written in `e2e/`. All 29 have passed on the v4 code, across several runs rather than one clean run.
+These are the test titles as written in `e2e/`. All 29 passed in one run on 6 Nov 2026, with the sandbox tests (7/7), on commit `355915b` with a clean tree: [`evidence/one-pass-v5.log`](evidence/one-pass-v5.log). An earlier attempt had 4 failures while the test Mac slept, so the run was repeated with sleep blocked (`caffeinate`).
 
 ## Who holds power today
 
 - Owner: `handova.testnet`. Verifier: `verifier.handova.testnet`.
-- Arbiter for leases on `escrow-v4`: `handova-council.sputnikv2.testnet`, threshold 2. Members are `handova.testnet`, `verifier.handova.testnet` and `tester1604.testnet`. All three are team accounts, and the owner and verifier alone can reach the threshold.
+- Arbiter for leases on `escrow-v5`: `handova-council.sputnikv2.testnet`, threshold 2. Members are `handova.testnet`, `verifier.handova.testnet` and `tester1604.testnet`. All three are team accounts, and the owner and verifier alone can reach the threshold.

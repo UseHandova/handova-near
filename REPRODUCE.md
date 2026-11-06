@@ -13,7 +13,7 @@ cd contract
 cargo test --lib          # about 15 minutes the first time (compiling), seconds after
 cargo test --test sandbox # 2 to 7 minutes; prints nothing while the local node runs
 ```
-Expect `test result: ok. 52 passed` (unit), then `test result: ok. 6 passed` (sandbox: a local NEAR node with a real NEP-141 token). Plain `cargo test` runs both.
+Expect `test result: ok. 56 passed` (unit), then `test result: ok. 7 passed` (sandbox: a local NEAR node with a real NEP-141 token). Plain `cargo test` runs both.
 
 The first build downloads a NEAR sandbox binary. If it stops with `failed to run custom build command for near-workspaces`, run the command again (this happened once in two clean builds).
 
@@ -42,7 +42,7 @@ Expect, with an explorer link after each ✓:
   ✓ mum-….handova-xxxxxxxx.testnet created
   ✓ nurse-… got 2,000 test USDC
 2) Landlord lists a 2-bed in Yaba: 1,200 USDC rent + 150 USDC caution, 12 months
-  ✓ create_listing (gasless) [listing_created]
+  ✓ create_listing (signed by the landlord, 0.06 NEAR refundable deposit) [listing_created]
 3) The nurse pays for mum from abroad (listing #1)
   ✓ ft_transfer_call → escrow (gasless) [lease_paid]
   → lease #1 Pending; 1,350.00 USDC held in escrow
@@ -50,6 +50,7 @@ Expect, with an explorer link after each ✓:
   ✓ landlord mark_handover (gasless) [handover_marked]
   ✓ mum confirm_move_in (gasless) [nft_mint, moved_in]
   → lease NFT #1 owned by mum-…: "Handova lease #1 · Active"
+    <the NFT's description>
 5) Landlord withdraws the rent
   ✓ landlord withdraw (gasless) [withdrawn]
   → landlord USDC: 1,200.00 (no agent fee)
@@ -59,7 +60,10 @@ Expect, with an explorer link after each ✓:
   ✓ mum withdraw (gasless) [withdrawn]
   → mum USDC: 150.00 — caution returned to the NFT holder
 ✔ Done. Lease NFT now reads: "Handova lease #1 · Closed"
+  Gas: the relayer paid all of it. The nurse's NEAR balance changed by 0 yoctoNEAR.
+  Lease: near contract call-function as-read-only … get_lease …
 ```
+The landlord is the only one who spends NEAR: the listing's deposit (0.06 NEAR, kept as storage credit and returned by `remove_listing`) and a tiny fee, from the 0.15 NEAR the server gives a new landlord account. Everything else goes through the relayer.
 
 ## 4. Check it on-chain yourself
 ```sh
@@ -79,9 +83,9 @@ See the README, section "D. The web app", for the click path.
 ```sh
 bun run test:near
 ```
-Expect `29 pass`: the relayer allowlist (refuses other contracts, other methods, NEAR deposits, token transfers not going to the escrow, bad signatures, too much gas), the keeper's timeout rules, the Intents quote shape, and NEAR AI receipt signature recovery (checked against a real saved receipt — no API key needed).
+Expect `32 pass`: the relayer allowlist (refuses other contracts, other methods, NEAR deposits, token transfers not going to the escrow, bad signatures, too much gas), the keeper's timeout rules, the Intents quote shape, and NEAR AI receipt signature recovery (checked against a real saved receipt — no API key needed).
 
-## End-to-end suite (optional, about 25 minutes)
+## End-to-end suite (optional, about 30 minutes)
 ```sh
 bun run setup:e2e
 bunx playwright install chromium

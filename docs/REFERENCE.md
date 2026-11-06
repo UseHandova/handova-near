@@ -1,16 +1,18 @@
 # Handova reference
 
-Contract methods, API routes and configuration for the escrow at `escrow-v4.handova.testnet` (no access keys: the code can't be changed). The overview is in the [README](../README.md).
+Contract methods, API routes and configuration for the escrow at `escrow-v5.handova.testnet` (no access keys: the code can't be changed). The overview is in the [README](../README.md).
 
 ## Contract reference
 
-`escrow-v4.handova.testnet` — init: `new(owner, verifier, arbiter, token, token_decimals?, timeouts?)`. Amounts are USDC base units (1 USDC = `1000000`).
+`escrow-v5.handova.testnet` — init: `new(owner, verifier, arbiter, token, token_decimals?, timeouts?)`. Amounts are USDC base units (1 USDC = `1000000`).
 
 **Calls**
 
 | Method | Who | Effect |
 |---|---|---|
-| `create_listing(rent, caution, term_months, property_ref)` | anyone (landlord) | New listing; rent ≥ 1 USDC; `property_ref` = listing details as JSON (≤1 KB); 3 listings until verified, 50 after |
+| `create_listing(rent, caution, term_months, property_ref)` | anyone (landlord), payable | New listing; attach at least `listing_deposit` (0.06 NEAR; any extra is kept too) as the listing's `storage_credit`; rent ≥ 1 USDC; `property_ref` = listing details as JSON (≤1 KB); 3 listings until verified, 50 after. Signed by the landlord's own account, not relayed |
+| `fund_listing(listing_id)` | anyone, payable | Adds the attached NEAR to the listing's credit. Each payment uses `lease_storage` (0.04096 NEAR); a listing short of it refuses payments (the token refunds the payer). The app's **Renew listing** pays exactly `lease_storage` |
+| `remove_listing(listing_id)` | landlord, no open lease | Deletes the listing, frees the landlord's slot and sends back the remaining credit; past leases stay. Gasless |
 | `update_listing(listing_id, rent?, caution?, term_months?, property_ref?, available?)` | landlord | Pause/resume; prices only while no lease is open |
 | `ft_on_transfer` (via `usdc.ft_transfer_call`, `msg: {"listing_id":N,"rent":"…","caution":"…","term_months":N,"tenant":"optional"}`) | USDC contract | Pay rent + caution; creates a `Pending` lease and snapshots the listing's `property_ref`. Refunded if the terms don't match the listing, or if the storage reserve is short |
 | `mark_handover(lease_id)` | landlord | Records the handover; releases nothing by itself |
@@ -38,9 +40,9 @@ Contract methods, API routes and configuration for the escrow at `escrow-v4.hand
 
 | `nft_payout(token_id, balance, max_len_payout?)` · `nft_transfer_payout(receiver_id, token_id, approval_id?, memo?, balance, max_len_payout?)` | marketplace | NEP-199: the whole price to the holder; only while Active, after `consent_takeover`, and only to the agreed requester |
 
-**Views:** `get_config` (includes `open_leases` and `storage_spare`), `get_listing`, `get_listings(from_index?, limit?, only_open?)`, `get_lease` (includes the current `nft_holder`, the lease's `arbiter`, `property_ref` at payment, `tenant_since_ms`, and `takeover.buyer`), `get_leases(from_index?, limit?)`, `get_leases_for(account_id)`, `balance_of`, `is_verified`, `nft_token`, `nft_tokens`, `nft_tokens_for_owner`, `nft_supply_for_owner`, `nft_total_supply`, `nft_metadata`, `nft_is_approved`, `rental_record(account_id)`.
+**Views:** `get_config` (includes `open_leases`, `storage_spare`, `listing_deposit` and `lease_storage`), `get_listing`, `get_listings(from_index?, limit?, only_open?)`, `get_lease` (includes the current `nft_holder`, the lease's `arbiter`, `property_ref` at payment, `tenant_since_ms`, and `takeover.buyer`), `get_leases(from_index?, limit?)`, `get_open_leases(from_index?, limit?)` (leases not closed or cancelled; the keeper, arbiter desk and takeover list read these), `get_leases_for(account_id)`, `balance_of`, `is_verified`, `nft_token`, `nft_tokens`, `nft_tokens_for_owner`, `nft_supply_for_owner`, `nft_total_supply`, `nft_metadata`, `nft_is_approved`, `rental_record(account_id)`.
 
-**Events** (`EVENT_JSON`, standard `handova` 1.0.0): `listing_created`, `listing_updated`, `landlord_verified`, `lease_paid`, `handover_marked`, `move_in_disputed`, `moved_in`, `lease_cancelled`, `move_out_started`, `caution_disputed`, `split_proposed`, `lease_closed`, `takeover_offered`, `takeover_requested` (`buyer`), `takeover_consented` (`buyer`), `takeover_cancelled`, `lease_taken_over`, `withdrawn`, `withdraw_failed`; plus NEP-171 `nft_mint` / `nft_transfer`.
+**Events** (`EVENT_JSON`, standard `handova` 1.0.0): `listing_created`, `listing_updated`, `listing_funded`, `listing_removed`, `landlord_verified`, `lease_paid`, `handover_marked`, `move_in_disputed`, `moved_in`, `lease_cancelled`, `move_out_started`, `caution_disputed`, `split_proposed`, `lease_closed`, `takeover_offered`, `takeover_requested` (`buyer`), `takeover_consented` (`buyer`), `takeover_cancelled`, `lease_taken_over`, `withdrawn`, `withdraw_failed`; plus NEP-171 `nft_mint` / `nft_transfer`.
 
 ## API reference
 
@@ -48,7 +50,7 @@ Contract methods, API routes and configuration for the escrow at `escrow-v4.hand
 |---|---|
 | `GET /api/near/config` | Network, contract IDs, which features are on |
 | `GET /api/health` | Status plus relayer and account-creator NEAR balances (`low: true` when a top-up is needed) |
-| `GET /api/accounts/check?name=` · `POST /api/accounts {name, publicKey}` | Name availability; create `name.<parent>` with the device's public key, 0.05 NEAR and USDC registration (resumes a half-finished attempt) |
+| `GET /api/accounts/check?name=` · `POST /api/accounts {name, publicKey, role?}` | Name availability; create `name.<parent>` with the device's public key, 0.15 NEAR for `role: "landlord"` (one listing deposit and one renewal) or 0.05 NEAR otherwise, and USDC registration (resumes a half-finished attempt) |
 | `POST /api/relay {signedDelegate}` | NEP-366 relay (base64 borsh `SignedDelegate`) |
 | `GET /api/intents/tokens` · `POST /api/intents/quote` · `GET /api/intents/status` · `POST /api/intents/submit` | NEAR Intents 1Click; testnet answers dry quotes only |
 | `POST /api/ai/listing-draft {text or audioBase64, mime}` · `POST /api/ai/document-check` | NEAR AI with a checked receipt |

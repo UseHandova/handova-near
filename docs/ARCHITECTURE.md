@@ -19,7 +19,7 @@ flowchart LR
         KP["keeper"]
     end
     subgraph NEAR["NEAR testnet"]
-        E[("escrow-v4.handova.testnet · escrow + NEP-171 · no keys")]
+        E[("escrow-v5.handova.testnet · escrow + NEP-171 · no keys")]
         U[("test USDC · NEP-141")]
     end
     subgraph EXT["Outside testnet"]
@@ -81,6 +81,7 @@ Safeguards: one ID document can verify one account (kept only as a keyed hash of
 
 We had the contract and server reviewed by models on NEAR AI Cloud ([`scripts/ai-review.ts`](../scripts/ai-review.ts)) and fixed what checked out against the code. This is not a security audit. What changed for users:
 - Silence never releases rent: the tenant confirms, or the arbiter rules (v4; v3 still let ID-verified landlords claim after 3 days of silence).
+- Listings pay for their own storage (v5): `create_listing` takes a 0.06 NEAR deposit kept as the listing's credit, each lease uses 0.04096 NEAR of it, `fund_listing` renews and `remove_listing` refunds the rest. In v4 the contract paid, so anyone could fill its storage with free listings. The relayer still never attaches NEAR, so landlords sign listing from their own account (funded with 0.15 NEAR at sign-up).
 - Money can't be locked by an arbiter who never rules: if a disputed handover isn't decided within the dispute window, anyone can trigger a full refund to the payer (`settle_move_in_timeout`).
 - A dispute can't be dragged out by re-opening it, and the arbiter can't award the landlord more than they claimed.
 - The relayer no longer pays gas for requests with a forged signature.
