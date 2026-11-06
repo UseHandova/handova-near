@@ -100,10 +100,17 @@ async fn pay(e: &Env, from: &Account, amount: u128, mut msg: Value) -> anyhow::R
         .await?)
 }
 
+/// What the contract asks a listing to attach, from `get_config`.
+async fn listing_deposit(e: &Env) -> anyhow::Result<NearToken> {
+    let cfg: Value = e.handova.view("get_config").await?.json()?;
+    Ok(NearToken::from_yoctonear(cfg["listing_deposit"].as_str().unwrap().parse()?))
+}
+
 async fn create_listing(e: &Env, landlord: &Account) -> anyhow::Result<u64> {
     Ok(landlord
         .call(e.handova.id(), "create_listing")
         .args_json(json!({ "rent": RENT.to_string(), "caution": CAUTION.to_string(), "term_months": 12, "property_ref": "yaba-2bed" }))
+        .deposit(listing_deposit(e).await?)
         .transact()
         .await?
         .into_result()?
@@ -236,13 +243,19 @@ async fn worst_case_lease_fits_its_reserve() -> anyhow::Result<()> {
     let tenant = account(&e.worker, &long("b")).await?;
     let payer = account(&e.worker, &long("c")).await?;
     e.usdc.call("mint").args_json(json!({ "account_id": payer.id(), "amount": (RENT + CAUTION).to_string() })).transact().await?.into_result()?;
+    let empty = e.handova.view_account().await?.storage_usage;
     let listing: u64 = landlord
         .call(e.handova.id(), "create_listing")
         .args_json(json!({ "rent": RENT.to_string(), "caution": CAUTION.to_string(), "term_months": 12, "property_ref": "x".repeat(1024) }))
+        .deposit(listing_deposit(&e).await?)
         .transact()
         .await?
         .into_result()?
         .json()?;
+    // The landlord's first listing, with the longest details: what LISTING_STORAGE_BYTES must cover.
+    let listed = e.handova.view_account().await?.storage_usage - empty;
+    println!("worst-case listing stored {listed} bytes");
+    assert!(listed <= 1904, "a listing stored {listed} bytes, more than LISTING_STORAGE_BYTES");
     let reason = "y".repeat(500);
     let before = e.handova.view_account().await?.storage_usage;
 
@@ -297,5 +310,39 @@ async fn silence_never_releases_the_rent() -> anyhow::Result<()> {
     let claim = e.landlord.call(e.handova.id(), "claim_move_in").args_json(json!({ "lease_id": 1 })).transact().await?;
     assert!(claim.is_failure(), "there is no such method");
     assert_eq!(lease(&e, 1).await?["status"], "Pending");
+    Ok(())
+}
+
+/// A listing whose storage credit is used up refuses the next payment, and the USDC goes back.
+/// Then anyone funds it, the payment goes through, and removing the listing later returns the rest.
+#[tokio::test]
+async fn used_up_listing_refunds_until_funded_and_removal_returns_the_credit() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let listing = create_listing(&e, &e.landlord).await?;
+    pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?.into_result()?;
+    e.landlord.call(e.handova.id(), "cancel_lease").args_json(json!({ "lease_id": 1 })).transact().await?.into_result()?;
+    e.nurse.call(e.handova.id(), "withdraw").args_json(json!({})).max_gas().transact().await?.into_result()?;
+
+    let start = ft_balance(&e, &e.nurse).await?;
+    pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?;
+    assert_eq!(ft_balance(&e, &e.nurse).await?, start, "refused for lack of storage credit, and refunded");
+
+    let cfg: Value = e.handova.view("get_config").await?.json()?;
+    let lease_storage = NearToken::from_yoctonear(cfg["lease_storage"].as_str().unwrap().parse()?);
+    e.mum.call(e.handova.id(), "fund_listing").args_json(json!({ "listing_id": listing })).deposit(lease_storage).transact().await?.into_result()?;
+    pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?.into_result()?;
+    assert_eq!(lease(&e, 2).await?["status"], "Pending");
+    e.landlord.call(e.handova.id(), "cancel_lease").args_json(json!({ "lease_id": 2 })).transact().await?.into_result()?;
+
+    let before = e.landlord.view_account().await?.balance;
+    let refund: String = e.landlord.call(e.handova.id(), "remove_listing").args_json(json!({ "listing_id": listing })).transact().await?.into_result()?.json()?;
+    let after = e.landlord.view_account().await?.balance;
+    let refund: u128 = refund.parse()?;
+    assert!(refund > 0);
+    // The landlord gets the credit back, less a little gas.
+    assert!(after.as_yoctonear() + 2_000_000_000_000_000_000_000 > before.as_yoctonear() + refund, "credit returned to the landlord");
+    let open: Vec<Value> = e.handova.view("get_open_leases").args_json(json!({})).await?.json()?;
+    assert!(open.is_empty());
+    assert_solvent(&e).await?;
     Ok(())
 }

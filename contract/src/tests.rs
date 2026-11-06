@@ -58,12 +58,18 @@ impl T {
         &mut self.c
     }
 
+    /// Call as `who`, attaching `deposit` yoctoNEAR.
+    fn paying(&mut self, who: &str, deposit: u128) -> &mut Contract {
+        self.ctx(who, deposit);
+        &mut self.c
+    }
+
     fn wait_days(&mut self, d: u64) {
         self.now_ms += d * DAY_MS;
     }
 
     fn list(&mut self) -> u64 {
-        self.as_("landlord.near").create_listing(U128(RENT), U128(CAUTION), 12, "lagos-yaba-2bed".into())
+        self.paying("landlord.near", deposit()).create_listing(U128(RENT), U128(CAUTION), 12, "lagos-yaba-2bed".into())
     }
 
     /// The USDC contract calling ft_on_transfer after `sender` did ft_transfer_call.
@@ -103,6 +109,15 @@ impl T {
         self.as_("tenant.near").confirm_move_in(1);
         1
     }
+}
+
+/// What a new listing must bring: its own storage and its first lease's.
+fn deposit() -> u128 {
+    (LISTING_STORAGE_BYTES + LEASE_RESERVE_BYTES) as u128 * near_sdk::env::storage_byte_cost().as_yoctonear()
+}
+
+fn lease_cost() -> u128 {
+    LEASE_RESERVE_BYTES as u128 * near_sdk::env::storage_byte_cost().as_yoctonear()
 }
 
 /// Adds the listing's usual terms to a payment message that doesn't name its own.
@@ -473,6 +488,7 @@ fn keeper_can_page_through_leases() {
     t.list();
     t.pay("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#);
     t.as_("landlord.near").cancel_lease(1);
+    t.paying("landlord.near", lease_cost()).fund_listing(1);
     t.pay("other.near", RENT + CAUTION, r#"{"listing_id":1}"#);
     let all = t.c.get_leases(None, None);
     assert_eq!(all.iter().map(|l| l.id).collect::<Vec<_>>(), vec![1, 2]);
@@ -483,7 +499,7 @@ fn keeper_can_page_through_leases() {
 #[should_panic(expected = "Rent must be at least 1 USDC")]
 fn rent_has_a_minimum() {
     let mut t = T::new();
-    t.as_("landlord.near").create_listing(U128(999_999), U128(0), 12, "x".into());
+    t.paying("landlord.near", deposit()).create_listing(U128(999_999), U128(0), 12, "x".into());
 }
 
 #[test]
@@ -644,6 +660,7 @@ fn rental_passport_counts_finished_leases() {
     t.as_("tenant.near").move_out(1);
     t.as_("landlord.near").approve_move_out(1);
     // Second lease on the same home: caution partly kept.
+    t.paying("landlord.near", lease_cost()).fund_listing(1);
     t.pay("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#);
     t.as_("tenant.near").confirm_move_in(2);
     t.as_("tenant.near").move_out(2);
@@ -862,10 +879,10 @@ fn nothing_new_is_stored_when_the_reserve_is_short() {
     let mut t = T::new();
     t.list();
     t.room_for(0);
-    assert!(refused(|| { t.list(); }), "new listing");
     assert!(refused(|| { t.pay("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#); }), "new lease");
-    assert!(refused(|| t.as_("landlord.near").update_listing(1, None, None, None, Some("x".into()), None)), "bigger details");
-    // Pausing a listing stores nothing new, so it still works.
+    // A listing pays for its own storage, so listing and editing still work.
+    t.list();
+    t.as_("landlord.near").update_listing(1, None, None, None, Some("x".into()), None);
     t.as_("landlord.near").update_listing(1, None, None, None, None, Some(false));
 }
 
@@ -876,7 +893,8 @@ fn an_open_lease_keeps_its_reserve() {
     t.room_for(1);
     t.pay("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#);
     assert_eq!(t.c.get_config().open_leases, 1);
-    assert!(refused(|| { t.list(); }), "that room belongs to the open lease");
+    t.list();
+    assert!(refused(|| { t.pay("tenant2.near", RENT + CAUTION, r#"{"listing_id":2}"#); }), "that room belongs to the open lease");
     // The lease itself is never held back, however low the balance is.
     t.as_("tenant.near").confirm_move_in(1);
     assert!(refused(|| t.as_("tenant.near").offer_takeover(1, U128(USDC))), "a takeover is optional and stores more");
@@ -893,4 +911,61 @@ fn a_cancelled_lease_releases_its_reserve() {
     assert_eq!(t.c.get_config().open_leases, 1);
     t.as_("landlord.near").cancel_lease(1);
     assert_eq!(t.c.get_config().open_leases, 0);
+}
+
+#[test]
+fn a_listing_brings_its_own_storage() {
+    let mut t = T::new();
+    assert!(refused(|| { t.paying("landlord.near", deposit() - 1).create_listing(U128(RENT), U128(CAUTION), 12, "x".into()); }), "short deposit");
+    assert!(refused(|| { t.as_("landlord.near").create_listing(U128(RENT), U128(CAUTION), 12, "x".into()); }), "no deposit");
+    let id = t.paying("landlord.near", deposit() + 5).create_listing(U128(RENT), U128(CAUTION), 12, "x".into());
+    // Anything beyond the minimum is kept as credit for later leases.
+    assert_eq!(t.c.get_listing(id).unwrap().listing.storage_credit.0, deposit() + 5);
+}
+
+#[test]
+fn each_lease_is_paid_from_the_listing_credit() {
+    let mut t = T::new();
+    t.list();
+    t.pay("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#);
+    assert_eq!(t.c.get_listing(1).unwrap().listing.storage_credit.0, deposit() - lease_cost());
+    // A cancelled lease's record stays, so the next tenant needs fresh credit.
+    t.as_("landlord.near").cancel_lease(1);
+    // Refused, so the USDC contract refunds the payer (see the sandbox test for the refund itself).
+    assert!(refused(|| { t.pay("tenant2.near", RENT + CAUTION, r#"{"listing_id":1}"#); }), "the landlord must top the listing up first");
+    assert!(t.c.get_lease(2).is_none());
+    // Anyone may top it up; then the payment goes through.
+    t.paying("family.near", lease_cost()).fund_listing(1);
+    assert_eq!(t.pay("tenant2.near", RENT + CAUTION, r#"{"listing_id":1}"#), 0);
+    assert!(t.c.get_lease(2).is_some());
+}
+
+#[test]
+fn removing_a_listing_returns_its_credit() {
+    let mut t = T::new();
+    t.list();
+    assert!(refused(|| { t.as_("someone.near").remove_listing(1); }), "only the landlord");
+    t.pay("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#);
+    assert!(refused(|| { t.as_("landlord.near").remove_listing(1); }), "not while a lease is open");
+    t.as_("landlord.near").cancel_lease(1);
+    assert_eq!(t.as_("landlord.near").remove_listing(1).0, deposit() - lease_cost());
+    assert!(t.c.get_listing(1).is_none());
+    // The lease's history stays, and the landlord's slot is free again.
+    assert!(t.c.get_lease(1).is_some());
+    for _ in 0..MAX_LISTINGS_UNVERIFIED {
+        t.list();
+    }
+}
+
+#[test]
+fn the_keeper_reads_only_open_leases() {
+    let mut t = T::new();
+    t.list();
+    t.list();
+    t.pay("tenant.near", RENT + CAUTION, r#"{"listing_id":1}"#);
+    t.pay("tenant2.near", RENT + CAUTION, r#"{"listing_id":2}"#);
+    t.as_("landlord.near").cancel_lease(1);
+    let open: Vec<u64> = t.c.get_open_leases(None, None).iter().map(|l| l.id).collect();
+    assert_eq!(open, vec![2]);
+    assert_eq!(t.c.get_config().open_leases, 1);
 }

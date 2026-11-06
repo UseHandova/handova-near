@@ -130,10 +130,16 @@ impl FungibleTokenReceiver for Contract {
         );
         let total = listing.rent.0 + listing.caution.0;
         require!(amount.0 >= total, format!("Payment too small: this home needs {} (rent + caution)", total));
+        // The lease's record stays as history, so its storage is paid now, from the listing's credit.
+        require!(
+            listing.storage_credit.0 >= crate::lease_storage(),
+            "The landlord needs to renew this listing (fund_listing) before it can take a payment"
+        );
+        listing.storage_credit = U128(listing.storage_credit.0 - crate::lease_storage());
 
         let lease_id = self.next_lease_id;
         self.next_lease_id += 1;
-        self.open_leases += 1;
+        self.open_leases.insert(lease_id);
         listing.active_lease = Some(lease_id);
         let lease = Lease {
             id: lease_id,
@@ -451,7 +457,7 @@ impl Contract {
         lease.closed_at_ms = Some(now);
         let (payer, total, listing_id) = (lease.payer.clone(), lease.rent.0 + lease.caution.0, lease.listing_id);
         self.credit(&payer, total);
-        self.open_leases -= 1;
+        self.open_leases.remove(&lease_id);
         self.free_listing(listing_id);
         events::emit("lease_cancelled", json!({ "lease_id": lease_id, "by": by, "refund_to": payer, "amount": U128(total) }));
     }
@@ -471,7 +477,7 @@ impl Contract {
         let (landlord, listing_id) = (lease.landlord.clone(), lease.listing_id);
         self.credit(&landlord, to_landlord);
         self.credit(&holder, to_holder);
-        self.open_leases -= 1;
+        self.open_leases.remove(&lease_id);
         self.free_listing(listing_id);
         events::emit(
             "lease_closed",
