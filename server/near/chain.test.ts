@@ -19,6 +19,11 @@ describe('sending through several RPCs', () => {
     expect(out).toBe('sent');
   });
 
+  test('a request cut off by our own time limit hands over to the next RPC', async () => {
+    const cut = Object.assign(new Error('The operation timed out.'), { name: 'TimeoutError' });
+    expect(await firstAvailable([async () => { throw cut; }, async () => 'sent'])).toBe('sent');
+  });
+
   test('a real answer stops the search, so nonce retries and balance errors survive', async () => {
     const nonce = new Error('Transaction nonce 5 must be larger than nonce of the used access key 7');
     let later = false;
@@ -35,7 +40,7 @@ describe('sending through several RPCs', () => {
   });
 
   test('tells a busy RPC from a real answer', () => {
-    for (const m of ['Exceeded 2 attempts for https://x.', 'Rate limits exceeded', 'Timeout error', 'https://x Bad Gateway', 'https://x unavailable', 'Internal server error', 'fetch failed', 'Unable to connect']) {
+    for (const m of ['Exceeded 2 attempts for https://x.', 'Rate limits exceeded', 'Timeout error', 'https://x Bad Gateway', 'https://x unavailable', 'Internal server error', 'fetch failed', 'Unable to connect', 'The operation timed out.']) {
       expect(rpcUnavailable(new Error(m))).toBe(true);
     }
     for (const m of ['Transaction nonce 5 must be larger', 'Sender does not have enough balance', 'Smart contract panicked: no']) {

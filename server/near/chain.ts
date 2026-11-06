@@ -23,7 +23,9 @@ export const provider = new FailoverRpcProvider(rpcUrls.map((url) => new JsonRpc
 export function rpcUnavailable(e: unknown): boolean {
   const cause = (e as { cause?: unknown })?.cause;
   if (typeof cause === 'number' && (cause === 408 || cause === 429 || cause >= 500)) return true;
-  return /Exceeded \d+ attempts|rate limit|-429|Timeout error|Bad Gateway|unavailable|Internal server error|fetch failed|Unable to connect|ECONN|socket|took too long/i.test((e as Error)?.message ?? '');
+  // Our own time limit (timedFetch) cut the request off.
+  if ((e as Error)?.name === 'TimeoutError') return true;
+  return /Exceeded \d+ attempts|rate limit|-429|Timeout error|Bad Gateway|unavailable|Internal server error|fetch failed|Unable to connect|ECONN|socket|took too long|timed out/i.test((e as Error)?.message ?? '');
 }
 
 /** Try each sender in turn, moving on only when an RPC is busy or silent. Resending is safe: a signed transaction has one hash. */
