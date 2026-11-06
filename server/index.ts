@@ -24,8 +24,11 @@ app.use(express.json({ limit: '12mb' })); // voice notes and document photos arr
 mountNear(app);
 mountMedia(app); // listing photos (Arc-era module, reused)
 
+/** The value, or null if it takes longer than `ms`: health must answer even when NEAR's RPCs don't. */
+const within = <T,>(ms: number, p: Promise<T | null>) => Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]);
+
 app.get('/api/health', async (_req, res) => {
-  const [relayerNear, creatorNear] = await Promise.all([nearBalance(relayer), nearBalance(creator)]);
+  const [relayerNear, creatorNear] = await Promise.all([within(3000, nearBalance(relayer)), within(3000, nearBalance(creator))]);
   res.json({
     ok: true,
     network: NETWORK,
