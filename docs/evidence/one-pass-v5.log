@@ -1,0 +1,261 @@
+Handova one-pass test run · commit 355915b · 2026-11-06T21:03:20Z · run under caffeinate (Mac kept awake)
+working tree: 0 changed files
+e2e escrow:   "escrow": "escrow-v8.handova-3b5eb6e5.testnet",
+
+== cargo test --test sandbox
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+warning: unused `ExecutionFinalResult` that must be used
+   --> tests/sandbox.rs:294:5
+    |
+294 |     pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: use `into_result()` to handle potential execution errors
+    = note: `#[warn(unused_must_use)]` (part of `#[warn(unused)]`) on by default
+help: use `let _ = ...` to ignore the resulting value
+    |
+294 |     let _ = pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?;
+    |     +++++++
+
+warning: unused `ExecutionFinalResult` that must be used
+   --> tests/sandbox.rs:327:5
+    |
+327 |     pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: use `into_result()` to handle potential execution errors
+help: use `let _ = ...` to ignore the resulting value
+    |
+327 |     let _ = pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?;
+    |     +++++++
+
+warning: `handova` (test "sandbox") generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.99s
+     Running tests/sandbox.rs (target/debug/deps/sandbox-845413b499f5fb6c)
+
+running 7 tests
+test failed_withdrawal_keeps_the_money ... ok
+test payment_refused_for_changed_terms_refunds_the_payer ... ok
+test nft_transfer_moves_the_caution_and_unsettled_dispute_returns_it ... ok
+worst-case listing stored 1407 bytes
+test silence_never_releases_the_rent ... ok
+worst-case lease stored 3857 bytes
+test worst_case_lease_fits_its_reserve ... ok
+test diaspora_pays_mum_moves_in_landlord_paid_caution_returns ... ok
+test used_up_listing_refunds_until_funded_and_removal_returns_the_credit ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 37.57s
+
+sandbox exit 0
+
+== bunx playwright test --retries=0
+
+Running 29 tests using 1 worker
+
+[WebServer] relay ft_transfer_call ok 3.8s
+[WebServer] relay mark_handover ok 2.3s
+[WebServer] relay confirm_move_in ok 2.7s
+[WebServer] relay withdraw ok 4.1s
+[WebServer] relay move_out ok 2.8s
+[WebServer] relay approve_move_out ok 2.8s
+[WebServer] relay withdraw ok 4.6s
+  ✓   1 [mobile-chromium] › e2e/01-happy-path.spec.ts:3:1 › list → pay → handover → move-in → NFT → landlord paid → move-out → caution back (1.1m)
+  ✓   2 [mobile-chromium] › e2e/01-happy-path.spec.ts:72:1 › recovery phrase: back it up, sign out, restore on a new phone (10.2s)
+  ✓   3 [mobile-chromium] › e2e/01-happy-path.spec.ts:101:1 › name already taken is shown before creating (14.1s)
+[WebServer] relay ft_transfer_call ok 3.9s
+[WebServer] relay mark_handover ok 2.7s
+[WebServer] relay confirm_move_in ok 2.7s
+  ✓   4 [mobile-chromium] › e2e/02-family-and-refunds.spec.ts:2:1 › family abroad pays for mum; only mum confirms; she gets the NFT (44.4s)
+[WebServer] relay ft_transfer_call ok 3.8s
+[WebServer] relay cancel_lease ok 3.1s
+[WebServer] relay withdraw ok 4.0s
+  ✓   5 [mobile-chromium] › e2e/02-family-and-refunds.spec.ts:36:1 › no handover in time: the payer cancels and gets everything back (1.2m)
+[WebServer] relay ft_transfer_call ok 4.1s
+[WebServer] relay cancel_lease ok 2.7s
+  ✓   6 [mobile-chromium] › e2e/02-family-and-refunds.spec.ts:70:1 › landlord declines before move-in: tenant refunded in full (30.4s)
+[WebServer] send: RPC busy, trying the next one: {"jsonrpc": "2.0", "error": {"code": -429, "message": "Rate limits exceeded. For higher rate limits get a subscription a
+[WebServer] send: RPC busy, trying the next one: {"jsonrpc": "2.0", "error": {"code": -429, "message": "Rate limits exceeded. For higher rate limits get a subscription a
+[WebServer] send: RPC busy, trying the next one: {"jsonrpc": "2.0", "error": {"code": -429, "message": "Rate limits exceeded. For higher rate limits get a subscription a
+[WebServer] send: RPC busy, trying the next one: {"jsonrpc": "2.0", "error": {"code": -429, "message": "Rate limits exceeded. For higher rate limits get a subscription a
+[WebServer] 3068 |     if (status === 500) {
+[WebServer] 3069 |       throw new ProviderError("Internal server error", { cause: status });
+[WebServer] 3070 |     } else if (status === 408) {
+[WebServer] 3071 |       throw new ProviderError("Timeout error", { cause: status });
+[WebServer] 3072 |     } else if (status === 429) {
+[WebServer] 3073 |       throw new ProviderError(await res.text(), { cause: status });
+[WebServer]                    ^
+[WebServer] error: {"jsonrpc": "2.0", "error": {"code": -429, "message": "Rate limits exceeded. For higher rate limits get a subscription at https://fastnear.com"}, "id": "1"}
+[WebServer]       at <anonymous> (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3073:13)
+[WebServer]       at async backOff (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3022:20)
+[WebServer]       at async fetchJsonRpc (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3061:26)
+[WebServer]       at async sendJsonRpc (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3531:28)
+[WebServer] 
+[WebServer] 3068 |     if (status === 500) {
+[WebServer] 3069 |       throw new ProviderError("Internal server error", { cause: status });
+[WebServer] 3070 |     } else if (status === 408) {
+[WebServer] 3071 |       throw new ProviderError("Timeout error", { cause: status });
+[WebServer] 3072 |     } else if (status === 429) {
+[WebServer] 3073 |       throw new ProviderError(await res.text(), { cause: status });
+[WebServer]                    ^
+[WebServer] error: {"jsonrpc": "2.0", "error": {"code": -429, "message": "Rate limits exceeded. For higher rate limits get a subscription at https://fastnear.com"}, "id": "1"}
+[WebServer]       at <anonymous> (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3073:13)
+[WebServer]       at async backOff (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3022:20)
+[WebServer]       at async fetchJsonRpc (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3061:26)
+[WebServer]       at async sendJsonRpc (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3531:28)
+[WebServer] 
+[WebServer] send: RPC busy, trying the next one: {"jsonrpc": "2.0", "error": {"code": -429, "message": "Rate limits exceeded. For higher rate limits get a subscription a
+[WebServer] send: RPC busy, trying the next one: {"jsonrpc": "2.0", "error": {"code": -429, "message": "Rate limits exceeded. For higher rate limits get a subscription a
+[WebServer] send: RPC busy, trying the next one: {"jsonrpc": "2.0", "error": {"code": -429, "message": "Rate limits exceeded. For higher rate limits get a subscription a
+[WebServer] send: RPC busy, trying the next one: {"jsonrpc": "2.0", "error": {"code": -429, "message": "Rate limits exceeded. For higher rate limits get a subscription a
+[WebServer] 3068 |     if (status === 500) {
+[WebServer] 3069 |       throw new ProviderError("Internal server error", { cause: status });
+[WebServer] 3070 |     } else if (status === 408) {
+[WebServer] 3071 |       throw new ProviderError("Timeout error", { cause: status });
+[WebServer] 3072 |     } else if (status === 429) {
+[WebServer] 3073 |       throw new ProviderError(await res.text(), { cause: status });
+[WebServer]                    ^
+[WebServer] error: {"jsonrpc": "2.0", "error": {"code": -429, "message": "WARNING! THIS ENDPOINT IS DEPRECATED! STOP USING IT NOW! Switch to https://fastnear.com or alternative RPC providers at https://docs.near.org/api/rpc/providers"}, "id": "1"}
+[WebServer]       at <anonymous> (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3073:13)
+[WebServer]       at async backOff (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3022:20)
+[WebServer]       at async fetchJsonRpc (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3061:26)
+[WebServer]       at async sendJsonRpc (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3531:28)
+[WebServer] 
+[WebServer] relay ft_transfer_call ok 5.0s
+[WebServer] relay mark_handover ok 3.6s
+  ✓   7 [mobile-chromium] › e2e/03-handover-rules.spec.ts:3:1 › tenant silent after handover: even a verified landlord waits for a yes or a ruling (2.2m)
+[WebServer] relay ft_transfer_call ok 4.5s
+[WebServer] relay ft_transfer_call ok 5.1s
+[WebServer] relay mark_handover ok 3.9s
+[WebServer] relay dispute_move_in ok 4.1s
+[WebServer] relay mark_handover ok 4.0s
+[WebServer] relay dispute_move_in ok 3.4s
+[WebServer] relay resolve_move_in ok 3.8s
+[WebServer] relay resolve_move_in ok 4.3s
+  ✓   8 [mobile-chromium] › e2e/03-handover-rules.spec.ts:24:1 › fake handover: tenant disputes, landlord cannot claim, arbiter refunds; second case arbiter rules moved in (2.9m)
+[WebServer] relay ft_transfer_call ok 4.4s
+[WebServer] relay ft_transfer_call ok 4.7s
+[WebServer] 3068 |     if (status === 500) {
+[WebServer] 3069 |       throw new ProviderError("Internal server error", { cause: status });
+[WebServer] 3070 |     } else if (status === 408) {
+[WebServer] 3071 |       throw new ProviderError("Timeout error", { cause: status });
+[WebServer] 3072 |     } else if (status === 429) {
+[WebServer] 3073 |       throw new ProviderError(await res.text(), { cause: status });
+[WebServer]                    ^
+[WebServer] error: Rate limit exceeded, retry after 4 seconds
+[WebServer]       at <anonymous> (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3073:13)
+[WebServer]       at async backOff (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3022:20)
+[WebServer]       at async fetchJsonRpc (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3061:26)
+[WebServer]       at async sendJsonRpc (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3531:28)
+[WebServer] 
+[WebServer] relay mark_handover ok 3.0s
+[WebServer] relay mark_handover ok 3.0s
+[WebServer] relay dispute_move_in ok 3.0s
+[WebServer] relay settle_move_in_timeout ok 2.5s
+  ✓   9 [mobile-chromium] › e2e/03-handover-rules.spec.ts:68:1 › silence pays nobody; an arbiter who stays silent means a refund (1.8m)
+[WebServer] send: RPC busy, trying the next one: The operation timed out.
+[WebServer] relay ft_transfer_call ok 4.2s
+[WebServer] relay mark_handover ok 2.4s
+[WebServer] relay dispute_move_in ok 2.6s
+[WebServer] relay resolve_move_in ok 2.6s
+  ✓  10 [mobile-chromium] › e2e/03-handover-rules.spec.ts:98:1 › unverified landlord whose tenant won't confirm asks the arbiter, who rules moved in (1.3m)
+[WebServer] relay ft_transfer_call ok 4.0s
+[WebServer] relay mark_handover ok 3.1s
+[WebServer] relay confirm_move_in ok 2.3s
+[WebServer] relay move_out ok 2.7s
+[WebServer] relay dispute_caution ok 2.4s
+[WebServer] relay propose_split ok 2.8s
+[WebServer] relay propose_split ok 3.0s
+  ✓  11 [mobile-chromium] › e2e/04-caution.spec.ts:5:1 › caution dispute settled by agreement (1.5m)
+[WebServer] relay ft_transfer_call ok 4.0s
+[WebServer] relay mark_handover ok 2.4s
+[WebServer] relay confirm_move_in ok 3.1s
+[WebServer] relay move_out ok 2.7s
+[WebServer] relay dispute_caution ok 2.6s
+[WebServer] relay resolve_dispute ok 2.5s
+  ✓  12 [mobile-chromium] › e2e/04-caution.spec.ts:32:1 › caution dispute decided by the arbiter (51.9s)
+[WebServer] relay ft_transfer_call ok 4.0s
+[WebServer] relay mark_handover ok 3.0s
+[WebServer] relay confirm_move_in ok 2.9s
+[WebServer] relay move_out ok 2.4s
+[WebServer] relay dispute_caution ok 2.1s
+[WebServer] relay settle_dispute_timeout ok 3.1s
+  ✓  13 [mobile-chromium] › e2e/04-caution.spec.ts:52:1 › dispute nobody settles: the caution goes back to the holder (1.3m)
+[WebServer] relay ft_transfer_call ok 4.4s
+[WebServer] relay mark_handover ok 2.8s
+[WebServer] relay confirm_move_in ok 2.7s
+[WebServer] relay move_out ok 2.9s
+[WebServer] relay claim_caution ok 2.9s
+  ✓  14 [mobile-chromium] › e2e/04-caution.spec.ts:68:1 › landlord silent after move-out: tenant claims the caution (1.5m)
+[WebServer] relay ft_transfer_call ok 4.2s
+[WebServer] relay mark_handover ok 2.3s
+[WebServer] relay confirm_move_in ok 2.5s
+[WebServer] relay move_out ok 3.1s
+  ✓  15 [mobile-chromium] › e2e/04-caution.spec.ts:85:1 › the keeper closes a review nobody acted on (1.4m)
+[WebServer] relay ft_transfer_call ok 4.2s
+[WebServer] relay mark_handover ok 2.7s
+[WebServer] relay confirm_move_in ok 3.1s
+[WebServer] relay offer_takeover ok 3.0s
+[WebServer] relay request_takeover ok 2.8s
+[WebServer] relay consent_takeover ok 2.9s
+[WebServer] relay move_out ok 2.9s
+[WebServer] relay approve_move_out ok 2.8s
+  ✓  16 [mobile-chromium] › e2e/05-nft-transfer.spec.ts:3:1 › lease handed to family for free, only after the landlord agrees: the caution right moves with it (1.7m)
+[WebServer] relay update_listing ok 2.7s
+[WebServer] relay update_listing ok 2.7s
+[WebServer] relay update_listing ok 2.5s
+[WebServer] relay ft_transfer_call ok 3.9s
+[WebServer] relay cancel_lease ok 2.8s
+[WebServer] relay remove_listing ok 3.2s
+  ✓  17 [mobile-chromium] › e2e/06-listing-controls.spec.ts:3:1 › landlord pauses, resumes and reprices; price locks while a lease is open (1.5m)
+[WebServer] relay ft_transfer_call ok 4.4s
+  ✓  18 [mobile-chromium] › e2e/07-intents-and-ai.spec.ts:4:1 › pay from another chain: live NEAR Intents quote, then (testnet) simulated arrival pays the escrow (41.5s)
+  ✓  19 [mobile-chromium] › e2e/07-intents-and-ai.spec.ts:39:1 › voice-note style text → NEAR AI draft with a signed TEE receipt → publish (20.3s)
+[WebServer] relay withdraw failed: Nothing to withdraw 2.8s
+  ✓  20 [mobile-chromium] › e2e/08-api-guards.spec.ts:18:1 › relayer pays only for Handova calls (10.1s)
+  ✓  21 [mobile-chromium] › e2e/08-api-guards.spec.ts:33:1 › admin routes need the admin secret; faucet refuses unknown accounts; bad names refused (274ms)
+[WebServer] relay ft_transfer_call ok 3.5s
+[WebServer] relay mark_handover ok 2.9s
+[WebServer] relay confirm_move_in ok 3.1s
+[WebServer] relay offer_takeover ok 2.8s
+[WebServer] relay request_takeover ok 2.6s
+[WebServer] relay consent_takeover ok 3.1s
+[WebServer] relay ft_transfer_call ok 3.2s
+[WebServer] relay move_out ok 3.0s
+[WebServer] relay approve_move_out ok 2.6s
+  ✓  22 [mobile-chromium] › e2e/09-takeover-and-passport.spec.ts:3:1 › lease takeover: holder offers, a new tenant asks, the landlord agrees to them, they buy it and get the caution right (1.8m)
+[WebServer] relay ft_transfer_call ok 3.9s
+[WebServer] relay mark_handover ok 2.8s
+[WebServer] relay confirm_move_in ok 2.9s
+[WebServer] relay move_out ok 2.9s
+[WebServer] relay approve_move_out ok 2.5s
+[WebServer] relay ft_transfer_call ok 3.7s
+  ✓  23 [mobile-chromium] › e2e/09-takeover-and-passport.spec.ts:49:1 › rental passport: a finished lease shows on the tenant passport and to the next landlord (1.2m)
+  ✓  24 [mobile-chromium] › e2e/09-takeover-and-passport.spec.ts:80:1 › the app speaks Yorùbá, Hausa, Igbo and Pidgin, and remembers the choice (2.2s)
+[WebServer] relay ft_transfer_call ok 3.5s
+[WebServer] relay mark_handover ok 2.3s
+[WebServer] relay confirm_move_in ok 2.7s
+[WebServer] relay move_out ok 3.0s
+[WebServer] relay dispute_caution ok 2.5s
+  ✓  25 [mobile-chromium] › e2e/10-dao-arbiter.spec.ts:61:1 › caution dispute decided by a 2-of-3 DAO council (1.6m)
+  ✓  26 [mobile-chromium] › e2e/11-roles.spec.ts:3:1 › roles: chosen at sign-up, menu follows the role, switchable on the Account page (21.0s)
+  ✓  27 [mobile-chromium] › e2e/12-cashout-mintbase-inspection.spec.ts:3:1 › landlord cash-out: live NEAR Intents quote to USDT on TRON; a wrong address is refused (14.2s)
+[WebServer] relay ft_transfer_call ok 3.6s
+[WebServer] relay mark_handover ok 2.2s
+[WebServer] relay confirm_move_in ok 2.3s
+[WebServer] relay offer_takeover ok 2.4s
+[WebServer] relay request_takeover ok 2.4s
+[WebServer] relay consent_takeover ok 2.7s
+[WebServer] relay ft_transfer_call ok 5.3s
+  ✓  28 [mobile-chromium] › e2e/12-cashout-mintbase-inspection.spec.ts:20:1 › lease sold on Mintbase's market: listed after the landlord agrees, bought there, the caution right moves (1.9m)
+[WebServer] relay ft_transfer_call ok 4.0s
+[WebServer] relay mark_handover ok 2.7s
+[WebServer] relay confirm_move_in ok 2.3s
+[WebServer] relay move_out ok 2.5s
+  ✓  29 [mobile-chromium] › e2e/12-cashout-mintbase-inspection.spec.ts:54:1 › AI move-out inspection: the landlord adds a photo, NEAR AI advises with a signed receipt (1.0m)
+
+  Slow test file: [mobile-chromium] › e2e/03-handover-rules.spec.ts (8.1m)
+  Slow test file: [mobile-chromium] › e2e/04-caution.spec.ts (6.6m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  29 passed (31.7m)
+e2e exit 0
