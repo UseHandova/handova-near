@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Checkout widget sample</title>
+  <!-- A made-up property website showing the Handova checkout widget. Everything Handova-specific is the
+       <script> tag and the data-handova-listing attribute; the rest is the site's own page. -->
+  <script src="/checkout.js" defer></script>
+  <style>
+    :root { --bg: #f6f5f1; --card: #fff; --ink: #1d1d1b; --sub: #6b6a64; --line: #e4e2da; --accent: #0f6b4f; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #151514; --card: #1f1f1d; --ink: #f2f1ec; --sub: #a3a29b; --line: #34332f; --accent: #3fbf8f; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
+    main { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; }
+    .note { font-size: 13px; color: var(--sub); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-top: 20px; }
+    .card img { width: 100%; height: 220px; object-fit: cover; display: block; background: var(--line); }
+    .card div { padding: 16px; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    h2 { font-size: 19px; margin: 0 0 4px; }
+    p { margin: 0 0 12px; }
+    .sub { color: var(--sub); }
+    button { width: 100%; border: 0; border-radius: 12px; padding: 14px; font: 600 16px system-ui, sans-serif; background: var(--accent); color: #fff; cursor: pointer; }
+    #paid { display: none; margin-top: 16px; border-radius: 12px; padding: 14px; background: color-mix(in srgb, var(--accent) 14%, transparent); }
+    #paid a { color: var(--accent); }
+    code { font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Sample Lettings</h1>
+    <p class="sub">A made-up landlord or agency website. It shows how any site adds Handova's checkout with one script tag.</p>
+    <p class="note">Handova on NEAR testnet: payments use test USDC. Add <code>?listing=ID</code> to the address to try another Handova listing.</p>
+
+    <section class="card">
+      <img src="https://handova-near.vercel.app/api/media/c1d5bb58904ad64b28b95755.jpg" alt="" onerror="this.remove()" />
+      <div>
+        <h2 id="title">Apartment in Yaba</h2>
+        <p class="sub">Rent and caution fee go into escrow on NEAR, not to us. The landlord is paid when you confirm you moved in.</p>
+        <button id="pay" data-handova-listing="2">Pay rent from any chain</button>
+        <div id="paid" role="status"></div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const id = new URLSearchParams(location.search).get('listing');
+    const btn = document.getElementById('pay');
+    if (id) { btn.dataset.handovaListing = id; document.getElementById("title").textContent = `Handova listing #${id}`; document.querySelector(".card img")?.remove(); }
+    btn.addEventListener('handova:paid', (e) => {
+      const p = e.detail;
+      const box = document.getElementById('paid');
+      box.style.display = 'block';
+      box.innerHTML = `<b>Paid into escrow.</b> Lease #${p.leaseId} for ${p.tenant}, ${(Number(p.amount) / 1e6).toLocaleString()} USDC held until move-in. <a href="${p.tx}" target="_blank" rel="noreferrer">See the transaction</a>`;
+      btn.disabled = true;
+      btn.textContent = 'Paid';
+    });
+  </script>
+</body>
+</html>

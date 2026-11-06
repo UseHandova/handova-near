@@ -54,6 +54,8 @@ function Shell({ cfg }: { cfg: NearConfig }) {
 
   let body;
   if (page === 'home' && id) body = <ListingDetail id={Number(id)} onNeedSignIn={need} />;
+  // Opened by the checkout widget (public/checkout.js) from another site: the pay sheet opens by itself.
+  else if (page === 'checkout' && id) body = <ListingDetail id={Number(id)} onNeedSignIn={need} checkout />;
   else if (page === 'rentals') body = <MyRentals onNeedSignIn={need} />;
   else if (page === 'lease' && id) body = <LeaseView id={Number(id)} />;
   else if (page === 'landlord') body = <Landlord onNeedSignIn={need} />;
@@ -65,7 +67,7 @@ function Shell({ cfg }: { cfg: NearConfig }) {
 
   // Tenants see their rentals, landlords their listings; visitors who aren't signed in see both.
   const tabs = [
-    { path: '', icon: Home, label: 'Homes', active: !page || page === 'home', show: true },
+    { path: '', icon: Home, label: 'Homes', active: !page || page === 'home' || page === 'checkout', show: true },
     { path: 'rentals', icon: KeyRound, label: 'My rentals', active: page === 'rentals' || page === 'lease', show: role !== 'landlord' },
     { path: 'landlord', icon: Building2, label: 'Landlord', active: page === 'landlord' || page === 'list', show: role !== 'tenant' },
     { path: 'account', icon: UserRound, label: 'Account', active: page === 'account', show: true },

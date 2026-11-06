@@ -15,7 +15,7 @@ import { ManageListing } from './ManageListing';
 import { Photo } from './ListingCard';
 import { Busy, Row, Sheet, Spinner } from './ui';
 
-export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: () => void }) {
+export function ListingDetail({ id, onNeedSignIn, checkout = false }: { id: number; onNeedSignIn: () => void; checkout?: boolean }) {
   const rate = useNgnRate();
   const { session } = useSession();
   const [l, setL] = useState<Listing | null | undefined>(undefined);
@@ -30,6 +30,17 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
     const poll = setInterval(() => { if (!document.hidden) reload(); }, 15000);
     return () => clearInterval(poll);
   }, [id]);
+
+  // Checkout from another site: sign in if needed, then the pay sheet opens once the home is shown.
+  const [autoOpened, setAutoOpened] = useState(false);
+  const payable = !!l && l.available && l.active_lease === null && session?.accountId !== l.landlord && !(leaseStorage !== null && BigInt(l.storage_credit ?? '0') < leaseStorage);
+  useEffect(() => {
+    if (!checkout || autoOpened || !payable) return;
+    setAutoOpened(true);
+    if (session) setPaying(true);
+    else onNeedSignIn();
+  }, [checkout, autoOpened, payable, session]);
+  useEffect(() => { if (checkout && autoOpened && session && payable) setPaying(true); }, [session?.accountId]);
 
   if (l === undefined) return <div className="flex justify-center py-16 text-sub"><Spinner className="h-6 w-6" /></div>;
   if (l === null) return <p className="py-16 text-center text-sub">This home doesn't exist. <a href="#/" className="font-semibold text-accent">See all homes</a></p>;
@@ -151,6 +162,8 @@ function PaySheet({ open, onClose, listing }: { open: boolean; onClose: () => vo
     const ev = r.events.find((e) => e.event === 'lease_paid');
     if (!ev) throw new Error('The escrow sent your money back — the home may have just been taken.');
     toast('ok', `Paid. ${usd(usdc(total))} is now held in escrow.`, txUrl(r.hash));
+    // Tell the site that opened the checkout widget. Everything here is public on-chain.
+    window.opener?.postMessage({ type: 'handova:paid', listingId: listing.id, leaseId: ev.data[0].lease_id, tenant: tenant ?? session!.accountId, amount: total.toString(), tx: txUrl(r.hash) }, '*');
     onClose();
     go(`/lease/${ev.data[0].lease_id}`);
   }
