@@ -10,7 +10,7 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 |---|---|
 | ✅ **Real on NEAR testnet** | Escrow + lease NFT contract [`escrow-v4.handova.testnet`](https://testnet.nearblocks.io/address/escrow-v4.handova.testnet) (with a test USDC token; the account has no keys, so its code can't be changed); family pays → move-in → NFT → move-out → full caution to the holder ([lease #4](docs/EVIDENCE.md#a-full-lease-on-escrow-v4), team-run demo accounts, gasless); a Mintbase sale only to the buyer the landlord named; a 2-of-3 Sputnik DAO as arbiter, which has [ruled on a dispute](docs/EVIDENCE.md#a-dao-ruling-on-escrow-v4) (all three members and both votes are team accounts today) |
 | ⚠️ **Simulated** | **Pay from any chain** and **landlord cash-out** (NEAR Intents 1Click): quotes are live, but Intents has no testnet, so the deposit arriving is simulated with test USDC. No real cross-chain payment has been made |
-| ⏳ **Not proven yet** | Real use: two Lagos homes are listed (Yaba, Ikorodu) from one team-run, unverified account; nobody has rented through Handova. No mainnet deployment. No security audit. ID checks prove who a landlord is, not that they own the home |
+| ⏳ **Not proven yet** | Real use: two Lagos homes are listed (Yaba, Ikorodu) from one team-run, unverified account; nobody has rented through Handova. No mainnet deployment: this entry stays on testnet, so cross-chain payment and cash-out remain simulated. No security audit. ID checks prove who a landlord is, not that they own the home |
 
 Who controls what (owner, arbiter, verifier, the deploy key) is in [Trust model and known limits](#trust-model-and-known-limits).
 
