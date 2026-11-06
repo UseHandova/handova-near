@@ -3,6 +3,19 @@ import { Account, FailoverRpcProvider, JsonRpcProvider, type KeyPairString } fro
 import { env } from './config';
 import { rpcUrls } from './rpc';
 
+/** A fetch that gives up after `ms` unless the caller set its own limit. */
+export function timedFetch(inner: typeof fetch, ms: number): typeof fetch {
+  return ((input: Parameters<typeof fetch>[0], init?: RequestInit) =>
+    inner(input, init?.signal ? init : { ...init, signal: AbortSignal.timeout(ms) })) as typeof fetch;
+}
+
+/**
+ * near-api-js calls RPCs with no time limit. A connection that drops mid-request then waits forever
+ * while holding the account's nonce lock, and every later transaction from that key queues behind it
+ * (we saw one relay wait 31 minutes). So every request this server makes ends within 20 seconds.
+ */
+globalThis.fetch = timedFetch(globalThis.fetch, 20_000);
+
 /** The configured RPC first, then fallbacks (see rpc.ts): free public RPCs rate-limit bursts. */
 export const provider = new FailoverRpcProvider(rpcUrls.map((url) => new JsonRpcProvider({ url }, { retries: 2, backoff: 2, wait: 500 })));
 

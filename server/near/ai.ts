@@ -56,7 +56,8 @@ export function recoverSigner(message: string, signatureHex: string): string {
 }
 
 async function nearai(path: string, init: RequestInit = {}): Promise<Response> {
-  return fetch(`${BASE}${path}`, { ...init, headers: { authorization: `Bearer ${key()}`, ...(init.headers as any) } });
+  // Model answers can take a while; longer than the server's 20 s default for other calls.
+  return fetch(`${BASE}${path}`, { signal: AbortSignal.timeout(90_000), ...init, headers: { authorization: `Bearer ${key()}`, ...(init.headers as any) } });
 }
 
 const attestedKeys = new Map<string, { at: number; keys: Set<string> }>();

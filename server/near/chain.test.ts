@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { firstAvailable, rpcUnavailable } from './chain';
+import { firstAvailable, rpcUnavailable, timedFetch } from './chain';
 
 const rateLimited = Object.assign(new Error('{"error":{"code":-429,"message":"Rate limits exceeded"}}'), { cause: 429 });
 
@@ -41,5 +41,21 @@ describe('sending through several RPCs', () => {
     for (const m of ['Transaction nonce 5 must be larger', 'Sender does not have enough balance', 'Smart contract panicked: no']) {
       expect(rpcUnavailable(new Error(m))).toBe(false);
     }
+  });
+});
+
+describe('RPC calls always end', () => {
+  test('a request the network never answers is cut off', async () => {
+    const hangs = ((_: unknown, init?: RequestInit) => new Promise((_, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal!.reason)))) as typeof fetch;
+    const started = Date.now();
+    await expect(timedFetch(hangs, 50)('https://rpc.example')).rejects.toThrow();
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  test('a caller that sets its own limit keeps it', async () => {
+    let seen: AbortSignal | undefined;
+    const own = AbortSignal.timeout(5_000);
+    await timedFetch((async (_: unknown, init?: RequestInit) => { seen = init?.signal ?? undefined; return new Response('{}'); }) as typeof fetch, 50)('https://rpc.example', { signal: own });
+    expect(seen).toBe(own);
   });
 });
