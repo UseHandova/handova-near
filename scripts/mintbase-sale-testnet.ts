@@ -10,7 +10,7 @@
  * tenant lists the lease NFT on market-v2-beta.mintspace2.testnet for USDC, and the buyer buys it there.
  * Checks the buyer now holds the NFT (and the caution right) and the tenant was paid by the market.
  */
-import { Account, JsonRpcProvider, KeyPair, type KeyPairString } from 'near-api-js';
+import { Account, actions, JsonRpcProvider, KeyPair, type KeyPairString } from 'near-api-js';
 import { readFileSync } from 'node:fs';
 
 const API = (process.argv.includes('--api') ? process.argv[process.argv.indexOf('--api') + 1] : 'https://handova-near.vercel.app').replace(/\/$/, '');
@@ -42,8 +42,15 @@ async function newAccount(label: string, near: number): Promise<Account> {
 
 const view = <T>(contractId: string, method: string, args: object) => provider.callFunction({ contractId, method, args }) as Promise<T>;
 const usdcOf = async (a: Account) => BigInt(await view<string>(deploy.token, 'ft_balance_of', { account_id: a.accountId }));
-const call = (a: Account, contractId: string, methodName: string, args: object, deposit = 0n, gas = 100n * TGAS) =>
-  a.callFunction({ contractId, methodName, args, deposit, gas });
+/** Sign as `a`, print the transaction hash, return the call's value; throws if it failed (after printing). */
+async function call(a: Account, contractId: string, methodName: string, args: object, deposit = 0n, gas = 100n * TGAS) {
+  const outcome = await a.signAndSendTransaction({ receiverId: contractId, actions: [actions.functionCall(methodName, args, gas, deposit)], throwOnFailure: false });
+  const failure = (outcome.status as { Failure?: unknown }).Failure;
+  console.log(`    ${methodName} (${a.accountId.split('-')[0]}-${a.accountId.split('-')[1]}): ${outcome.transaction.hash}${failure ? ' (failed)' : ''}`);
+  if (failure) throw new Error(`${methodName} failed: ${JSON.stringify(failure).slice(0, 200)}`);
+  const value = (outcome.status as { SuccessValue?: string }).SuccessValue;
+  return value ? JSON.parse(Buffer.from(value, 'base64').toString()) : undefined;
+}
 
 console.log('▶ Accounts');
 const landlord = await newAccount('mb-landlord', 0.1);
