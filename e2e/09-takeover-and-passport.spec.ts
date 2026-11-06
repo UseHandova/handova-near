@@ -62,8 +62,13 @@ test('rental passport: a finished lease shows on the tenant passport and to the 
   const r = await chain.passport(tenant);
   expect(r).toMatchObject({ leases_completed: 1, caution_returned_in_full: 1, caution_partly_kept: 0, leases_moved_in: 1, months_rented: 0 });
 
-  // The same tenant rents again: the landlord sees the record before handing over keys.
+  // The same tenant rents again: the landlord renews the listing (the last lease used its storage
+  // credit), then sees the tenant's record before handing over keys.
+  await ll.goto(`/#/home/${listingId}`);
+  await ll.getByRole('button', { name: /Renew listing/ }).click();
+  await toast(ll, /Listing renewed/);
   await tn.goto(`/#/home/${listingId}`);
+  await tn.reload();
   await tn.getByRole('button', { name: /into escrow/ }).click();
   await tn.getByRole('button', { name: /^Pay [\d,.]+ USDC$/ }).click();
   await tn.waitForURL(/#\/lease\/\d+/);
