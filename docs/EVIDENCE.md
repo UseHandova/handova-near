@@ -40,6 +40,7 @@ Every transaction below was looked up on testnet RPC on 6 Nov 2026 and succeeded
 | Storage can't block open leases | ✅ Sandbox test | Each lease takes 4,096 bytes from its listing's credit; the worst case measured 3,857. Payments also keep a reserve per open lease (`get_config.storage_spare`) |
 | Failed withdrawals keep the money | ✅ Unit and sandbox tests | `failed_withdrawal_keeps_the_money` |
 | The contract's USDC covers what it owes | ✅ Sandbox tests; live values matched on 6 Nov | `get_config.total_held` and the token's `ft_balance_of(escrow-v5)` were both 50 USDC |
+| Any website can take rent into the escrow with one script tag | ✅ Browser test | `e2e/13-checkout-widget.spec.ts`: the sample site at `/checkout-demo.html` opens Handova's checkout, the payer pays, and the site receives the lease ID through `handova:paid` |
 | Paying from another chain, landlord cash-out | ❌ Not shown | Live quotes only; arrival simulated with test USDC. No real Intents settlement has run |
 | Real rentals | ❌ None | Nobody outside the team has used it for a rental |
 
@@ -159,8 +160,9 @@ Browser tests run on `escrow-v8.handova-3b5eb6e5.testnet`, which has the **same 
 27. roles: chosen at sign-up, menu follows the role, switchable on the Account page
 28. landlord pauses, resumes and reprices; price locks while a lease is open
 29. the app speaks Yorùbá, Hausa, Igbo and Pidgin, and remembers the choice
+30. checkout widget: a button on another site opens Handova, the payer pays into escrow, the site gets the lease
 
-These are the test titles as written in `e2e/`. All 29 passed in one run on 6 Nov 2026, with the sandbox tests (7/7), on commit `355915b` with a clean tree: [`evidence/one-pass-v5.log`](evidence/one-pass-v5.log). An earlier attempt had 4 failures while the test Mac slept, so the run was repeated with sleep blocked (`caffeinate`).
+These are the test titles as written in `e2e/`. All 29 passed in one run on 6 Nov 2026, with the sandbox tests (7/7), on commit `355915b` with a clean tree: [`evidence/one-pass-v5.log`](evidence/one-pass-v5.log). An earlier attempt had 4 failures while the test Mac slept, so the run was repeated with sleep blocked (`caffeinate`). Test 30 was added after that run and passed on its own on 6 Nov 2026 (`bunx playwright test e2e/13-checkout-widget.spec.ts`: 1 passed).
 
 ## Who holds power today
 

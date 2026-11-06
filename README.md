@@ -18,6 +18,8 @@ Who controls what (owner, arbiter, verifier, the deploy key) is in [Trust model 
 
 - 🌍 **Try it live (testnet, phone or desktop):** https://handova-near.vercel.app — web app on Vercel, API (relayer, keeper, accounts, ID checks) on Railway
 - 🧪 **Reproduce it yourself:** [`REPRODUCE.md`](REPRODUCE.md) — three commands, your own testnet accounts, no keys from us
+- 🛒 **Checkout widget for any website:** one `<script>` tag adds "Pay rent from any chain" to a landlord's or agency's own site: [sample page](https://handova-near.vercel.app/checkout-demo.html) · [`public/checkout.js`](public/checkout.js)
+- 🤖 **For AI screeners:** [`AGENTS.md`](AGENTS.md) lists each claim with the command that checks it and the output to expect
 - 📜 **Contract:** [`contract/src/`](contract/src) · **Server:** [`server/near/`](server/near) · **Web app:** [`web/src/`](web/src) · **Browser tests:** [`e2e/`](e2e)
 
 ![Handova on desktop: homes with photos and a video that plays on hover](docs/screenshots/00-desktop-home.png)
@@ -186,7 +188,15 @@ bun run dev             # http://localhost:5188
 4. Landlord: **I've handed over the keys**. Tenant: **I have the keys — confirm move-in**. The lease NFT appears.
 5. **Account → Withdraw**. Then move out, approve, and withdraw the caution.
 
-### E. End-to-end suite
+### E. Checkout widget on another website
+Any landlord or agency site can take rent into Handova's escrow without building anything on NEAR:
+```html
+<script src="https://handova-near.vercel.app/checkout.js" defer></script>
+<button data-handova-listing="2">Pay rent from any chain</button>
+```
+The button opens Handova's checkout for that listing in a small window. The payer signs in or creates an account, then pays with USDC on NEAR or from another chain (NEAR Intents; simulated on testnet), gas-free. When the payment lands, the button gets a `handova:paid` event with `{ listingId, leaseId, tenant, amount, tx }`; from code, `Handova.checkout(2).then(...)` does the same. The site never holds keys or funds. Try it on the [sample page](https://handova-near.vercel.app/checkout-demo.html) (listing #2, Yaba; add `?listing=ID` for another). Checked by the browser test [`e2e/13-checkout-widget.spec.ts`](e2e/13-checkout-widget.spec.ts).
+
+### F. End-to-end suite
 ```sh
 bun run setup:e2e && bunx playwright install chromium && bun run test:e2e
 ```
@@ -198,14 +208,14 @@ bun run setup:e2e && bunx playwright install chromium && bun run test:e2e
 | Contract unit (`contract/src/tests.rs`) | 56 | Every escrow rule; listing deposit, renewal and removal; silence never releases rent; payment refused if the terms changed; takeover only to the named tenant (direct, own wallet, marketplace, buyer swap before consent); a replaced arbiter can't rule on an open lease; dispute timeout pays the landlord only the holder's offer; passport counts months lived; storage reserve; NEP-178/199; failed-withdraw restore |
 | Sandbox (`contract/tests/sandbox.rs`) | 7 | Real `ft_transfer_call` with a real token on a local node; refunds; an unagreed NFT transfer fails; worst-case lease storage; solvency invariant |
 | Server (`server/near/*.test.ts`) | 32 | Relayer allowlist, refusal of any attached NEAR above 1 yocto, offline signature check, gas cap; NEP-413 hashing; keeper rules; Intents quote shapes; AI inspection limits; NEAR AI signer recovery from a real saved receipt; request time limits and RPC failover |
-| End-to-end (`e2e/*.spec.ts`, Playwright) | 29 | A phone-sized browser drives the real app against a testnet deployment with 20-second waiting periods; balances checked on-chain after each step; any console error fails a test |
+| End-to-end (`e2e/*.spec.ts`, Playwright) | 30 | A phone-sized browser drives the real app against a testnet deployment with 20-second waiting periods; balances checked on-chain after each step; any console error fails a test |
 
 **Latest results on v5:**
 
 | Suite | Needs | Result |
 |---|---|---|
 | Contract unit, sandbox, server, types, web build | Nothing live (local only) | 56, 7 and 32 passed; runs in [CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml) |
-| Browser, 6 Nov 2026 | Testnet, public RPCs, NEAR AI credit | **29/29 in one run** (with sandbox 7/7) on commit `355915b`, the deployed code, clean tree. Log: [`one-pass-v5.log`](docs/evidence/one-pass-v5.log) |
+| Browser, 6 Nov 2026 | Testnet, public RPCs, NEAR AI credit | **29/29 in one run** (with sandbox 7/7) on commit `355915b`, the deployed code, clean tree. Log: [`one-pass-v5.log`](docs/evidence/one-pass-v5.log). The 30th test, the checkout widget, was added after that run and passed on its own the same day |
 
 Browser tests run on their own test deployment with the same contract code and 20-second waiting periods instead of days. The cases are listed in [`docs/EVIDENCE.md`](docs/EVIDENCE.md#browser-test-cases).
 
@@ -244,6 +254,7 @@ The team also submitted **PatchBond** (refundable bonds for pull requests), an i
 | Arbiter as a Sputnik DAO (2-of-3 council, proposals and votes in the app) | ✅ live: `handova-council.sputnikv2.testnet`; independent members ⏳ |
 | Interface in English, Naijá, Yorùbá, Hausa, Igbo | ✅ main screens (native-speaker review pending) |
 | NEAR AI voice note → listing, with a signed receipt | ✅ |
+| Checkout widget: one `<script>` tag puts Handova's escrow checkout on any website, which gets a `handova:paid` event | ✅ [sample page](https://handova-near.vercel.app/checkout-demo.html), browser-tested |
 | Pay from any chain (NEAR Intents 1Click) | ⚠️ built but **not run live**: quotes, deposit address, status polling and auto-pay are coded; on testnet the deposit is **simulated** |
 | NEAR AI document pre-check | ⚠️ API only; no admin screen yet |
 | Lease sale on Mintbase's market (NEP-199 payouts, only to the named tenant) | ✅ proven on `escrow-v5` with `scripts/mintbase-sale-testnet.ts` (refused before the landlord named the buyer, completed after; lease #1) |
@@ -269,6 +280,7 @@ The team also submitted **PatchBond** (refundable bonds for pull requests), an i
 | Verified landlords | Didit ID + liveness + face check. The landlord first proves control of the account with a **NEP-413 signed message**; on approval Handova's verifier account calls `set_verified` on the escrow: the badge shows on listings and lifts the 3-listing limit; it releases no money | [`server/near/verify.ts`](server/near/verify.ts), [`shared/nep413.ts`](shared/nep413.ts), [`VerifyIdentity.tsx`](web/src/components/VerifyIdentity.tsx) |
 | Existing NEAR wallets | NEAR Connect (`@hot-labs/near-connect`): HOT, Meteor, MyNearWallet, Intear… | [`session.tsx`](web/src/lib/session.tsx) |
 | Pay from any chain (**simulated on testnet**) | NEAR Intents 1Click: `EXACT_OUTPUT` quote → deposit on the origin chain → USDC delivered to the payer's NEAR account → gasless `ft_transfer_call` into escrow | [`server/near/intents.ts`](server/near/intents.ts), [`IntentsPay.tsx`](web/src/components/IntentsPay.tsx) |
+| Rent checkout on any website | The payer's NEAR account signs a gasless `ft_transfer_call` into the escrow; the site only receives the public result (`postMessage` → `handova:paid`) | [`public/checkout.js`](public/checkout.js), [`ListingDetail.tsx`](web/src/components/ListingDetail.tsx), [`checkout-demo.html`](public/checkout-demo.html) |
 | Voice note or text → listing draft | NEAR AI Cloud, models in TEEs (`openai/whisper-large-v3`, `z-ai/glm-5.3-flash`); each answer has a receipt the server checks | [`server/near/ai.ts`](server/near/ai.ts) |
 | Ownership document pre-check (admin, never approves) | NEAR AI Cloud vision model in a TEE (`z-ai/glm-5.3-flash`) | `POST /api/ai/document-check` |
 | Hand a lease to the next tenant | In-contract takeover market (holder's price, next tenant asks, landlord agrees to them, they pay with one `ft_transfer_call`) plus NEP-178 approvals for external marketplaces | [`contract/src/market.rs`](contract/src/market.rs), [`nft.rs`](contract/src/nft.rs) |
