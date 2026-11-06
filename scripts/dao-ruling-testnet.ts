@@ -53,7 +53,7 @@ async function call(label: string, a: Account, contractId: string, methodName: s
 const lease = (id: number) => view<any>(deploy.escrow, 'get_lease', { lease_id: id });
 
 console.log('▶ Accounts');
-const landlord = await newAccount('dao-landlord', 0.1);
+const landlord = await newAccount('dao-landlord', 0.2);
 const tenant = await newAccount('dao-tenant', 0.2);
 await api('/api/faucet', { accountId: tenant.accountId });
 
