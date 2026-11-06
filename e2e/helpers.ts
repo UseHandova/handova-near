@@ -7,8 +7,17 @@ export const WAIT_SECS = 20; // the e2e deployment's waiting period for every ru
 export const USDC = 1_000_000n;
 
 const provider = new JsonRpcProvider({ url: deploy.rpc });
-export const view = async <T>(method: string, args: Record<string, unknown> = {}, contractId = deploy.escrow) =>
-  (await provider.callFunction({ contractId, method, args })) as T;
+/** Reads the chain for assertions; a free RPC's rate limit (sent as a JSON error) is waited out, not a test failure. */
+export async function view<T>(method: string, args: Record<string, unknown> = {}, contractId = deploy.escrow): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return (await provider.callFunction({ contractId, method, args })) as T;
+    } catch (e) {
+      if (i >= 5 || !/-429|Rate limits exceeded/.test((e as Error).message ?? '')) throw e;
+      await new Promise((r) => setTimeout(r, 2000 * i));
+    }
+  }
+}
 
 export const chain = {
   lease: (id: number) => view<any>('get_lease', { lease_id: id }),
