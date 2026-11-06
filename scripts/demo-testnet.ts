@@ -51,6 +51,15 @@ function step(r: RelayResult, what: string) {
 const usdc = async (id: string) => BigInt(await view<string>(deploy.token, 'ft_balance_of', { account_id: id }));
 const near = async (id: string) => (await provider.viewAccount({ accountId: id })).amount;
 
+/** Read again until the chain shows the step just made: the relayer answers before every RPC node has it. */
+async function settled<T>(read: () => Promise<T>, done: (v: T) => boolean): Promise<T> {
+  for (let i = 0; ; i++) {
+    const v = await read();
+    if (done(v) || i >= 15) return v;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+}
+
 try {
   console.log(`\nHandova on NEAR ${deploy.network} — escrow ${deploy.escrow}, token ${deploy.token}\n`);
   console.log('1) Accounts');
@@ -85,7 +94,7 @@ try {
   console.log('\n4) Handover and move-in');
   step(await gaslessCall(API, landlord, deploy.escrow, 'mark_handover', { lease_id: leaseId }), 'landlord mark_handover');
   step(await gaslessCall(API, mum, deploy.escrow, 'confirm_move_in', { lease_id: leaseId }), 'mum confirm_move_in');
-  const token: any = await view(deploy.escrow, 'nft_token', { token_id: String(leaseId) });
+  const token: any = await settled(() => view(deploy.escrow, 'nft_token', { token_id: String(leaseId) }), (t) => t != null);
   console.log(`  → lease NFT #${token.token_id} owned by ${token.owner_id}: "${token.metadata.title}"`);
   console.log(`    ${token.metadata.description}`);
 
@@ -97,10 +106,10 @@ try {
   step(await gaslessCall(API, mum, deploy.escrow, 'move_out', { lease_id: leaseId }), 'mum move_out');
   step(await gaslessCall(API, landlord, deploy.escrow, 'approve_move_out', { lease_id: leaseId }), 'landlord approve_move_out');
   step(await gaslessCall(API, mum, deploy.escrow, 'withdraw', {}), 'mum withdraw');
-  console.log(`  → mum USDC: ${fromUnits(await usdc(mum.accountId))} — caution returned to the NFT holder`);
+  console.log(`  → mum USDC: ${fromUnits(await settled(() => usdc(mum.accountId), (b) => b > 0n))} — caution returned to the NFT holder`);
 
   const nurseNearAfter = await near(nurse.accountId);
-  const after: any = await view(deploy.escrow, 'nft_token', { token_id: String(leaseId) });
+  const after: any = await settled(() => view<any>(deploy.escrow, 'nft_token', { token_id: String(leaseId) }), (t) => !/Active/.test(t?.metadata?.title ?? ''));
   console.log(`\n✔ Done. Lease NFT now reads: "${after.metadata.title}"`);
   const spent = BigInt(nurseNearBefore) - BigInt(nurseNearAfter);
   console.log(`  Gas: the relayer paid all of it. The nurse's NEAR balance changed by ${spent} yoctoNEAR.`);
