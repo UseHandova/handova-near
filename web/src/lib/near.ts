@@ -57,16 +57,19 @@ export async function view<T>(contractId: string, method: string, args: Record<s
 
 const escrow = <T>(method: string, args: Record<string, unknown> = {}) => view<T>(nearConfig().escrow, method, args);
 
+/** A NEAR amount in yocto, as "0.06 NEAR". */
+export const nearAmount = (yocto: string | bigint) => `${(Number(BigInt(yocto) / 10n ** 18n) / 1e6).toFixed(2)} NEAR`;
+
 export const chain = {
   config: () => escrow<EscrowConfig>('get_config'),
   listings: (onlyOpen = false) => escrow<Listing[]>('get_listings', { from_index: 0, limit: 100, only_open: onlyOpen }),
   listing: (id: number) => escrow<Listing | null>('get_listing', { listing_id: id }),
   lease: (id: number) => escrow<Lease | null>('get_lease', { lease_id: id }),
-  /** Every lease, paged in hundreds. */
-  allLeases: async () => {
+  /** Every lease not yet closed or cancelled, paged in hundreds. */
+  openLeases: async () => {
     const out: Lease[] = [];
     for (let from = 0; ; from += 100) {
-      const page = await escrow<Lease[]>('get_leases', { from_index: from, limit: 100 });
+      const page = await escrow<Lease[]>('get_open_leases', { from_index: from, limit: 100 });
       out.push(...page);
       if (page.length < 100) return out;
     }

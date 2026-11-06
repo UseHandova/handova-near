@@ -47,6 +47,15 @@ describe('relayer policy', () => {
     expect(() => checkDelegate(roundTrip(signed(policy.escrow, [call('nft_transfer', { receiver_id: 'a', token_id: '1' }, 1n)])), policy)).toThrow(/can't be sent gaslessly/);
   });
 
+  test('listing storage is paid by the landlord, never by the relayer', () => {
+    const deposit = 60_000_000_000_000_000_000_000n;
+    for (const m of ['create_listing', 'fund_listing']) {
+      expect(() => checkDelegate(roundTrip(signed(policy.escrow, [call(m, { listing_id: 1 }, deposit)])), policy)).toThrow(/can't attach NEAR/);
+      expect(() => checkDelegate(roundTrip(signed(policy.escrow, [call(m, { listing_id: 1 })])), policy)).toThrow(/can't be sent gaslessly/);
+    }
+    expect(checkDelegate(roundTrip(signed(policy.escrow, [call('remove_listing', { listing_id: 1 })])), policy).methods).toEqual(['remove_listing']);
+  });
+
   test('verifies the delegate signature offline', async () => {
     const delegateAction = buildDelegateAction({
       senderId: 'mum.handova.testnet', receiverId: policy.escrow, actions: [call('withdraw')], nonce: 1n, maxBlockHeight: 100n, publicKey: key.getPublicKey(),

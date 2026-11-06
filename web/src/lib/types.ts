@@ -11,6 +11,8 @@ export interface Listing {
   available: boolean;
   active_lease: number | null;
   created_at_ms: number;
+  /** NEAR (yocto) the listing holds for storage; each new lease uses `lease_storage` of it. */
+  storage_credit: string;
   landlord_verified: boolean;
 }
 
@@ -76,4 +78,8 @@ export interface EscrowConfig {
   total_held: string;
   listings: number;
   leases: number;
+  /** NEAR (yocto) a new listing attaches for storage; most of it comes back on removal. */
+  listing_deposit: string;
+  /** NEAR (yocto) each new lease uses from its listing's storage credit. */
+  lease_storage: string;
 }

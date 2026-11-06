@@ -5,7 +5,7 @@ import { teraToGas } from 'near-api-js';
 import { API_BASE, api } from '../lib/api';
 import { encodeDetails } from '../lib/listing';
 import { useNgnRate } from '../lib/money';
-import { nearConfig, txUrl } from '../lib/near';
+import { chain, nearAmount, nearConfig, txUrl } from '../lib/near';
 import { go } from '../lib/router';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
@@ -139,6 +139,8 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
   const cautionUsdc = Number(f.cautionNgn || 0) / rate;
   const units = (usd: number) => String(Math.round(usd * 100) * 10_000); // whole cents, 6 decimals
   const ready = session && f.title && f.area && Number(f.rentNgn) > 0;
+  const [deposit, setDeposit] = useState<string | null>(null);
+  useEffect(() => { chain.config().then((c) => setDeposit(c.listing_deposit)).catch(() => {}); }, []);
 
   async function publish() {
     if (!session) return onNeedSignIn();
@@ -148,9 +150,12 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
         title: f.title, area: f.area, city: f.city, beds: Number(f.beds) || undefined, baths: Number(f.baths) || undefined,
         type: f.type, photos, video: video || undefined, description: f.description, amenities,
       });
-      const r = await session.call(cfg.escrow, 'create_listing', {
+      // The listing pays for its own storage, so the landlord's account signs it with the deposit
+      // (the relayer never attaches NEAR). Most of it comes back when the listing is removed.
+      const { listing_deposit } = await chain.config();
+      const r = await session.callDirect(cfg.escrow, 'create_listing', {
         rent: units(rentUsdc), caution: units(cautionUsdc), term_months: Number(f.term), property_ref,
-      }, { gas: teraToGas('50') });
+      }, { gas: teraToGas('10'), deposit: BigInt(listing_deposit) });
       if (!r.ok) throw new Error(r.error ?? 'Publishing failed. Try again.');
       const id = r.events.find((e) => e.event === 'listing_created')?.data[0].listing_id;
       toast('ok', 'Your home is live on NEAR.', txUrl(r.hash));
@@ -260,8 +265,11 @@ export function ListHome({ onNeedSignIn }: { onNeedSignIn: () => void }) {
         </div>
       </section>
 
+      <p className="text-xs text-sub">
+        Your listing keeps {deposit ? nearAmount(deposit) : 'a small NEAR deposit'} from your account to pay for its storage on NEAR. Your Handova account comes with enough for one home. Each new tenant uses about 0.04 NEAR of it, and you get the rest back when you remove the listing.
+      </p>
       <button className="btn-primary w-full" disabled={!ready || publishing} onClick={publish}>
-        <Busy busy={publishing}>{t('Publish on NEAR')}{session.kind === 'device' ? ' — free' : ''}</Busy>
+        <Busy busy={publishing}>{t('Publish on NEAR')}</Busy>
       </button>
     </div>
   );

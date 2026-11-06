@@ -14,6 +14,12 @@ import { RateLimit } from './rate-limit';
 
 /** Covers account storage, 1-yoctoNEAR deposits, and the few calls a user signs and pays for themselves (e.g. passing on the lease NFT). */
 const NEW_ACCOUNT_NEAR = '0.05';
+/**
+ * A landlord also signs their listing with its refundable storage deposit (0.06 NEAR, see the
+ * contract) and renews it once after a tenant (0.04 NEAR). Anyone can ask for this; sign-ups are
+ * rate-limited per network, so it costs Handova at most 0.1 NEAR more per account.
+ */
+const NEW_LANDLORD_NEAR = '0.15';
 /** NEP-145 storage for one USDC balance. */
 const TOKEN_STORAGE_NEAR = '0.00125';
 const FAUCET_AMOUNT = 2_000n * 10n ** 6n;
@@ -101,7 +107,7 @@ export function mountAccounts(app: Express) {
       const outcome = await withRetry(() =>
         creator!.signAndSendTransaction({
           receiverId: accountId,
-          actions: [actions.createAccount(), actions.transfer(nearToYocto(NEW_ACCOUNT_NEAR)), actions.addFullAccessKey(publicKey)],
+          actions: [actions.createAccount(), actions.transfer(nearToYocto(req.body?.role === 'landlord' ? NEW_LANDLORD_NEAR : NEW_ACCOUNT_NEAR)), actions.addFullAccessKey(publicKey)],
           throwOnFailure: false,
         }),
       );

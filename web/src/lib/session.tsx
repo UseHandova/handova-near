@@ -183,7 +183,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async createAccount(name, r) {
       // The key is made here, on the device. Only the public key goes to the server.
       const { seedPhrase, keyPair } = generateSeedPhrase();
-      const { accountId } = await api<{ accountId: string }>('/api/accounts', { name, publicKey: keyPair.getPublicKey().toString() });
+      const { accountId } = await api<{ accountId: string }>('/api/accounts', { name, publicKey: keyPair.getPublicKey().toString(), role: r });
       const d = { accountId, secretKey: keyPair.toString(), seedPhrase, backedUp: false };
       rememberRole(accountId, r);
       saveDevice(d);

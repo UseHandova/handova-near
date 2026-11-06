@@ -20,8 +20,10 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
   const { session } = useSession();
   const [l, setL] = useState<Listing | null | undefined>(undefined);
   const [paying, setPaying] = useState(false);
+  const [leaseStorage, setLeaseStorage] = useState<bigint | null>(null);
   const { t } = useT();
   const reload = () => chain.listing(id).then(setL).catch(() => setL(null));
+  useEffect(() => { chain.config().then((c) => setLeaseStorage(BigInt(c.lease_storage))).catch(() => {}); }, []);
   useEffect(() => {
     reload();
     // Pick up the landlord's changes (paused, new price, taken) while the page is open.
@@ -35,7 +37,10 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
   const d = decodeDetails(l.property_ref, l.id);
   const rent = usdc(l.rent);
   const caution = usdc(l.caution);
-  const open = l.available && l.active_lease === null;
+  // Each lease's record is paid from the listing's storage credit; when it runs out the landlord renews it.
+  const needsRenewal = leaseStorage !== null && BigInt(l.storage_credit ?? '0') < leaseStorage;
+  const open = l.available && l.active_lease === null && !needsRenewal;
+  const closedLabel = l.active_lease !== null ? t('Taken') : needsRenewal ? 'Waiting for the landlord to renew this listing' : t('Paused by the landlord');
   const mine = session?.accountId === l.landlord;
 
   return (
@@ -74,7 +79,7 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
           {open ? (
             <button className="btn-primary w-full" onClick={() => (session ? setPaying(true) : onNeedSignIn())}>Pay {naira(rent + caution, rate)} into escrow</button>
           ) : (
-            <button className="btn-ghost w-full" disabled>{l.active_lease !== null ? t('Taken') : t('Paused by the landlord')}</button>
+            <button className="btn-ghost w-full" disabled>{closedLabel}</button>
           )}
         </div>
       )}
@@ -99,7 +104,7 @@ export function ListingDetail({ id, onNeedSignIn }: { id: number; onNeedSignIn: 
         {mine ? null : open ? (
           <button className="btn-primary w-full shadow-card" onClick={() => (session ? setPaying(true) : onNeedSignIn())}>Pay {naira(rent + caution, rate)} into escrow</button>
         ) : (
-          <button className="btn-ghost w-full" disabled>{l.active_lease !== null ? t('Taken') : t('Paused by the landlord')}</button>
+          <button className="btn-ghost w-full" disabled>{closedLabel}</button>
         )}
       </div>
 

@@ -16,10 +16,13 @@ import { isPayoutDeposit } from './intents';
 import { nearBalance, provider, relayer, summarize, view, withRetry } from './chain';
 import { RateLimit } from './rate-limit';
 
-/** Escrow methods a user may call gaslessly, always with zero deposit. */
+/**
+ * Escrow methods a user may call gaslessly, always with zero deposit. Listing (`create_listing`,
+ * `fund_listing`) attaches the landlord's own storage deposit, so the landlord signs it directly.
+ */
 export const ESCROW_METHODS = new Set([
-  'create_listing',
   'update_listing',
+  'remove_listing',
   'mark_handover',
   'confirm_move_in',
   'dispute_move_in',

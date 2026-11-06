@@ -53,7 +53,7 @@ await api('/api/faucet', { accountId: tenant.accountId });
 await api('/api/faucet', { accountId: buyer.accountId });
 
 console.log('▶ Rent a home');
-const listingId = await call(landlord, deploy.escrow, 'create_listing', { rent: String(10n * USDC), caution: String(2n * USDC), term_months: 12, property_ref: 'mintbase-check' }, 0n, 25n * TGAS);
+const listingId = await call(landlord, deploy.escrow, 'create_listing', { rent: String(10n * USDC), caution: String(2n * USDC), term_months: 12, property_ref: 'mintbase-check' }, BigInt((await view<{ listing_deposit: string }>(deploy.escrow, 'get_config')).listing_deposit), 10n * TGAS);
 await call(tenant, deploy.token, 'ft_transfer_call', { receiver_id: deploy.escrow, amount: String(12n * USDC), msg: JSON.stringify({ listing_id: Number(listingId), rent: String(10n * USDC), caution: String(2n * USDC), term_months: 12 }) }, 1n, 100n * TGAS);
 const leases = await view<any[]>(deploy.escrow, 'get_leases_for', { account_id: tenant.accountId });
 const leaseId = leases.at(-1).id as number;

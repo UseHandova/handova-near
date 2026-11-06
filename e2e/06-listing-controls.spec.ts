@@ -1,4 +1,4 @@
-import { chain, expect, faucet, listHome, pay, signUp, test, toast } from './helpers';
+import { act, chain, expect, faucet, listHome, pay, signUp, test, toast } from './helpers';
 
 test('landlord pauses, resumes and reprices; price locks while a lease is open', async ({ phone }) => {
   const ll = await phone('landlord');
@@ -29,4 +29,20 @@ test('landlord pauses, resumes and reprices; price locks while a lease is open',
   await expect(ll.getByRole('button', { name: 'Save price' })).toHaveCount(0);
   await tn.goto(`/#/home/${listingId}`);
   await expect(tn.getByRole('button', { name: 'Taken' })).toBeDisabled();
+
+  // That lease's record used the listing's storage credit: nobody can pay until the landlord renews.
+  await act(ll, leaseId, /Decline and refund/, /Declined/);
+  await tn.goto(`/#/home/${listingId}`);
+  await expect(tn.getByRole('button', { name: /Waiting for the landlord to renew/ })).toBeDisabled();
+  await ll.goto(`/#/home/${listingId}`);
+  await ll.getByRole('button', { name: /Renew listing/ }).click();
+  await toast(ll, /Listing renewed/);
+  await tn.goto(`/#/home/${listingId}`);
+  await expect(tn.getByRole('button', { name: /into escrow/ }).first()).toBeEnabled();
+
+  // Removing the listing returns its credit to the landlord.
+  await ll.goto(`/#/home/${listingId}`);
+  await ll.getByRole('button', { name: /Remove listing/ }).click();
+  await toast(ll, /Listing removed/);
+  await expect.poll(async () => await chain.listing(listingId)).toBeNull();
 });

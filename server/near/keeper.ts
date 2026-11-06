@@ -34,20 +34,23 @@ export async function runKeeperOnce(log = console.log): Promise<number> {
   if (!relayer) return 0;
   const { timeouts } = await view<{ timeouts: Timeouts }>(deploy.escrow, 'get_config');
   let done = 0;
+  // Read every open lease first: settling one removes it from the list, which would shift the pages.
+  const open: LeaseLike[] = [];
   for (let from = 0; ; from += 100) {
-    const page = await view<LeaseLike[]>(deploy.escrow, 'get_leases', { from_index: from, limit: 100 });
-    for (const l of page) {
-      const method = dueAction(l, timeouts, Date.now());
-      if (!method) continue;
-      const outcome = await relayer.callFunctionRaw({ contractId: deploy.escrow, methodName: method, args: { lease_id: l.id }, gas: teraToGas('50') }).catch((e: Error) => e);
-      if (outcome instanceof Error) log(`keeper: ${method}(${l.id}) failed: ${outcome.message}`);
-      else {
-        const s = summarize(outcome);
-        log(`keeper: ${method}(${l.id}) ${s.ok ? 'ok' : `failed: ${s.error}`} ${s.hash}`);
-        if (s.ok) done++;
-      }
-    }
+    const page = await view<LeaseLike[]>(deploy.escrow, 'get_open_leases', { from_index: from, limit: 100 });
+    open.push(...page);
     if (page.length < 100) break;
+  }
+  for (const l of open) {
+    const method = dueAction(l, timeouts, Date.now());
+    if (!method) continue;
+    const outcome = await relayer.callFunctionRaw({ contractId: deploy.escrow, methodName: method, args: { lease_id: l.id }, gas: teraToGas('50') }).catch((e: Error) => e);
+    if (outcome instanceof Error) log(`keeper: ${method}(${l.id}) failed: ${outcome.message}`);
+    else {
+      const s = summarize(outcome);
+      log(`keeper: ${method}(${l.id}) ${s.ok ? 'ok' : `failed: ${s.error}`} ${s.hash}`);
+      if (s.ok) done++;
+    }
   }
   return done;
 }

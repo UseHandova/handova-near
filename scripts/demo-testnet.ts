@@ -4,12 +4,12 @@
  *   bun run demo
  *
  * 1. Three people get named NEAR accounts (keys made on "their device" = this script).
- * 2. The landlord lists a home — gasless.
+ * 2. The landlord lists a home, with a refundable storage deposit from the NEAR their account starts with.
  * 3. A nurse abroad pays rent + caution for her mum — one gasless ft_transfer_call.
  * 4. The landlord marks the handover; mum confirms move-in → rent to landlord, lease NFT to mum.
  * 5. The landlord withdraws the rent. Mum moves out, the landlord approves, the caution comes back.
  *
- * Nobody in the story holds NEAR for gas: the relayer pays (NEP-366 meta transactions).
+ * The tenant and payer never need NEAR: the relayer pays their gas (NEP-366 meta transactions).
  * Needs .env with RELAYER_* and CREATOR_* keys (see .env.example). Uses deploy/testnet.json.
  */
 import { Account, KeyPair } from 'near-api-js';
@@ -17,6 +17,7 @@ import { app } from '../server/index';
 import { deploy } from '../server/near/config';
 import { provider, view } from '../server/near/chain';
 import { gaslessCall, type RelayResult } from '../shared/gasless';
+import { summarize } from '../shared/outcome';
 import { fromUnits, toUnits } from '../shared/units';
 
 const RENT = toUnits(1200);
@@ -36,15 +37,16 @@ async function api(path: string, body?: object) {
 async function newPerson(label: string): Promise<Account> {
   const key = KeyPair.fromRandom('ed25519'); // generated on the user's device
   const name = `${label}-${Date.now().toString(36)}`;
-  const { accountId, hash } = await api('/api/accounts', { name, publicKey: key.getPublicKey().toString() });
+  const role = label === 'landlord' ? 'landlord' : 'tenant';
+  const { accountId, hash } = await api('/api/accounts', { name, publicKey: key.getPublicKey().toString(), role });
   console.log(`  ✓ ${accountId} created   ${tx(hash)}`);
   return new Account(accountId, provider, key.toString() as any);
 }
 
-function step(r: RelayResult, what: string) {
+function step(r: RelayResult, what: string, how = 'gasless') {
   if (!r.ok) throw new Error(`${what} failed: ${r.error}`);
   const events = r.events.filter((e) => e.standard === 'handova' || e.standard === 'nep171').map((e) => e.event);
-  console.log(`  ✓ ${what} (gasless) [${events.join(', ')}]   ${tx(r.hash)}`);
+  console.log(`  ✓ ${what} (${how}) [${events.join(', ')}]   ${tx(r.hash)}`);
   return r;
 }
 
@@ -71,11 +73,15 @@ try {
   const nurseNearBefore = await near(nurse.accountId);
 
   console.log('\n2) Landlord lists a 2-bed in Yaba: 1,200 USDC rent + 150 USDC caution, 12 months');
+  // The listing pays for its own storage, so the landlord signs it with the deposit (the relayer never attaches NEAR).
+  const { listing_deposit } = await view<{ listing_deposit: string }>(deploy.escrow, 'get_config');
   const listed = step(
-    await gaslessCall(API, landlord, deploy.escrow, 'create_listing', {
-      rent: RENT.toString(), caution: CAUTION.toString(), term_months: 12, property_ref: 'demo:yaba-2bed',
-    }),
+    summarize(await landlord.callFunctionRaw({
+      contractId: deploy.escrow, methodName: 'create_listing', gas: 10_000_000_000_000n, deposit: BigInt(listing_deposit),
+      args: { rent: RENT.toString(), caution: CAUTION.toString(), term_months: 12, property_ref: 'demo:yaba-2bed' },
+    })),
     'create_listing',
+    `signed by the landlord, ${fromUnits(listing_deposit, 24)} NEAR refundable deposit`,
   );
   const listingId = listed.events.find((e) => e.event === 'listing_created')!.data[0].listing_id;
 

@@ -68,7 +68,7 @@ test('fake handover: tenant disputes, landlord cannot claim, arbiter refunds; se
 test('silence pays nobody; an arbiter who stays silent means a refund', async ({ phone }) => {
   const ll = await phone('landlord');
   const tn = await phone('tenant');
-  await signUp(ll, 'll');
+  const landlord = await signUp(ll, 'll');
   const tenant = await signUp(tn, 'tn');
   const l1 = await listHome(ll, { title: 'Unverified silence', rentNgn: 20_000, cautionNgn: 5_000 });
   const l2 = await listHome(ll, { title: 'Silent arbiter', rentNgn: 20_000, cautionNgn: 5_000 });

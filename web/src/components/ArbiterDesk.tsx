@@ -20,7 +20,7 @@ export function ArbiterDesk() {
       setMembers(policy ? council(policy) : []);
       setArbiter(c.arbiter);
     }).catch(() => setArbiter(''));
-    chain.allLeases()
+    chain.openLeases()
       .then((ls) => setLeases(ls.filter((l) => (l.status === 'Pending' && l.move_in_dispute) || l.status === 'Disputed').reverse()))
       .catch(() => setLeases([]));
   }, []);

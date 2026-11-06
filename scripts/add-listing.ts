@@ -75,7 +75,7 @@ const property_ref = encodeDetails({
 });
 
 const account = new Account(accountId, new JsonRpcProvider({ url: deploy.rpc }), secret);
-const gas = 25_000_000_000_000n; // a listing call uses a few Tgas; the account holds 0.05 NEAR
+const gas = 25_000_000_000_000n; // a listing call uses a few Tgas
 if (spec.listingId !== undefined) {
   // Already published: replace its details and photos (prices too, while no lease is open).
   await account.callFunction({
@@ -91,6 +91,8 @@ if (spec.listingId !== undefined) {
     methodName: 'create_listing',
     args: { rent: units(spec.rentNgn), caution: units(spec.cautionNgn ?? 0), term_months: spec.termMonths ?? 12, property_ref },
     gas,
+    // The listing's refundable storage deposit (see the contract's get_config).
+    deposit: BigInt((await account.provider.callFunction({ contractId: deploy.escrow, method: 'get_config', args: {} }) as any).listing_deposit),
   });
   console.log(`listed "${spec.title}" as listing #${id} — ${API}/#/home/${id}  (add "listingId": ${id} to the file to update it later)`);
 }
