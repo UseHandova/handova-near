@@ -2,12 +2,7 @@
 import { Account, FailoverRpcProvider, JsonRpcProvider, type KeyPairString } from 'near-api-js';
 import { env } from './config';
 import { rpcUrls } from './rpc';
-
-/** A fetch that gives up after `ms` unless the caller set its own limit. */
-export function timedFetch(inner: typeof fetch, ms: number): typeof fetch {
-  return ((input: Parameters<typeof fetch>[0], init?: RequestInit) =>
-    inner(input, init?.signal ? init : { ...init, signal: AbortSignal.timeout(ms) })) as typeof fetch;
-}
+import { timedFetch } from '../../shared/timed-fetch';
 
 /**
  * near-api-js calls RPCs with no time limit. A connection that drops mid-request then waits forever

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { firstAvailable, rpcUnavailable, timedFetch } from './chain';
+import { firstAvailable, rpcUnavailable } from './chain';
+import { timedFetch } from '../../shared/timed-fetch';
 
 const rateLimited = Object.assign(new Error('{"error":{"code":-429,"message":"Rate limits exceeded"}}'), { cause: 429 });
 
@@ -55,6 +56,16 @@ describe('RPC calls always end', () => {
     const started = Date.now();
     await expect(timedFetch(hangs, 50)('https://rpc.example')).rejects.toThrow();
     expect(Date.now() - started).toBeLessThan(1000);
+  });
+
+  test('the limit can apply to some addresses only, so uploads elsewhere are never cut off', async () => {
+    const seen: (AbortSignal | undefined)[] = [];
+    const record = (async (_: unknown, init?: RequestInit) => { seen.push(init?.signal ?? undefined); return new Response('{}'); }) as typeof fetch;
+    const f = timedFetch(record, 50, (url) => url.startsWith('https://rpc.'));
+    await f('https://rpc.example/');
+    await f('https://handova.example/api/media', { method: 'POST' });
+    expect(seen[0]).toBeDefined();
+    expect(seen[1]).toBeUndefined();
   });
 
   test('a caller that sets its own limit keeps it', async () => {

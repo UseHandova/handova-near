@@ -1,5 +1,6 @@
 /** Read-only chain access for the web app. */
 import { FailoverRpcProvider, JsonRpcProvider } from 'near-api-js';
+import { timedFetch } from '../../../shared/timed-fetch';
 import { API_BASE, type NearConfig } from './api';
 import type { EscrowConfig, Lease, Listing, RentalRecord } from './types';
 
@@ -11,12 +12,17 @@ const FALLBACK: Record<string, string[]> = {
   mainnet: ['https://free.rpc.fastnear.com'],
 };
 let cfg: NearConfig | null = null;
+let fetchLimited = false;
 
 export function initNear(c: NearConfig) {
   cfg = c;
   // Our own /api/rpc first (fails over across providers server-side), then direct public RPCs.
   const proxy = new URL(`${API_BASE}/api/rpc`, location.origin).toString();
   const urls = [proxy, c.rpc, ...(FALLBACK[c.network] ?? [])].filter((u, i, a) => a.indexOf(u) === i);
+  // A request on a dropped connection would otherwise wait forever and the failover would never move on.
+  // Only RPC requests: photo and video uploads go elsewhere and may take longer.
+  if (!fetchLimited) globalThis.fetch = timedFetch(globalThis.fetch, 20_000, (url) => urls.some((u) => url.startsWith(u)));
+  fetchLimited = true;
   provider = new FailoverRpcProvider(urls.map((url) => new JsonRpcProvider({ url }, { retries: 2, backoff: 2, wait: 500 })));
 }
 
