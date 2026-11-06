@@ -36,7 +36,7 @@ test('pay from another chain: live NEAR Intents quote, then (testnet) simulated 
   expect(await chain.lease(leaseId)).toMatchObject({ status: 'Pending', payer, tenant: payer });
 });
 
-test('voice-note style text → NEAR AI draft with a verified TEE receipt → publish', async ({ phone }) => {
+test('voice-note style text → NEAR AI draft with a signed TEE receipt → publish', async ({ phone }) => {
   test.skip(!secrets.NEARAI_API_KEY, 'NEARAI_API_KEY not set in .env.e2e');
   const ll = await phone('landlord');
   const landlord = await signUp(ll, 'll');

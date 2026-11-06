@@ -51,7 +51,7 @@ test("lease sold on Mintbase's market: listed after the landlord agrees, bought 
   expect(l.nft_holder).toBe(buyer);
 });
 
-test('AI move-out inspection: the landlord adds a photo, NEAR AI advises with a verified receipt', async ({ phone }) => {
+test('AI move-out inspection: the landlord adds a photo, NEAR AI advises with a signed receipt', async ({ phone }) => {
   const ll = await phone('landlord');
   const tn = await phone('tenant');
   await signUp(ll, 'll');
