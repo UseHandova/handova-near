@@ -12,13 +12,11 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 | ⚠️ **Simulated** | **Pay from any chain** and **landlord cash-out** (NEAR Intents 1Click): quotes are live, but Intents has no testnet, so the deposit arriving is simulated with test USDC. No real cross-chain payment has been made |
 | ⏳ **Not proven yet** | Real use: two Lagos homes are listed (Yaba, Ikorodu) from one team-run, unverified account; nobody has rented through Handova. No mainnet deployment: this entry stays on testnet, so cross-chain payment and cash-out remain simulated. No security audit. ID checks prove who a landlord is, not that they own the home |
 
-Who controls what (owner, arbiter, verifier, the deploy key) is in [Trust model and known limits](#trust-model-and-known-limits).
-
 **Built at NEAR HACKATHON (1–14 Nov 2026).** Tracks: `realworld`, `nfts`. Built on an earlier Arc version of Handova; only the NEAR work is the entry — see [Built before / during the hackathon](#built-before--during-the-hackathon).
 
 - 🌍 **Try it live (testnet, phone or desktop):** https://handova-near.vercel.app — web app on Vercel, API (relayer, keeper, accounts, ID checks) on Railway
 - 🧪 **Reproduce it yourself:** [`REPRODUCE.md`](REPRODUCE.md) — three commands, your own testnet accounts, no keys from us
-- 🛒 **Checkout widget for any website:** one `<script>` tag adds "Pay rent from any chain" to a landlord's or agency's own site: [sample page](https://handova-near.vercel.app/checkout-demo.html) · [`public/checkout.js`](public/checkout.js)
+- 🛒 **Checkout widget:** one `<script>` tag puts Handova's escrow checkout on any website ([sample](https://handova-near.vercel.app/checkout-demo.html))
 - 🤖 **For AI screeners:** [`AGENTS.md`](AGENTS.md) lists each claim with the command that checks it and the output to expect
 - 📜 **Contract:** [`contract/src/`](contract/src) · **Server:** [`server/near/`](server/near) · **Web app:** [`web/src/`](web/src) · **Browser tests:** [`e2e/`](e2e)
 
@@ -194,7 +192,7 @@ Any landlord or agency site can take rent into Handova's escrow without building
 <script src="https://handova-near.vercel.app/checkout.js" defer></script>
 <button data-handova-listing="2">Pay rent from any chain</button>
 ```
-The button opens Handova's checkout for that listing in a small window. The payer signs in or creates an account, then pays with USDC on NEAR or from another chain (NEAR Intents; simulated on testnet), gas-free. When the payment lands, the button gets a `handova:paid` event with `{ listingId, leaseId, tenant, amount, tx }`; from code, `Handova.checkout(2).then(...)` does the same. The site never holds keys or funds. Try it on the [sample page](https://handova-near.vercel.app/checkout-demo.html) (listing #2, Yaba; add `?listing=ID` for another). Checked by the browser test [`e2e/13-checkout-widget.spec.ts`](e2e/13-checkout-widget.spec.ts).
+The button opens Handova's checkout for that listing; the payer pays gas-free (USDC on NEAR, or another chain via NEAR Intents, simulated on testnet), and the button gets a `handova:paid` event with the lease ID. The site never holds keys or funds. [Sample page](https://handova-near.vercel.app/checkout-demo.html) · options and event fields in [`docs/REFERENCE.md`](docs/REFERENCE.md#checkout-widget).
 
 ### F. End-to-end suite
 ```sh
@@ -215,9 +213,9 @@ bun run setup:e2e && bunx playwright install chromium && bun run test:e2e
 | Suite | Needs | Result |
 |---|---|---|
 | Contract unit, sandbox, server, types, web build | Nothing live (local only) | 56, 7 and 32 passed; runs in [CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml) |
-| Browser, 6 Nov 2026 | Testnet, public RPCs, NEAR AI credit | **29/29 in one run** (with sandbox 7/7) on commit `355915b`, the deployed code, clean tree. Log: [`one-pass-v5.log`](docs/evidence/one-pass-v5.log). The 30th test, the checkout widget, was added after that run and passed on its own the same day |
+| Browser, 6 Nov 2026 | Testnet, public RPCs, NEAR AI credit | **29/29 in one run** (with sandbox 7/7) on commit `355915b`, the deployed code, clean tree. Log: [`one-pass-v5.log`](docs/evidence/one-pass-v5.log). Test 30 (checkout widget) was added later and passed alone the same day |
 
-Browser tests run on their own test deployment with the same contract code and 20-second waiting periods instead of days. The cases are listed in [`docs/EVIDENCE.md`](docs/EVIDENCE.md#browser-test-cases).
+Browser tests use a deployment with the same code hash. Cases: [`docs/EVIDENCE.md`](docs/EVIDENCE.md#browser-test-cases).
 
 [CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml) runs the contract unit and sandbox tests, the server tests, type checks and the web build. Browser tests are not in CI, because they need a funded testnet deployment; they run by hand ([`REPRODUCE.md`](REPRODUCE.md)).
 
@@ -254,7 +252,7 @@ The team also submitted **PatchBond** (refundable bonds for pull requests), an i
 | Arbiter as a Sputnik DAO (2-of-3 council, proposals and votes in the app) | ✅ live: `handova-council.sputnikv2.testnet`; independent members ⏳ |
 | Interface in English, Naijá, Yorùbá, Hausa, Igbo | ✅ main screens (native-speaker review pending) |
 | NEAR AI voice note → listing, with a signed receipt | ✅ |
-| Checkout widget: one `<script>` tag puts Handova's escrow checkout on any website, which gets a `handova:paid` event | ✅ [sample page](https://handova-near.vercel.app/checkout-demo.html), browser-tested |
+| Checkout widget for any website (`handova:paid` event) | ✅ browser-tested ([`e2e/13`](e2e/13-checkout-widget.spec.ts)) |
 | Pay from any chain (NEAR Intents 1Click) | ⚠️ built but **not run live**: quotes, deposit address, status polling and auto-pay are coded; on testnet the deposit is **simulated** |
 | NEAR AI document pre-check | ⚠️ API only; no admin screen yet |
 | Lease sale on Mintbase's market (NEP-199 payouts, only to the named tenant) | ✅ proven on `escrow-v5` with `scripts/mintbase-sale-testnet.ts` (refused before the landlord named the buyer, completed after; lease #1) |
@@ -291,16 +289,6 @@ The team also submitted **PatchBond** (refundable bonds for pull requests), an i
 | Disputes decided by a DAO vote, not one key (arbiter fixed on each lease at payment; today's members are all team accounts) | Sputnik DAO (`sputnikv2.testnet`) as the arbiter: members propose a ruling and vote; the DAO calls the escrow | [`scripts/create-arbiter-dao.ts`](scripts/create-arbiter-dao.ts), [`web/src/lib/dao.ts`](web/src/lib/dao.ts), [`DaoRulings.tsx`](web/src/components/DaoRulings.tsx) |
 | Timeouts nobody acted on | Keeper calls the contract's "anyone may trigger" methods | [`server/near/keeper.ts`](server/near/keeper.ts) |
 | Following lease events | NEP-297 `EVENT_JSON` logs for every step | [`contract/src/events.rs`](contract/src/events.rs) |
-
-Languages: the main screens are in English, Naijá (Pidgin), Yorùbá, Hausa and Igbo, using the wording the team wrote for the Arc version (new lines still need a native-speaker review). Listing drafts are tested on English and Pidgin text; voice goes through Whisper, which lists English, Yorùbá and Hausa (not Igbo).
-
-### More features
-
-- **Tenants and landlords:** people choose at sign-up whether they're renting or letting (switchable on the Account page); tenants get *My rentals*, landlords get their landlord page with the Didit ID check.
-- **Landlord cash-out** to an exchange on any chain (USDT on TRON or BNB Chain, USDC on Base or Solana…) through NEAR Intents: live quotes, simulated on testnet.
-- **Mintbase:** a leaving tenant with about 0.2 NEAR of their own can list the lease on Mintbase's NFT market; the sale completes only to the tenant the landlord agreed to (NEP-199 payouts).
-- **AI move-out inspection:** either side can ask NEAR AI to compare the listing photos with move-out photos and suggest a caution split, with a signed receipt. Advice only.
-- **Layout:** on desktop, homes show in a grid with area tabs and pages, and detail pages split into two columns; on phones everything is one column. A listing's video plays on hover (or while on screen on a phone).
 
 ## License
 MIT — see [LICENSE](LICENSE).

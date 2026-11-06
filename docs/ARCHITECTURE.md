@@ -65,6 +65,10 @@ sequenceDiagram
 | `deploy/<network>.json` | Contract IDs per network — nothing is hardcoded |
 | `scripts/` | `setup-testnet.sh`, `deploy-testnet.sh`, `demo-testnet.ts`, `record-demo.mjs` + `compose-demo.mjs` (video), `ai-review.ts` |
 
+### Languages
+
+Languages: the main screens are in English, Naijá (Pidgin), Yorùbá, Hausa and Igbo, using the wording the team wrote for the Arc version (new lines still need a native-speaker review). Listing drafts are tested on English and Pidgin text; voice goes through Whisper, which lists English, Yorùbá and Hausa (not Igbo).
+
 ## Landlord verification (Didit → NEAR)
 
 The ID badge helps tenants judge a listing: it shows on every listing, and only verified landlords can list more than 3 homes. It releases no money: since v4, rent moves only when the tenant confirms move-in or the arbiter rules. ID proves who the landlord is, not that they own the home.

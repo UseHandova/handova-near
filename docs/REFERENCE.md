@@ -63,6 +63,15 @@ Contract methods, API routes and configuration for the escrow at `escrow-v5.hand
 | `POST /api/near/verify-landlord` · `POST /api/near/keeper/run` · `GET /api/near/ip-check` | Admin (`Authorization: Bearer $ADMIN_SECRET`) |
 | `GET /api/fx` | USD→NGN rate for Naira display |
 
+## Checkout widget
+
+[`public/checkout.js`](../public/checkout.js) lets any website take rent into Handova's escrow:
+```html
+<script src="https://handova-near.vercel.app/checkout.js" defer></script>
+<button data-handova-listing="2">Pay rent from any chain</button>
+```
+A click opens `https://handova-near.vercel.app/#/checkout/<listing id>` in a small window. The payer signs in or creates an account, then pays with USDC on NEAR or from another chain (NEAR Intents; simulated on testnet), gas-free. When the payment lands, the window posts the result back (checked against Handova's origin and that window) and the button receives a `handova:paid` event with `{ listingId, leaseId, tenant, amount, tx }` (amount in USDC base units, 6 decimals; all public on-chain). From code: `Handova.checkout(2).then((paid) => …)`. The site never holds keys or funds. Sample: [`checkout-demo.html`](https://handova-near.vercel.app/checkout-demo.html) (listing #2; add `?listing=ID` for another). Test: [`e2e/13-checkout-widget.spec.ts`](../e2e/13-checkout-widget.spec.ts).
+
 ## Configuration and deployment
 
 Contract IDs come from `deploy/<network>.json` (or `deploy/<network>.local.json` written by `setup:testnet`). Secrets come from `.env` / `.env.local` — see [`.env.example`](../.env.example):
