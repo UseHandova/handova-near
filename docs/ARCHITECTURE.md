@@ -19,7 +19,7 @@ flowchart LR
         KP["keeper"]
     end
     subgraph NEAR["NEAR testnet"]
-        E[("escrow-v3.handova.testnet · escrow + NEP-171 · no keys")]
+        E[("escrow-v4.handova.testnet · escrow + NEP-171 · no keys")]
         U[("test USDC · NEP-141")]
     end
     subgraph EXT["Outside testnet"]
@@ -67,7 +67,7 @@ sequenceDiagram
 
 ## Landlord verification (Didit → NEAR)
 
-To limit fake listings, the contract treats **ID-verified landlords** differently: only they can collect rent when a tenant ignores a marked handover for 3 days, and only they can list more than 3 homes. Tenants see the badge on every listing.
+The ID badge helps tenants judge a listing: it shows on every listing, and only verified landlords can list more than 3 homes. It releases no money: since v4, rent moves only when the tenant confirms move-in or the arbiter rules. ID proves who the landlord is, not that they own the home.
 
 How a landlord gets verified (Landlord page → *Verify my identity*):
 
@@ -80,7 +80,7 @@ Safeguards: one ID document can verify one account (kept only as a keyed hash of
 ## Code review fixes
 
 We had the contract and server reviewed by models on NEAR AI Cloud ([`scripts/ai-review.ts`](../scripts/ai-review.ts)) and fixed what checked out against the code. This is not a security audit. What changed for users:
-- An unverified landlord can't collect rent by the tenant's silence; the tenant must confirm. Silence claims for ID-verified landlords remain (see Escrow rules).
+- Silence never releases rent: the tenant confirms, or the arbiter rules (v4; v3 still let ID-verified landlords claim after 3 days of silence).
 - Money can't be locked by an arbiter who never rules: if a disputed handover isn't decided within the dispute window, anyone can trigger a full refund to the payer (`settle_move_in_timeout`).
 - A dispute can't be dragged out by re-opening it, and the arbiter can't award the landlord more than they claimed.
 - The relayer no longer pays gas for requests with a forged signature.

@@ -1,10 +1,10 @@
 # Handova reference
 
-Contract methods, API routes and configuration for the escrow at `escrow-v3.handova.testnet` (no access keys: the code can't be changed). The overview is in the [README](../README.md).
+Contract methods, API routes and configuration for the escrow at `escrow-v4.handova.testnet` (no access keys: the code can't be changed). The overview is in the [README](../README.md).
 
 ## Contract reference
 
-`escrow-v3.handova.testnet` — init: `new(owner, verifier, arbiter, token, token_decimals?, timeouts?)`. Amounts are USDC base units (1 USDC = `1000000`).
+`escrow-v4.handova.testnet` — init: `new(owner, verifier, arbiter, token, token_decimals?, timeouts?)`. Amounts are USDC base units (1 USDC = `1000000`).
 
 **Calls**
 
@@ -12,11 +12,10 @@ Contract methods, API routes and configuration for the escrow at `escrow-v3.hand
 |---|---|---|
 | `create_listing(rent, caution, term_months, property_ref)` | anyone (landlord) | New listing; rent ≥ 1 USDC; `property_ref` = listing details as JSON (≤1 KB); 3 listings until verified, 50 after |
 | `update_listing(listing_id, rent?, caution?, term_months?, property_ref?, available?)` | landlord | Pause/resume; prices only while no lease is open |
-| `ft_on_transfer` (via `usdc.ft_transfer_call`, `msg: {"listing_id":N,"tenant":"optional"}`) | USDC contract | Pay rent + caution; creates a `Pending` lease |
-| `mark_handover(lease_id)` | landlord | Starts the 3-day silence window |
+| `ft_on_transfer` (via `usdc.ft_transfer_call`, `msg: {"listing_id":N,"rent":"…","caution":"…","term_months":N,"tenant":"optional"}`) | USDC contract | Pay rent + caution; creates a `Pending` lease and snapshots the listing's `property_ref`. Refunded if the terms don't match the listing, or if the storage reserve is short |
+| `mark_handover(lease_id)` | landlord | Records the handover; releases nothing by itself |
 | `confirm_move_in(lease_id)` | tenant | Rent to landlord, NFT to tenant |
-| `claim_move_in(lease_id)` | anyone | After the window; only if the landlord was ID-verified when the tenant paid and still is |
-| `dispute_move_in(lease_id, reason)` | tenant or landlord, once | Sends the handover to the arbiter |
+| `dispute_move_in(lease_id, reason)` | tenant, payer or landlord, once | Sends the handover to the arbiter |
 | `resolve_move_in(lease_id, moved_in)` | that lease's arbiter (fixed at payment) | Moved in, or full refund |
 | `settle_move_in_timeout(lease_id)` | anyone | Arbiter silent 7 days → payer refunded |
 | `cancel_lease(lease_id)` | landlord any time before move-in; tenant/payer after 7 days with no handover | Full refund to the payer |
@@ -26,20 +25,20 @@ Contract methods, API routes and configuration for the escrow at `escrow-v3.hand
 | `claim_caution(lease_id)` | anyone, after the review window | Full caution to the holder |
 | `propose_split(lease_id, landlord_amount)` | landlord or holder | Equal proposals settle |
 | `resolve_dispute(lease_id, landlord_amount)` | that lease's arbiter (fixed at payment) | ≤ the landlord's claim |
-| `settle_dispute_timeout(lease_id)` | anyone, after the dispute window | 50/50, capped at the claim |
+| `settle_dispute_timeout(lease_id)` | anyone, after the dispute window | Landlord gets the holder's last offer (0 if none), capped at the claim; the holder the rest |
 | `withdraw(amount?)` | anyone with a balance | Sends USDC; restored on failure |
-| `nft_transfer`, `nft_transfer_call` | holder (or an approved marketplace), 1 yocto, `Active` only | Only to the account the landlord agreed to (`consent_takeover`); the receiver becomes the tenant and the offer is cleared. If an `nft_transfer_call` receiver returns the NFT, nothing changes |
+| `nft_transfer`, `nft_transfer_call` | holder (or an approved marketplace), 1 yocto, `Active` only | Only to the account the landlord named (`consent_takeover`); the receiver becomes the tenant and the offer is cleared. If an `nft_transfer_call` receiver returns the NFT, nothing changes |
 | `nft_approve`, `nft_revoke`, `nft_revoke_all` | holder, `Active` only for approve | NEP-178 approvals for marketplaces |
 | `offer_takeover(lease_id, price)` / `cancel_takeover(lease_id)` | NFT holder, `Active` | Offer the rest of the lease for a USDC price (0 allowed); a new offer clears any requester and agreement |
-| `request_takeover(lease_id)` | anyone but the holder and landlord, open offer, before the landlord agrees | Become the requester (`takeover.buyer`) |
-| `consent_takeover(lease_id)` | landlord, after a request | Agree to that requester only |
+| `request_takeover(lease_id)` | anyone but the holder and landlord, open offer, before the landlord agrees | Become the requester (`takeover.buyer`); replaces an earlier requester |
+| `consent_takeover(lease_id, buyer)` | landlord, after a request | Agree to `buyer` only; fails if the current requester is someone else |
 | `ft_on_transfer` with `msg: {"take_over": <lease id>}` | USDC contract | Buy a takeover; the sender must be the agreed requester |
-| `set_verified(account_id, verified)` | verifier | ID-verified badge |
-| `set_verifier`, `set_arbiter`, `set_owner` | owner | Affect only leases paid afterwards: each lease stores its arbiter and the landlord's verified status at payment. No access to money |
+| `set_verified(account_id, verified)` | verifier | ID-verified badge, shown on listings; lifts the 3-listing limit. Releases no money |
+| `set_verifier`, `set_arbiter`, `set_owner` | owner | Affect only leases paid afterwards: each lease stores its arbiter at payment. No access to money |
 
 | `nft_payout(token_id, balance, max_len_payout?)` · `nft_transfer_payout(receiver_id, token_id, approval_id?, memo?, balance, max_len_payout?)` | marketplace | NEP-199: the whole price to the holder; only while Active, after `consent_takeover`, and only to the agreed requester |
 
-**Views:** `get_config`, `get_listing`, `get_listings(from_index?, limit?, only_open?)`, `get_lease` (includes the current `nft_holder`, the lease's `arbiter`, `landlord_verified` at payment, and `takeover.buyer`), `get_leases(from_index?, limit?)`, `get_leases_for(account_id)`, `balance_of`, `is_verified`, `nft_token`, `nft_tokens`, `nft_tokens_for_owner`, `nft_supply_for_owner`, `nft_total_supply`, `nft_metadata`, `nft_is_approved`, `rental_record(account_id)`.
+**Views:** `get_config` (includes `open_leases` and `storage_spare`), `get_listing`, `get_listings(from_index?, limit?, only_open?)`, `get_lease` (includes the current `nft_holder`, the lease's `arbiter`, `property_ref` at payment, `tenant_since_ms`, and `takeover.buyer`), `get_leases(from_index?, limit?)`, `get_leases_for(account_id)`, `balance_of`, `is_verified`, `nft_token`, `nft_tokens`, `nft_tokens_for_owner`, `nft_supply_for_owner`, `nft_total_supply`, `nft_metadata`, `nft_is_approved`, `rental_record(account_id)`.
 
 **Events** (`EVENT_JSON`, standard `handova` 1.0.0): `listing_created`, `listing_updated`, `landlord_verified`, `lease_paid`, `handover_marked`, `move_in_disputed`, `moved_in`, `lease_cancelled`, `move_out_started`, `caution_disputed`, `split_proposed`, `lease_closed`, `takeover_offered`, `takeover_requested` (`buyer`), `takeover_consented` (`buyer`), `takeover_cancelled`, `lease_taken_over`, `withdrawn`, `withdraw_failed`; plus NEP-171 `nft_mint` / `nft_transfer`.
 
