@@ -1,0 +1,43 @@
+# Handova contract: clean Rust run
+## date: 2026-11-07T04:16:20Z
+## machine: Darwin arm64, Apple M1 Pro
+## rustc: rustc 1.97.1 (8bab26f4f 2026-07-14)
+## cargo: cargo 1.97.1 (c980f4866 2026-06-30)
+## cargo-near: cargo-near-near 0.22.0
+$ git clone https://github.com/UseHandova/handova-near.git
+## commit: d105f9c
+
+$ cargo test --lib
+running 56 tests
+test result: ok. 56 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.49s
+## took 120s, exit 0
+
+$ cargo test --test sandbox
+running 7 tests
+test payment_refused_for_changed_terms_refunds_the_payer ... ok
+test failed_withdrawal_keeps_the_money ... ok
+test silence_never_releases_the_rent ... ok
+test worst_case_lease_fits_its_reserve ... ok
+test used_up_listing_refunds_until_funded_and_removal_returns_the_credit ... ok
+test diaspora_pays_mum_moves_in_landlord_paid_caution_returns ... ok
+test nft_transfer_moves_the_caution_and_unsettled_dispute_returns_it ... ok
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 128.84s
+## took 134s, exit 0
+
+$ cargo near build non-reproducible-wasm
+Here is the console command if you ever need to re-run it again:
+cargo near build non-reproducible-wasm
+## took 1s, exit 0
+## wasm: target/near/handova.wasm, 409763 bytes
+## sha256: 5a96cb6bd9b0bae8c1fa09c999ff9a28203ed2094fc20f7c501c1cc545066d0a
+## base58 of sha256: 76d4GThLisp93P62BHtXs8Q2zy8TSj96f6JfVbKDJvZo
+## total wall time: 256s
+## on-chain code_hash of escrow-v5.handova.testnet: 76d4GThLisp93P62BHtXs8Q2zy8TSj96f6JfVbKDJvZo
+
+## Notes
+## - Fresh clone into an empty folder, so a new target/ directory: every crate was compiled in this run.
+##   The crate download cache (~/.cargo/registry) was already filled on this machine; on a machine that has
+##   never built a NEAR contract, add the downloads and the sandbox binary (REPRODUCE.md: about 15 minutes).
+## - `cargo near build` took 1 s because the sandbox tests had already built the same wasm into target/near.
+## - The base58 of the wasm's SHA-256 equals the code_hash of the locked escrow-v5.handova.testnet.
+## - Run by scratchpad script; the same commands are in REPRODUCE.md and AGENTS.md.
