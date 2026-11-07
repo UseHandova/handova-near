@@ -8,17 +8,17 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 
 | | |
 |---|---|
-| ✅ **Real on NEAR testnet** | Escrow + lease NFT contract [`escrow-v5.handova.testnet`](https://testnet.nearblocks.io/address/escrow-v5.handova.testnet) (with a test USDC token; the account has no keys, so its code can't be changed); family pays → move-in → NFT → move-out → full caution to the holder ([lease #4](docs/EVIDENCE.md#a-full-lease-on-escrow-v5), team-run demo accounts, gasless for the family); a [takeover](docs/EVIDENCE.md#a-takeover-on-escrow-v5) whose caution went to the new holder; a Mintbase sale only to the buyer the landlord named; a 2-of-3 Sputnik DAO as arbiter, which has [ruled on a dispute](docs/EVIDENCE.md#a-dao-ruling-on-escrow-v5) (all three members and both votes are team accounts today) |
+| ✅ **Real on NEAR testnet** | Escrow + lease NFT contract [`escrow-v5.handova.testnet`](https://testnet.nearblocks.io/address/escrow-v5.handova.testnet) (with a test USDC token; the account has no keys, so its code can't be changed); family pays → move-in → NFT → move-out → full caution to the holder ([lease #4](docs/EVIDENCE.md#a-full-lease-on-escrow-v5), team-run demo accounts; gasless for the family, the landlord paid the 0.06 NEAR listing deposit from the 0.15 NEAR Handova gave at sign-up); a [takeover](docs/EVIDENCE.md#a-takeover-on-escrow-v5) whose caution went to the new holder; a Mintbase sale only to the buyer the landlord named; a 2-of-3 Sputnik DAO as arbiter, which has [ruled on a dispute](docs/EVIDENCE.md#a-dao-ruling-on-escrow-v5) (all three members and both votes are team accounts today) |
 | ⚠️ **Simulated** | **Pay from any chain** and **landlord cash-out** (NEAR Intents 1Click): quotes are live, but Intents has no testnet, so the deposit arriving is simulated with test USDC. No real cross-chain payment has been made |
 | ⏳ **Not proven yet** | Real use: two Lagos homes are listed (Yaba, Ikorodu) from one team-run, unverified account; nobody has rented through Handova. No mainnet deployment: this entry stays on testnet, so cross-chain payment and cash-out remain simulated. No security audit. ID checks prove who a landlord is, not that they own the home |
 
 **Built at NEAR HACKATHON (1–14 Nov 2026).** Tracks: `realworld`, `nfts`. Built on an earlier Arc version of Handova; only the NEAR work is the entry — see [Built before / during the hackathon](#built-before--during-the-hackathon).
 
-- 🌍 **Try it live (testnet, phone or desktop):** https://handova-near.vercel.app — web app on Vercel, API (relayer, keeper, accounts, ID checks) on Railway
-- 🧪 **Reproduce it yourself:** [`REPRODUCE.md`](REPRODUCE.md) — three commands, your own testnet accounts, no keys from us
+- 🌍 **Try it live (testnet, any device):** https://handova-near.vercel.app (web on Vercel, API on Railway)
+- 🔎 **See it in one click:** lease [#4](https://handova-near.vercel.app/#/lease/4) (the nurse [paid](https://testnet.nearblocks.io/txns/GzVnAVcxqBAeAApB7f7RCppsYHvd1XNy2gvX6bN1eMEX), mum [got the caution](https://testnet.nearblocks.io/txns/8gsaiNoLhrojrCriD6E2thVrvmCiuWxgbmqpp7LgmAg4)) · lease [#5](https://handova-near.vercel.app/#/lease/5) (taken over; [caution to the new holder](https://testnet.nearblocks.io/txns/8qCic5haDyJeEzsWNP7MB1X1PQh1PQn8rQgiSSCqvoru)) · code hash `76d4GThL…` = wasm of `355915b` ([how](docs/EVIDENCE.md#the-deployed-code))
+- 🧪 **Reproduce it yourself:** [`REPRODUCE.md`](REPRODUCE.md) — three commands, your own accounts, no keys from us
 - 🛒 **Checkout widget:** one `<script>` tag puts Handova's escrow checkout on any website ([sample](https://handova-near.vercel.app/checkout-demo.html))
-- 🤖 **For AI screeners:** [`AGENTS.md`](AGENTS.md) lists each claim with the command that checks it and the output to expect
-- 📜 **Contract:** [`contract/src/`](contract/src) · **Server:** [`server/near/`](server/near) · **Web app:** [`web/src/`](web/src) · **Browser tests:** [`e2e/`](e2e)
+- 🤖 **For AI screeners:** [`AGENTS.md`](AGENTS.md): each claim, the command that checks it, the expected output
 
 ![Handova on desktop: homes with photos and a video that plays on hover](docs/screenshots/00-desktop-home.png)
 
@@ -28,7 +28,7 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 | ![Landlord consents to a takeover](docs/screenshots/10-landlord-consent.png) | ![Take over a lease](docs/screenshots/11-takeover-offers.png) | ![DAO arbiter](docs/screenshots/12-dao-arbiter.png) | ![Rental passport](docs/screenshots/13-passport.png) |
 | Landlord sees the next tenant's passport and agrees to them | Leases offered for takeover | Disputes go to a 2-of-3 DAO vote | The tenant's rental passport |
 
-**Contents:** [The problem](#the-problem) · [The one moment](#the-one-moment) · [The lease NFT](#the-lease-nft-that-holds-the-caution-fee) · [Escrow rules](#escrow-rules-and-lease-states) · [Trust model](#trust-model-and-known-limits) · [Try it](#try-it) · [Testing](#testing) · [Built before / during the hackathon](#built-before--during-the-hackathon) · [Built vs planned](#built-vs-planned) · [How NEAR is used](#how-near-is-used) · Architecture, landlord verification, review fixes: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · Contract methods, API, configuration: [`docs/REFERENCE.md`](docs/REFERENCE.md) · Proof for each claim: [`docs/EVIDENCE.md`](docs/EVIDENCE.md)
+**Contents:** [The problem](#the-problem) · [The one moment](#the-one-moment) · [The lease NFT](#the-lease-nft-that-holds-the-caution-fee) · [Escrow rules](#escrow-rules-and-lease-states) · [Trust model](#trust-model-and-known-limits) · [Try it](#try-it) · [Testing](#testing) · [Built before / during the hackathon](#built-before--during-the-hackathon) · [Built vs planned](#built-vs-planned) · [How NEAR is used](#how-near-is-used) · [Architecture](docs/ARCHITECTURE.md) · [Methods and API](docs/REFERENCE.md) · [Evidence](docs/EVIDENCE.md) · [Operations](docs/OPS.md)
 
 ---
 
@@ -218,8 +218,6 @@ bun run setup:e2e && bunx playwright install chromium && bun run test:e2e
 Browser tests use a deployment with the same code hash. Cases: [`docs/EVIDENCE.md`](docs/EVIDENCE.md#browser-test-cases).
 
 [CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml) runs the contract unit and sandbox tests, the server tests, type checks and the web build. Browser tests are not in CI, because they need a funded testnet deployment; they run by hand ([`REPRODUCE.md`](REPRODUCE.md)).
-
-The suite found real bugs that were then fixed: pages not refreshing when a deadline passed, the arbiter blocked by the relayer, NFT transfer running out of gas money, an AI draft cut off by reasoning tokens, and server errors that hid a drained wallet.
 
 ## Built before / during the hackathon
 
