@@ -291,7 +291,8 @@ async fn payment_refused_for_changed_terms_refunds_the_payer() -> anyhow::Result
         .await?
         .into_result()?;
     let start = ft_balance(&e, &e.nurse).await?;
-    pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?;
+    // Refused by returning the whole amount from ft_on_transfer, not by a panic: the transaction succeeds.
+    pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?.into_result()?;
     assert_eq!(ft_balance(&e, &e.nurse).await?, start, "the token contract refunds a refused payment");
     let cfg: Value = e.handova.view("get_config").await?.json()?;
     assert_eq!(cfg["leases"], 0);
@@ -324,7 +325,7 @@ async fn used_up_listing_refunds_until_funded_and_removal_returns_the_credit() -
     e.nurse.call(e.handova.id(), "withdraw").args_json(json!({})).max_gas().transact().await?.into_result()?;
 
     let start = ft_balance(&e, &e.nurse).await?;
-    pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?;
+    pay(&e, &e.nurse, RENT + CAUTION, json!({ "listing_id": listing })).await?.into_result()?;
     assert_eq!(ft_balance(&e, &e.nurse).await?, start, "refused for lack of storage credit, and refunded");
 
     let cfg: Value = e.handova.view("get_config").await?.json()?;
