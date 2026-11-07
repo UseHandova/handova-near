@@ -16,6 +16,7 @@
     "build": "vite build --config web/vite.config.ts",
     "setup:testnet": "./scripts/setup-testnet.sh",
     "demo:testnet": "bun run scripts/demo-testnet.ts",
+    "verify:live": "bun run scripts/verify-live.ts",
     "setup:e2e": "TIMEOUT_SECS=20 OUT=deploy/testnet.e2e.json ENV_OUT=.env.e2e ./scripts/setup-testnet.sh",
     "test:e2e": "playwright test"
   },

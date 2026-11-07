@@ -66,6 +66,7 @@ Expect, with an explorer link after each ✓:
 The landlord is the only one who spends NEAR: the listing's deposit (0.06 NEAR, kept as storage credit and returned by `remove_listing`) and a tiny fee, from the 0.15 NEAR the server gives a new landlord account. Everything else goes through the relayer.
 
 ## 4. Check it on-chain yourself
+For Handova's own deployment (`escrow-v5.handova.testnet`), `bun run verify:live` checks every on-chain claim in the README in a few seconds: code hash, no keys, council and owner, balances, and leases #1, #3, #4 and #5. For your own deployment:
 ```sh
 near contract call-function as-read-only escrow.handova-xxxxxxxx.testnet get_lease json-args '{"lease_id":1}' network-config testnet now
 near contract call-function as-read-only escrow.handova-xxxxxxxx.testnet nft_token json-args '{"token_id":"1"}' network-config testnet now

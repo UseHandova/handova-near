@@ -11,6 +11,8 @@ This file lists each claim in the README with the command that checks it and the
 
 ## 1. No setup: check the live contract (about 1 minute; needs only [near CLI](https://github.com/near/near-cli-rs))
 
+All of these in one step, read-only, with no install: `bun scripts/verify-live.ts` (or `bun run verify:live`). It prints ✓ or ✗ for each claim below with the values found, exits 1 on any mismatch, and also compares your own wasm if you built the contract. The commands below check the same things one by one.
+
 | Claim | Command | Expect |
 |---|---|---|
 | The contract is locked: nobody can change its code | `near account view-account-summary escrow-v5.handova.testnet network-config testnet now` | `Account is locked (no access keys)` |
