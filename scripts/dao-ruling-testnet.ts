@@ -6,11 +6,14 @@
  *
  * Creates two throwaway Handova accounts (landlord, tenant), rents a home and moves out, the landlord
  * claims part of the caution and the two sides do not agree. Then the council rules. Votes are signed
- * with CREATOR_* and VERIFIER_* from .env, the two council members whose keys the team holds. Ends by
+ * by council-1 and council-2.handova.testnet, from this machine's NEAR keychain (~/.near-credentials):
+ * their keys are never on the server (see scripts/council-handover-testnet.ts). Ends by
  * pausing the listing, and prints every transaction hash.
  */
 import { Account, JsonRpcProvider, KeyPair, type KeyPairString } from 'near-api-js';
 import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 const API = (process.argv.includes('--api') ? process.argv[process.argv.indexOf('--api') + 1] : 'https://handova-near.vercel.app').replace(/\/$/, '');
 const deploy = JSON.parse(readFileSync('deploy/testnet.json', 'utf8'));
@@ -29,8 +32,13 @@ async function api<T>(path: string, body?: object): Promise<T> {
 // Direct transactions reserve gas at the maximum price, more than a new account's 0.05 NEAR; the app sends
 // these through the gasless relayer instead. Here the relayer account (from .env) tops the accounts up.
 const funder = new Account(process.env.RELAYER_ACCOUNT_ID!, provider, process.env.RELAYER_PRIVATE_KEY as KeyPairString);
-const memberA = new Account(process.env.CREATOR_ACCOUNT_ID!, provider, process.env.CREATOR_PRIVATE_KEY as KeyPairString);
-const memberB = new Account(process.env.VERIFIER_ACCOUNT_ID!, provider, process.env.VERIFIER_NEAR_PRIVATE_KEY as KeyPairString);
+const councilMember = (name: string) => {
+  const id = `${name}.${deploy.accountParent}`;
+  const key = JSON.parse(readFileSync(join(homedir(), '.near-credentials', deploy.network, `${id}.json`), 'utf8')).private_key;
+  return new Account(id, provider, key as KeyPairString);
+};
+const memberA = councilMember('council-1');
+const memberB = councilMember('council-2');
 
 async function newAccount(label: string, near: number): Promise<Account> {
   const kp = KeyPair.fromRandom('ed25519');
