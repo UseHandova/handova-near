@@ -5,7 +5,7 @@ This file lists each claim in the README with the command that checks it and the
 ## The project
 - **What:** a tenant, or family abroad, pays rent and the caution fee in USDC into a NEAR escrow contract. The landlord is paid only after the tenant confirms move-in. The tenant holds a **lease NFT that carries the right to the caution fee**, and at move-out the contract pays the caution to whoever holds that NFT.
 - **Problem:** in Lagos, a year's rent is usually paid up front, sometimes to fake listings, with agent and agreement fees on top. Getting the caution fee back depends on the landlord's goodwill, and family abroad who pay have no say over when the landlord gets the money. Handova removes the agent and holds the money in a contract until the tenant confirms move-in.
-- **Tracks:** `realworld` (USDC escrow, NEAR Intents, NEP-366 meta transactions) and `nfts` (the NFT holds a money right, its metadata is live, takeovers, NEP-199 payouts on Mintbase).
+- **Track:** `realworld` (USDC rent escrow, NEAR Intents, NEP-366 meta transactions). The lease NFT, which carries the caution-fee right, is part of that entry, not a separate track.
 - **Network:** NEAR testnet only, with a test USDC token. Intents has no testnet, so cross-chain arrival is **simulated**: the quotes are live, but no real cross-chain payment has run. Nobody outside the team has rented through Handova yet.
 - **Before / during the hackathon:** the first commit is a baseline import of Arc-era UI code (tag `baseline-arc`). All NEAR code came after it. See the README section "Built before / during the hackathon".
 
