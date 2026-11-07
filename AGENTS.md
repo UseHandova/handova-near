@@ -15,12 +15,13 @@ This file lists each claim in the README with the command that checks it and the
 |---|---|---|
 | The contract is locked: nobody can change its code | `near account view-account-summary escrow-v5.handova.testnet network-config testnet now` | `Account is locked (no access keys)` |
 | The deployed code is the tested code | `curl -s -X POST https://test.rpc.fastnear.com -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_account","finality":"final","account_id":"escrow-v5.handova.testnet"}}'` | `"code_hash":"76d4GThLisp93P62BHtXs8Q2zy8TSj96f6JfVbKDJvZo"`. This is the base58 form of the wasm's SHA-256 `5a96cb6b…066d0a`. To rebuild it, see `docs/EVIDENCE.md` → "The deployed code" |
-| Rules, the listing deposit and the DAO arbiter | `near contract call-function as-read-only escrow-v5.handova.testnet get_config json-args '{}' network-config testnet now` | Waiting periods of 7 days in ns, `listing_deposit` `60000000000000000000000` (0.06 NEAR), `lease_storage` `40960000000000000000000`, `arbiter` `handova-council.sputnikv2.testnet` |
+| Rules, the listing deposit and the DAO arbiter | `near contract call-function as-read-only escrow-v5.handova.testnet get_config json-args '{}' network-config testnet now` | `owner` and `arbiter` both `handova-council.sputnikv2.testnet`, waiting periods of 7 days in ns, `listing_deposit` `60000000000000000000000` (0.06 NEAR), `lease_storage` `40960000000000000000000` |
 | The contract holds exactly what it owes | `get_config` above, then `near contract call-function as-read-only usdc.handova.testnet ft_balance_of json-args '{"account_id":"escrow-v5.handova.testnet"}' network-config testnet now` | `total_held` equals the token balance (`50000000`, i.e. 50 USDC, on 6 Nov 2026) |
 | Family pays and the caution goes to the NFT holder, not the payer | `… get_lease json-args '{"lease_id":4}' …` | `payer` `nurse-….handova.testnet`, `tenant` and `closed_holder` `mum-….handova.testnet`, `caution_to_holder` `150000000`, `status` `Closed` |
 | A takeover moves the caution right to the new tenant | `… nft_token json-args '{"token_id":"5"}' …` | Owner `tk-tolu-….handova.testnet`, title `Handova lease #5 · Closed`; `get_lease` 5 shows `caution_to_holder` `4000000` and Tolu as `closed_holder` |
 | A Mintbase sale goes only to the buyer the landlord named | `… get_lease json-args '{"lease_id":1}' …` | The buyer is `tenant` and `nft_holder`, and the first tenant is `payer`. The refused attempt before consent is linked in EVIDENCE |
 | A 2-of-3 DAO decided a dispute | `… get_lease json-args '{"lease_id":3}' …` and [proposal #2](https://testnet.nearblocks.io/address/handova-council.sputnikv2.testnet) | The lease is closed with the split the council voted for. All three council members are team accounts today |
+| The API server can't rule on disputes or change roles | `near contract call-function as-read-only handova-council.sputnikv2.testnet get_policy json-args '{}' network-config testnet now`, then `get_config` above, then `near account list-keys verifier.handova.testnet network-config testnet now` | Council `tester1604.testnet`, `council-1.handova.testnet`, `council-2.handova.testnet` (none on the server, all team, two keys on one team machine); `owner` is `handova-council.sputnikv2.testnet`; the verifier has one function-call key for `set_verified` on `escrow-v5` and one full-access key kept off the server. Transactions in `docs/EVIDENCE.md` → "The server no longer holds council or owner keys" |
 | The NFT shows the live lease (dynamic NFT) | `… nft_token json-args '{"token_id":"4"}' …` | `metadata.title`, `description` and `extra` reflect the lease's current status, and `media` is an on-chain SVG built at view time |
 
 `…` stands for `near contract call-function as-read-only escrow-v5.handova.testnet` before the method, and `network-config testnet now` after the arguments.
@@ -67,5 +68,5 @@ Expect a ✓ line with an explorer link for each step, and it ends with `✔ Don
 - No mainnet deployment and no real cross-chain (Intents) settlement.
 - No real rentals yet.
 - No security audit.
-- The DAO's members are all team accounts.
+- The DAO's members are all team accounts, and two of their keys are on one team machine.
 - The USDC is a test token anyone can mint.

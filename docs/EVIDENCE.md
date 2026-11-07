@@ -18,7 +18,7 @@ Each main claim, how to check it, and what has not been shown yet. Checked on NE
 
 Deployment: [create](https://testnet.nearblocks.io/txns/4MaAwjz5dAkfBQcZEM5ikFzMUxQX7QXVm9BZvyvvtK8e) · [deploy and init](https://testnet.nearblocks.io/txns/6ywSieF4mkDVpzPxf1BmUypNKrRMS1D7f4QTsqrWTjeb) · [token registration](https://testnet.nearblocks.io/txns/HsXQWAypyQ99rAp8UTJUjLswsC4MYqEH3aTXKcN7j3n8) · [lock: last key deleted](https://testnet.nearblocks.io/txns/B6mnknQkomMeVMyerXLEL4eb5P1QtXeTV7MVysrwaodL). The two Lagos listings were copied from v4 with the same terms and paid their own deposits ([#1](https://testnet.nearblocks.io/txns/CQAe4hv8t7QDFYFMjMjqMpKVL49A67WpN2B8nkGminVL), [#2](https://testnet.nearblocks.io/txns/FK7Tnjw6KkgM91yYK4m6aR64Yu662CwDLTiHn232iYiE)), from the team-run account `lagos-homes.handova.testnet`.
 
-Every transaction below was looked up on testnet RPC on 6 Nov 2026 and succeeded (the one refused purchase is marked). Listings #3–#7 are test runs, hidden from the app's home page (`HIDDEN_LISTINGS`); #8 was removed.
+Every transaction below was looked up on testnet RPC on 6 Nov 2026 and succeeded (the one refused purchase is marked). Listings #3–#7 and #9 are test runs, hidden from the app's home page (`HIDDEN_LISTINGS`); #8 was removed.
 
 ## Claims
 
@@ -33,6 +33,7 @@ Every transaction below was looked up on testnet RPC on 6 Nov 2026 and succeeded
 | The lease NFT moves only to the tenant the landlord named | ✅ Unit and sandbox tests; live sale | `consent_takeover(lease_id, buyer)`; `contract/tests/sandbox.rs` |
 | A Mintbase sale is refused before the landlord names the buyer, and completes after | ✅ On `escrow-v5` | [Lease #1](#a-mintbase-sale-on-escrow-v5): `get_lease(1)` shows the buyer as `tenant` and `nft_holder` and the first tenant as `payer` |
 | A DAO vote decides a dispute | ✅ On `escrow-v5`, by team keys | [Lease #3](#a-dao-ruling-on-escrow-v5), proposal #2. Proves the mechanism, not independent arbitration |
+| The API server holds no council seat and isn't the owner; its verifier key can only call `set_verified` | ✅ On testnet, 7 Nov 2026 | [Council handover](#the-server-no-longer-holds-council-or-owner-keys): `get_policy`, `get_config.owner`, `near account list-keys verifier.handova.testnet` |
 | An unsettled caution dispute pays the landlord only what the holder offered | ✅ Unit tests | `settle_dispute_timeout` in `contract/src/escrow.rs` |
 | A replaced arbiter can't rule on an open lease | ✅ Unit test | Each lease stores its `arbiter` |
 | Inspection "before" photos are fixed at payment | ✅ Code | The lease stores `property_ref`; `server/near/inspect.ts` reads it |
@@ -166,5 +167,40 @@ These are the test titles as written in `e2e/`. All 29 passed in one run on 6 No
 
 ## Who holds power today
 
-- Owner: `handova.testnet`. Verifier: `verifier.handova.testnet`.
-- Arbiter for leases on `escrow-v5`: `handova-council.sputnikv2.testnet`, threshold 2. Members are `handova.testnet`, `verifier.handova.testnet` and `tester1604.testnet`. All three are team accounts, and the owner and verifier alone can reach the threshold.
+- Owner: the council DAO `handova-council.sputnikv2.testnet` (since 7 Nov 2026; before, `handova.testnet`, whose key is on the API server). Changing the arbiter or verifier for future leases takes 2 of 3 council votes.
+- Verifier: `verifier.handova.testnet`. The API server holds only a function-call key for `set_verified` on `escrow-v5` (0.25 NEAR gas allowance); the account's full-access key is kept on a team machine.
+- Arbiter for leases on `escrow-v5`: `handova-council.sputnikv2.testnet`, threshold 2. Members are `tester1604.testnet`, `council-1.handova.testnet` and `council-2.handova.testnet`. None of their keys is on the server. All three are team accounts, and the council-1 and council-2 keys are on the same team machine, so one person there can still reach the threshold: this is not independent arbitration.
+
+## The server no longer holds council or owner keys
+
+Until 7 Nov 2026 the API server held the keys of two council seats (`handova.testnet`, `verifier.handova.testnet`) and the owner key, so whoever took the server could pass any ruling on a disputed lease. [`scripts/council-handover-testnet.ts`](../scripts/council-handover-testnet.ts) changed that on 7 Nov 2026. Each step:
+
+| Step | Transaction |
+|---|---|
+| Create `council-1.handova.testnet` (key kept off the server) | [`DTTAUXuW…`](https://testnet.nearblocks.io/txns/DTTAUXuW6Q8hyf6kXJ6TPzyX5RbvLEGCVghSHKHw7FT3) |
+| Create `council-2.handova.testnet` | [`3wiwEA9K…`](https://testnet.nearblocks.io/txns/3wiwEA9K5JLjfFpZM6PsE4SowBq3oXUZx5ZkJqUtoJoW) |
+| Proposal #3, add council-1: proposed, then votes by `handova.testnet` and `verifier.handova.testnet` | [`2uk2BL33…`](https://testnet.nearblocks.io/txns/2uk2BL33zx9wDU6rpN225tW7x5spjyq5RfL84yXodvek) · [`5vX7RwxL…`](https://testnet.nearblocks.io/txns/5vX7RwxLZ9xZAALuX42zxkGzFpT6cMG736cYK4nQmCpw) · [`Ac74S9mG…`](https://testnet.nearblocks.io/txns/Ac74S9mG1JouW6yjkrNUuecQ7A2otHvQ1zowpW3YPhDX) |
+| Proposal #4, add council-2 | [`gnd2wNW8…`](https://testnet.nearblocks.io/txns/gnd2wNW8CQFjJJqtZEXDWzsGZ6op2R5Fo9TWBvirh7Q) · [`8gg6EJyK…`](https://testnet.nearblocks.io/txns/8gg6EJyKjmmq6nvbyyxg28pchF6qYjDghFTFDy1rz6du) · [`6pTYoYMT…`](https://testnet.nearblocks.io/txns/6pTYoYMT7fQXBHQhXRwAfMcDbSCdER49Qmdqva1fiN4r) |
+| Proposal #5, remove `verifier.handova.testnet` (votes: `handova.testnet`, council-1) | [`A9nrUP62…`](https://testnet.nearblocks.io/txns/A9nrUP62jQZjcowgYHwSt7puW4PP4ydGS2g2pYtovSH1) · [`9p1Pn5VS…`](https://testnet.nearblocks.io/txns/9p1Pn5VSyp126byTbYPS84qQnhi6tCNdTXCYzPvxkFBe) · [`2umTLkhj…`](https://testnet.nearblocks.io/txns/2umTLkhjhedVe5bPK7qsGPi9Cg9esJBc5svu7Eez1XYB) |
+| Proposal #6, remove `handova.testnet` (votes: council-1, council-2) | [`GKsczXc8…`](https://testnet.nearblocks.io/txns/GKsczXc8Qc7NkWQLHzibgtzeiv1Q8GUuzbQevXQ4vHF2) · [`8xksyYZd…`](https://testnet.nearblocks.io/txns/8xksyYZdzF9mxXZ3bRd8m9H3LfevjAoV7D6bS8JrhCND) · [`HD2G2iwk…`](https://testnet.nearblocks.io/txns/HD2G2iwkGBb1BCoDCh7ESnYrmSSUqaq6ZWwQgZcAUinp) |
+| `set_owner(handova-council.sputnikv2.testnet)`, signed by the old owner | [`8zfmFfr9…`](https://testnet.nearblocks.io/txns/8zfmFfr9MczmKSXdQdgcxFkubndqybzWvGiWwo4QiJ8t) |
+| Verifier account: add a `set_verified`-only key for the server, add a full-access key kept off the server, delete the old full-access key | [`CVQA6mnu…`](https://testnet.nearblocks.io/txns/CVQA6mnumEnc4vyYrxs6EJwrd9gSGutTCsVikQdNnnps) |
+| Check: `set_verified` with the server's new key works | [`zWceHu8L…`](https://testnet.nearblocks.io/txns/zWceHu8LrYkybtWG8s5NzgNP8k5zk29WCM61gUgCvVU) |
+
+A NEAR transfer signed with the server's new verifier key was refused before sending (`Access key requires full access`).
+
+The new council then ruled on a dispute, voting only with keys that were never on the server (`bun scripts/dao-ruling-testnet.ts`, 7 Nov 2026). Lease #6 (listing #9, hidden from the home page): the landlord claimed 3 of the 4 USDC caution; proposal #7 gave the landlord 1 and the holder 3, and after council-1's vote alone the lease was still `Disputed`.
+
+| Step | Transaction |
+|---|---|
+| Landlord disputes 3 USDC of the caution | [`As3dstyM…`](https://testnet.nearblocks.io/txns/As3dstyMHn7eWJWUxUjXUzFS1nCiv4rSBNCkGb4tPLrG) |
+| Proposal #7 (`resolve_dispute`: landlord 1 USDC) | [`ALNh9hEf…`](https://testnet.nearblocks.io/txns/ALNh9hEf2a87agEBHRyXCQAJjqocmaihpmRW894J6Jd7) |
+| Vote 1 of 2, `council-1.handova.testnet` | [`6CxgfVFa…`](https://testnet.nearblocks.io/txns/6CxgfVFaR5pZhsePAaroG2KnJJZvxpu98h8Kag5oYddB) |
+| Vote 2 of 2, `council-2.handova.testnet`: the DAO calls the escrow, lease #6 `Closed` | [`6VbnMvMw…`](https://testnet.nearblocks.io/txns/6VbnMvMwRdFdvBzUXzBwx3jmcyX2sVk1DHq3rLV31RAU) |
+
+Check it yourself:
+```sh
+near contract call-function as-read-only handova-council.sputnikv2.testnet get_policy json-args '{}' network-config testnet now   # council group
+near contract call-function as-read-only escrow-v5.handova.testnet get_config json-args '{}' network-config testnet now           # "owner": "handova-council.sputnikv2.testnet"
+near account list-keys verifier.handova.testnet network-config testnet now                                                        # one full-access key, one function-call key: set_verified on escrow-v5
+```
