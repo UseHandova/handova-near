@@ -969,3 +969,128 @@ fn the_keeper_reads_only_open_leases() {
     assert_eq!(open, vec![2]);
     assert_eq!(t.c.get_config().open_leases, 1);
 }
+
+/// Random but always-valid sequences of every money-moving action. After each step, `total_held`
+/// must equal what the contract owes: rent + caution on Pending leases, the caution on Active,
+/// Ending and Disputed ones, and every withdrawable balance.
+#[test]
+fn total_held_always_equals_what_is_owed() {
+    const PEOPLE: [&str; 4] = ["ade.near", "bola.near", "chi.near", "dayo.near"];
+    const LANDLORDS: [&str; 2] = ["landlord.near", "landlord2.near"];
+    const DAY: u64 = DAY_MS;
+    // Counts of: payments, takeovers, move-in disputes, caution disputes, timeouts, withdrawals.
+    let mut seen = [0u32; 6];
+    for seed in 1..=30u64 {
+        // A thread per seed: the mocked chain's storage is per thread, so each run starts empty.
+        let got = std::thread::spawn(move || {
+        let mut seen = [0u32; 6];
+        let mut rng = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        let mut roll = move |n: u64| {
+            rng = rng.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (rng >> 33) % n
+        };
+        let mut t = T::new();
+        let mut listings = vec![];
+        for ll in LANDLORDS {
+            for _ in 0..2 {
+                let id = t.paying(ll, deposit()).create_listing(U128(RENT), U128(CAUTION), 12, "x".into());
+                t.paying(ll, 40 * lease_cost()).fund_listing(id);
+                listings.push(id);
+            }
+        }
+        let holder = |t: &T, id: u64| t.c.nft_token(id.to_string()).unwrap().owner_id.to_string();
+
+        for _ in 0..60 {
+            let leases: Vec<Lease> = (1..t.c.get_config().leases + 1).map(|id| t.lease(id)).collect();
+            let open: Vec<&Lease> = leases.iter().filter(|l| !matches!(l.status, LeaseStatus::Closed | LeaseStatus::Cancelled)).collect();
+            let now = t.now_ms;
+            match roll(6) {
+                // Pay for a free home (sometimes for someone else, sometimes overpaying).
+                0 | 1 => {
+                    let free: Vec<u64> = listings.iter().copied().filter(|&l| t.c.get_listing(l).unwrap().listing.active_lease.is_none()).collect();
+                    if free.is_empty() { continue; }
+                    let l = free[roll(free.len() as u64) as usize];
+                    let payer = PEOPLE[roll(4) as usize];
+                    let tenant = PEOPLE[roll(4) as usize];
+                    let extra = roll(3) as u128 * USDC;
+                    let back = t.pay(payer, RENT + CAUTION + extra, &format!(r#"{{"listing_id":{l},"tenant":"{tenant}"}}"#));
+                    assert_eq!(back, extra, "overpayment returned");
+                    seen[0] += 1;
+                }
+                // Move a lease one step on, by whoever may act in its state.
+                2 | 3 => {
+                    if open.is_empty() { continue; }
+                    let l = open[roll(open.len() as u64) as usize].clone();
+                    let (id, ll) = (l.id, l.landlord.to_string());
+                    match l.status {
+                        LeaseStatus::Pending => match roll(4) {
+                            0 => t.as_(l.tenant.as_str()).confirm_move_in(id),
+                            1 => t.as_(&ll).cancel_lease(id),
+                            2 if l.handover_at_ms.is_none() => t.as_(&ll).mark_handover(id),
+                            2 if l.move_in_dispute.is_none() => { t.as_(l.tenant.as_str()).dispute_move_in(id, "no keys".into()); seen[2] += 1 }
+                            _ if l.move_in_dispute.is_some() && roll(2) == 0 => {
+                                if now >= l.move_in_dispute_at_ms.unwrap() + 7 * DAY { t.as_(&ll).settle_move_in_timeout(id); seen[4] += 1 }
+                                else { t.as_("arbiter.near").resolve_move_in(id, roll(2) == 0) }
+                            }
+                            _ => t.as_(l.tenant.as_str()).confirm_move_in(id),
+                        },
+                        LeaseStatus::Active => {
+                            let h = holder(&t, id);
+                            if roll(2) == 0 {
+                                t.as_(&h).move_out(id);
+                            } else {
+                                let buyer = PEOPLE.iter().find(|p| **p != h && **p != ll).unwrap().to_string();
+                                let price = roll(50) as u128 * USDC;
+                                t.as_(&h).offer_takeover(id, U128(price));
+                                t.as_(&buyer).request_takeover(id);
+                                t.as_(&ll).consent_takeover(id, acc(&buyer));
+                                let back = t.pay_exact(&buyer, price + USDC, &format!(r#"{{"take_over":{id}}}"#));
+                                assert_eq!(back, USDC, "takeover overpayment returned");
+                                seen[1] += 1;
+                            }
+                        }
+                        LeaseStatus::Ending => {
+                            let out = l.move_out_at_ms.unwrap();
+                            if now >= out + 7 * DAY { t.as_(&ll).claim_caution(id); seen[4] += 1 }
+                            else if roll(2) == 0 { t.as_(&ll).approve_move_out(id) }
+                            else { t.as_(&ll).dispute_caution(id, U128(1 + roll(CAUTION as u64) as u128), "damage".into()); seen[3] += 1 }
+                        }
+                        LeaseStatus::Disputed => {
+                            let d = l.dispute.clone().unwrap();
+                            let pick = roll(d.landlord_claim.0 as u64 + 1) as u128;
+                            if now >= d.opened_at_ms + 7 * DAY { t.as_(&ll).settle_dispute_timeout(id); seen[4] += 1 }
+                            else if roll(2) == 0 { t.as_("arbiter.near").resolve_dispute(id, U128(pick)) }
+                            else {
+                                let h = holder(&t, id);
+                                t.as_(&h).propose_split(id, U128(pick));
+                                t.as_(&ll).propose_split(id, U128(pick));
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+                // Someone withdraws what they're owed (the token transfer is in flight from here).
+                4 => {
+                    let who = [&PEOPLE[..], &LANDLORDS[..]].concat()[roll(6) as usize];
+                    if t.bal(who) > 0 { let _ = t.as_(who).withdraw(None); seen[5] += 1 }
+                }
+                _ => t.wait_days(roll(10)),
+            }
+
+            let leases: Vec<Lease> = (1..t.c.get_config().leases + 1).map(|id| t.lease(id)).collect();
+            let locked: u128 = leases.iter().map(|l| match l.status {
+                LeaseStatus::Pending => l.rent.0 + l.caution.0,
+                LeaseStatus::Active | LeaseStatus::Ending | LeaseStatus::Disputed => l.caution.0,
+                LeaseStatus::Closed | LeaseStatus::Cancelled => 0,
+            }).sum();
+            let balances: u128 = [&PEOPLE[..], &LANDLORDS[..], &["arbiter.near"][..]].concat().iter().map(|p| t.bal(p)).sum();
+            assert_eq!(t.c.get_config().total_held.0, locked + balances, "seed {seed}: total_held != locked + balances");
+        }
+        seen
+        })
+        .join()
+        .unwrap_or_else(|_| panic!("seed {seed} failed"));
+        for (s, g) in seen.iter_mut().zip(got) { *s += g }
+    }
+    assert!(seen.iter().all(|&n| n > 10), "every kind of action ran: {seen:?}");
+}

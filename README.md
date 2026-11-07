@@ -162,10 +162,10 @@ You'll see the 7-day rules, `listing_deposit` and `lease_storage`; lease #4 from
 
 ### B. Contract tests (Rust only)
 ```sh
-cd contract && cargo test --lib        # 56 unit tests; the first build takes about 15 minutes
+cd contract && cargo test --lib        # 57 unit tests; the first build takes about 15 minutes
 cargo test --test sandbox              # 7 sandbox tests; several minutes, silent while they run
 ```
-**56 unit tests** + **7 sandbox tests** (a local NEAR node with a real NEP-141 token: family pays for mum; a listing pays its own storage deposit; an NFT transfer refused until the landlord names the receiver; a failed withdrawal keeps the money; a worst-case lease fits the storage reserve; the contract's USDC balance equals what it owes after every step).
+**57 unit tests** + **7 sandbox tests** (a local NEAR node with a real NEP-141 token: family pays for mum; a listing pays its own storage deposit; an NFT transfer refused until the landlord names the receiver; a failed withdrawal keeps the money; a worst-case lease fits the storage reserve; the contract's USDC balance equals what it owes after every step).
 
 ### C. Your own Handova on testnet (about 3 minutes, no keys from us)
 Needs [Bun](https://bun.sh), [near CLI](https://github.com/near/near-cli-rs) and [cargo-near](https://github.com/near/cargo-near).
@@ -204,7 +204,7 @@ bun run setup:e2e && bunx playwright install chromium && bun run test:e2e
 
 | Suite | Count | What it proves |
 |---|---|---|
-| Contract unit (`contract/src/tests.rs`) | 56 | Every escrow rule; listing deposit, renewal and removal; silence never releases rent; payment refused if the terms changed; takeover only to the named tenant (direct, own wallet, marketplace, buyer swap before consent); a replaced arbiter can't rule on an open lease; dispute timeout pays the landlord only the holder's offer; passport counts months lived; storage reserve; NEP-178/199; failed-withdraw restore |
+| Contract unit (`contract/src/tests.rs`) | 57 | Every escrow rule; random action sequences never break `total_held` = what's owed; listing deposit, renewal, removal; silence never releases rent; payment refused if terms changed; takeover only to the named tenant, by every route; a replaced arbiter can't rule on an open lease; dispute timeout pays the landlord only the holder's offer; passport counts months lived; storage reserve; NEP-178/199; failed-withdraw restore |
 | Sandbox (`contract/tests/sandbox.rs`) | 7 | Real `ft_transfer_call` with a real token on a local node; refunds; an unagreed NFT transfer fails; worst-case lease storage; solvency invariant |
 | Server (`server/near/*.test.ts`) | 32 | Relayer allowlist, refusal of any attached NEAR above 1 yocto, offline signature check, gas cap; NEP-413 hashing; keeper rules; Intents quote shapes; AI inspection limits; NEAR AI signer recovery from a real saved receipt; request time limits and RPC failover |
 | End-to-end (`e2e/*.spec.ts`, Playwright) | 30 | A phone-sized browser drives the real app against a testnet deployment with 20-second waiting periods; balances checked on-chain after each step; any console error fails a test |
@@ -213,7 +213,7 @@ bun run setup:e2e && bunx playwright install chromium && bun run test:e2e
 
 | Suite | Needs | Result |
 |---|---|---|
-| Contract unit, sandbox, server, types, web build | Nothing live (local only) | 56, 7 and 32 passed; runs in [CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml) |
+| Contract unit, sandbox, server, types, web build | Nothing live (local only) | 57, 7 and 32 passed; runs in [CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml) |
 | Browser, 6 Nov 2026 | Testnet, public RPCs, NEAR AI credit | **29/29 in one run** (with sandbox 7/7) on commit `355915b`, the deployed code, clean tree. Log: [`one-pass-v5.log`](docs/evidence/one-pass-v5.log). Test 30 (checkout widget) was added later and passed alone the same day |
 
 Browser tests use a deployment with the same code hash. Cases: [`docs/EVIDENCE.md`](docs/EVIDENCE.md#browser-test-cases).

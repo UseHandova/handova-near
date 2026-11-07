@@ -40,7 +40,7 @@ Every transaction below was looked up on testnet RPC on 6 Nov 2026 and succeeded
 | The passport counts months actually lived | ✅ Unit tests | `rental_record` in `contract/src/market.rs` |
 | Storage can't block open leases | ✅ Sandbox test | Each lease takes 4,096 bytes from its listing's credit; the worst case measured 3,857. Payments also keep a reserve per open lease (`get_config.storage_spare`) |
 | Failed withdrawals keep the money | ✅ Unit and sandbox tests | `failed_withdrawal_keeps_the_money` |
-| The contract's USDC covers what it owes | ✅ Sandbox tests; live values matched on 6 Nov | `get_config.total_held` and the token's `ft_balance_of(escrow-v5)` were both 50 USDC |
+| The contract's USDC covers what it owes | ✅ Sandbox tests; a unit test runs 1,800 random valid actions (30 seeds × 60: payments, takeovers, disputes, timeouts, withdrawals) and checks `total_held` = rent and caution still locked + every balance after each one (`total_held_always_equals_what_is_owed`; it fails if one accounting line is removed); live values matched on 6 Nov | `get_config.total_held` and the token's `ft_balance_of(escrow-v5)` were both 50 USDC |
 | Any website can take rent into the escrow with one script tag | ✅ Browser test | `e2e/13-checkout-widget.spec.ts`: the sample site at `/checkout-demo.html` opens Handova's checkout, the payer pays, and the site receives the lease ID through `handova:paid` |
 | Paying from another chain, landlord cash-out | ❌ Not shown | Live quotes only; arrival simulated with test USDC. No real Intents settlement has run |
 | Real rentals | ❌ None | Nobody outside the team has used it for a rental |

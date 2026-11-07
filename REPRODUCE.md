@@ -13,7 +13,7 @@ cd contract
 cargo test --lib          # about 15 minutes the first time (compiling), seconds after
 cargo test --test sandbox # 2 to 7 minutes; prints nothing while the local node runs
 ```
-Expect `test result: ok. 56 passed` (unit), then `test result: ok. 7 passed` (sandbox: a local NEAR node with a real NEP-141 token). Plain `cargo test` runs both.
+Expect `test result: ok. 57 passed` (unit), then `test result: ok. 7 passed` (sandbox: a local NEAR node with a real NEP-141 token). Plain `cargo test` runs both.
 
 The first build downloads a NEAR sandbox binary. If it stops with `failed to run custom build command for near-workspaces`, run the command again (this happened once in two clean builds).
 
