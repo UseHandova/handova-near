@@ -10,7 +10,7 @@ Each main claim, how to check it, and what has not been shown yet. Checked on NE
 | Code hash on-chain | `76d4GThLisp93P62BHtXs8Q2zy8TSj96f6JfVbKDJvZo` |
 | Wasm SHA-256 (hex) | `5a96cb6bd9b0bae8c1fa09c999ff9a28203ed2094fc20f7c501c1cc545066d0a` (409,763 bytes); the on-chain code hash is this value in base58. Rebuilt from a clean clone of `355915b` on 6 Nov: same hash |
 | Source | `contract/` at `355915b` (deployed; the contract last changed in `9b8fd5e`) |
-| Rebuild | `cd contract && cargo near build non-reproducible-wasm` (rustc 1.97.1, cargo-near 0.22.0, macOS). Not a reproducible-build container, so other tools may give a different hash. Clean run from a fresh public clone on 7 Nov 2026 (unit 56/56 in 120 s with compiling, sandbox 7/7 in 134 s, same hash): [`evidence/rust-clean-run.log`](evidence/rust-clean-run.log) |
+| Rebuild | `cd contract && cargo near build non-reproducible-wasm` (rustc 1.97.1, cargo-near 0.22.0, macOS). Not a reproducible-build container, so other tools may give a different hash. Clean run from a fresh public clone on 9 Nov 2026 (unit 57/57 in 134 s with compiling, sandbox 7/7 in 132 s, same hash): [`evidence/rust-clean-run.log`](evidence/rust-clean-run.log) |
 | Access keys | None: `near account list-keys escrow-v5.handova.testnet network-config testnet now` |
 | Upgrade path in the code | None: no `deploy_contract`, `migrate` or `init(ignore_state)` in `contract/src/` |
 | Token | `usdc.handova.testnet`, a test token anyone can mint, not Circle USDC |
