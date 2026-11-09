@@ -90,36 +90,113 @@ const intro = (() => {
   return out;
 })();
 
-// Main section: the phones.
+// Main section: the phones. DEMO_LAYOUT=grid shows all of them side by side the whole time; the
+// default shows one phone at a time, the person who is acting, like a presenter switching screens.
 const total = tl.total / 1000;
 const phones = tl.phones ?? ['landlord', 'nurse', 'mum'];
-const PH = phones.length > 3 ? 740 : 820;
-const PW = Math.round((PH * 390) / 664); // iPhone 13 profile: visible page is 390×664
-const xs = Object.fromEntries(phones.map((who, i) => [who, Math.round((1920 * (i + 0.5)) / phones.length - PW / 2)]));
-const label = { landlord: 'Ade · landlord · Lagos', nurse: 'Daughter · nurse · London', mum: 'Mum · tenant · Lagos', tolu: 'Tolu · next tenant' };
-const Y = 70;
-let f = `color=c=${BG}:s=1920x1080:d=${total}:r=30[bg];`;
-phones.forEach((who, i) => { f += `[${i}:v]crop=390:664:0:0,scale=${PW}:${PH}:flags=lanczos,setsar=1[p${i}];`; });
-phones.forEach((who, i) => { f += `${i === 0 ? '[bg]' : `[o${i - 1}]`}[p${i}]overlay=${xs[who]}:${Y}:shortest=0[o${i}];`; });
-const draws = [];
-for (const who of phones) {
-  draws.push(`drawtext=fontfile='${BOLD}':textfile='${textfile('label-' + who, label[who])}':fontsize=26:fontcolor=0xd2d8d4:x=${xs[who] + PW / 2}-text_w/2:y=28`);
-}
-tl.captions.forEach((c, i) => {
-  const a = (c.start / 1000).toFixed(2);
-  const b = ((c.end ?? c.start + 4000) / 1000).toFixed(2);
-  const x = xs[c.who] - 8;
-  draws.push(`drawbox=x=${x}:y=${Y - 8}:w=${PW + 16}:h=${PH + 16}:color=${GREEN}:t=6:enable='between(t,${a},${b})'`);
-  draws.push(`drawtext=fontfile='${FONT}':textfile='${textfile('cap' + i, wrap(c.text, 95))}':fontsize=30:line_spacing=8:fontcolor=white:box=1:boxcolor=0x000000@0.55:boxborderw=14:x=(w-text_w)/2:y=h-text_h-26:enable='between(t,${a},${b})'`);
-});
-draws.push(`drawtext=fontfile='${FONT}':text='NEAR testnet · real transactions':fontsize=20:fontcolor=0x6c7671:x=w-text_w-24:y=h-40`);
-f += `[o${phones.length - 1}]${draws.join(',')}[v];`;
-// Narration clips placed at their caption times.
+const offset = (who) => (tl.offsets?.[who] ?? 0) / 1000;
 const audioInputs = tl.captions.map((c) => join(REC, c.audio));
-audioInputs.forEach((_, i) => { f += `[${phones.length + i}:a]adelay=${tl.captions[i].start}|${tl.captions[i].start},aresample=48000[a${i}];`; });
-f += `${audioInputs.map((_, i) => `[a${i}]`).join('')}amix=inputs=${audioInputs.length}:normalize=0,apad,atrim=0:${total}[a]`;
+const narration = (first) => {
+  let a = '';
+  audioInputs.forEach((_, i) => { a += `[${first + i}:a]adelay=${tl.captions[i].start}|${tl.captions[i].start},aresample=48000[a${i}];`; });
+  return `${a}${audioInputs.map((_, i) => `[a${i}]`).join('')}amix=inputs=${audioInputs.length}:normalize=0,apad,atrim=0:${total}[a]`;
+};
 const main = join(TMP, 'main.mp4');
-ff([...phones.flatMap((who) => ['-i', video(who)]), ...audioInputs.flatMap((p) => ['-i', p]), '-filter_complex', f, '-map', '[v]', '-map', '[a]', ...ENC, '-t', String(total), main]);
+
+if (process.env.DEMO_LAYOUT === 'grid') {
+  const PH = phones.length > 3 ? 740 : 820;
+  const PW = Math.round((PH * 390) / 664); // iPhone 13 profile: visible page is 390×664
+  const xs = Object.fromEntries(phones.map((who, i) => [who, Math.round((1920 * (i + 0.5)) / phones.length - PW / 2)]));
+  const label = { landlord: 'Ade · landlord · Lagos', nurse: 'Daughter · nurse · London', mum: 'Mum · tenant · Lagos', tolu: 'Tolu · next tenant' };
+  const Y = 70;
+  let f = `color=c=${BG}:s=1920x1080:d=${total}:r=30[bg];`;
+  phones.forEach((who, i) => { f += `[${i}:v]crop=390:664:0:0,scale=${PW}:${PH}:flags=lanczos,setsar=1[p${i}];`; });
+  phones.forEach((who, i) => { f += `${i === 0 ? '[bg]' : `[o${i - 1}]`}[p${i}]overlay=${xs[who]}:${Y}:shortest=0[o${i}];`; });
+  const draws = [];
+  for (const who of phones) {
+    draws.push(`drawtext=fontfile='${BOLD}':textfile='${textfile('label-' + who, label[who])}':fontsize=26:fontcolor=0xd2d8d4:x=${xs[who] + PW / 2}-text_w/2:y=28`);
+  }
+  tl.captions.forEach((c, i) => {
+    const a = (c.start / 1000).toFixed(2);
+    const b = ((c.end ?? c.start + 4000) / 1000).toFixed(2);
+    const x = xs[c.who] - 8;
+    draws.push(`drawbox=x=${x}:y=${Y - 8}:w=${PW + 16}:h=${PH + 16}:color=${GREEN}:t=6:enable='between(t,${a},${b})'`);
+    draws.push(`drawtext=fontfile='${FONT}':textfile='${textfile('cap' + i, wrap(c.text, 95))}':fontsize=30:line_spacing=8:fontcolor=white:box=1:boxcolor=0x000000@0.55:boxborderw=14:x=(w-text_w)/2:y=h-text_h-26:enable='between(t,${a},${b})'`);
+  });
+  draws.push(`drawtext=fontfile='${FONT}':text='NEAR testnet · real transactions':fontsize=20:fontcolor=0x6c7671:x=w-text_w-24:y=h-40`);
+  f += `[o${phones.length - 1}]${draws.join(',')}[v];`;
+  f += narration(phones.length);
+  ff([...phones.flatMap((who) => ['-ss', String(offset(who)), '-i', video(who)]), ...audioInputs.flatMap((p) => ['-i', p]), '-filter_complex', f, '-map', '[v]', '-map', '[a]', ...ENC, '-t', String(total), main]);
+} else {
+  // Who is on screen when: each line's phone, from its first word until the next line starts. Lines in
+  // a row on the same phone make one shot.
+  const people = {
+    landlord: ['Ade', 'Landlord · Lagos'],
+    nurse: ['Mum’s daughter', 'Nurse · London'],
+    mum: ['Mum', 'Tenant · Lagos'],
+    tolu: ['Tolu', 'Next tenant · Lagos'],
+  };
+  const chapters = [
+    [['ll1', 'll1b', 'll2', 'll3'], '1 · Ade lists his flat'],
+    [['mum', 'nr1', 'nr2', 'nr3', 'nr4'], '2 · Rent paid from London'],
+    [['ll4', 'mm1', 'mm2', 'mm3', 'll5', 'll5b'], '3 · Keys, then payment'],
+    [['mm4', 'to1', 'll6', 'to2'], '4 · The lease changes hands'],
+    [['to3', 'll7', 'to4', 'll8', 'to5'], '5 · Moving out'],
+  ];
+  const chapterOf = (id) => chapters.find(([ids]) => ids.includes(id))?.[1] ?? '';
+  const shots = [];
+  tl.captions.forEach((c, i) => {
+    const from = i === 0 ? 0 : c.start / 1000;
+    const to = i + 1 < tl.captions.length ? tl.captions[i + 1].start / 1000 : total;
+    const last = shots.at(-1);
+    if (last && last.who === c.who) { last.to = to; last.lines.push({ c, i }); }
+    else shots.push({ who: c.who, from, to, lines: [{ c, i }] });
+  });
+  // The phone, large on the left; a blurred, darkened copy of it fills the background; on the right,
+  // who this is, the chapter and the line being said. Each shot opens with the phone sliding in.
+  const PH = 940;
+  const PW = Math.round((PH * 390) / 664);
+  const PX = 250;
+  const PY = 70;
+  const TX = PX + PW + 130;
+  const SLIDE = 0.45;
+  const files = shots.map((sh, k) => {
+    const secs = sh.to - sh.from;
+    const [name, role] = people[sh.who] ?? [sh.who, ''];
+    // The phone's dark bezel sits on the background and appears once the phone has slid into place.
+    const bezel = `drawbox=x=${PX - 14}:y=${PY - 14}:w=${PW + 28}:h=${PH + 28}:color=0x0a0f0c@0.9:t=fill:enable='gte(t,${SLIDE})'`;
+    const draws = [
+      `drawtext=fontfile='${FONT}':textfile='${textfile(`ch${k}`, chapterOf(sh.lines[0].c.id).toUpperCase())}':fontsize=26:fontcolor=${GREEN}:x=${TX}:y=150`,
+      `drawbox=x=${TX}:y=230:w=8:h=150:color=${GREEN}:t=fill`,
+      `drawtext=fontfile='${BOLD}':textfile='${textfile(`nm${k}`, name)}':fontsize=76:fontcolor=white:x=${TX + 36}:y=232`,
+      `drawtext=fontfile='${FONT}':textfile='${textfile(`rl${k}`, role)}':fontsize=38:fontcolor=0xd2d8d4:x=${TX + 38}:y=330`,
+      ...sh.lines.map(({ c, i }) => {
+        const a = (c.start / 1000 - sh.from).toFixed(2);
+        const b = ((i + 1 < tl.captions.length ? tl.captions[i + 1].start : tl.total) / 1000 - sh.from).toFixed(2);
+        return `drawtext=fontfile='${FONT}':textfile='${textfile(`ln${i}`, wrap(c.text, 34))}':fontsize=44:line_spacing=16:fontcolor=white:x=${TX}:y=460:enable='between(t,${a},${b})'`;
+      }),
+      `drawtext=fontfile='${FONT}':text='NEAR testnet · real transactions':fontsize=22:fontcolor=0x8a948f:x=w-text_w-40:y=h-56`,
+    ].join(',');
+    const out = join(TMP, `shot-${String(k).padStart(2, '0')}.mp4`);
+    const slideX = `'if(lt(t,${SLIDE}),${PX}+260*pow(1-t/${SLIDE},3),${PX})'`;
+    ff([
+      '-ss', String(offset(sh.who) + sh.from), '-t', String(secs), '-i', video(sh.who),
+      '-filter_complex',
+      `[0:v]crop=390:664:0:0,fps=30,setsar=1,split[a][b];` +
+        `[a]scale=1920:-2,crop=1920:1080,gblur=sigma=45,colorchannelmixer=rr=0.28:gg=0.3:bb=0.29,${bezel}[bg];` +
+        `[b]scale=${PW}:${PH}:flags=lanczos,format=yuva420p,fade=in:st=0:d=${SLIDE * 0.8}:alpha=1[ph];` +
+        `[bg][ph]overlay=x=${slideX}:y=${PY}:shortest=1,${draws}[v]`,
+      '-map', '[v]', '-an', '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-r', '30', '-t', String(secs), out,
+    ]);
+    return out;
+  });
+  const shotList = join(TMP, 'shots.txt');
+  writeFileSync(shotList, files.map((p) => `file '${p}'`).join('\n'));
+  const joined = join(TMP, 'shots.mp4');
+  ff(['-f', 'concat', '-safe', '0', '-i', shotList, '-c', 'copy', joined]);
+  ff(['-i', joined, ...audioInputs.flatMap((p) => ['-i', p]), '-filter_complex', narration(1), '-map', '0:v', '-map', '[a]', ...ENC, '-t', String(total), main]);
+  console.log(`${shots.length} shots, one phone at a time`);
+}
 
 // Tighten the silences: while nobody speaks (a transaction confirming, a page loading) the footage is
 // fast-forwarded so each pause lasts about GAP_SECS, between 1.5× and 20× speed. Narration plays at 1×.

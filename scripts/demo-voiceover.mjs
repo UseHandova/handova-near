@@ -16,8 +16,8 @@ export const OUTRO =
 export const SCRIPT = {
   ll1: "Meet Ade, a landlord in Lagos. He signs up as a landlord in seconds. The key stays on his phone. No wallet app, no gas.",
   ll1b: "Landlords can verify their ID with Didit. The verified badge is written on NEAR, so tenants know who they are paying.",
-  ll2: "He describes his flat in Pidgin, and NEAR AI turns it into a listing, inside a secure enclave that the server verifies.",
-  ll3: "He adds photos, checks the details, and publishes it on NEAR. Handova pays the gas.",
+  ll2: "He describes his flat in Pidgin, and NEAR AI turns it into a listing. The answer comes with a signed receipt, and Handova checks it.",
+  ll3: "He adds photos, checks the details, and publishes it on NEAR. A small storage deposit comes from the NEAR Handova gave him at sign-up, and he gets it back if he takes the listing down.",
   mum: "Across town, Mum needs a new home. She signs up as a tenant.",
   nr1: "Her daughter, a nurse in London, finds Ade's flat for her. No agent fee.",
   nr2: "She pays for her mum, with USDC on NEAR, or from Base, Solana or Ethereum through NEAR Intents.",

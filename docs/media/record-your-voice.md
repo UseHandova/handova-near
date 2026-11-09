@@ -33,8 +33,8 @@ Save each recording with the name in the **File** column (for example `hello.m4a
 | 2 | `intro` | Opening, over the landing page | In Lagos, renting a home often means paying a full year up front, plus agent fees, to people you have just met. Getting your caution deposit back depends on goodwill. Handova puts the rent in escrow on NEAR, until you move in. Here is how it works. |
 | 3 | `ll1` | Landlord (Ade) | Meet Ade, a landlord in Lagos. He signs up as a landlord in seconds. The key stays on his phone. No wallet app, no gas. |
 | 4 | `ll1b` | Landlord (Ade) | Landlords can verify their ID with Didit. The verified badge is written on NEAR, so tenants know who they are paying. |
-| 5 | `ll2` | Landlord (Ade) | He describes his flat in Pidgin, and NEAR AI turns it into a listing, inside a secure enclave that the server verifies. |
-| 6 | `ll3` | Landlord (Ade) | He adds photos, checks the details, and publishes it on NEAR. Handova pays the gas. |
+| 5 | `ll2` | Landlord (Ade) | He describes his flat in Pidgin, and NEAR AI turns it into a listing. The answer comes with a signed receipt, and Handova checks it. |
+| 6 | `ll3` | Landlord (Ade) | He adds photos, checks the details, and publishes it on NEAR. A small storage deposit comes from the NEAR Handova gave him at sign-up, and he gets it back if he takes the listing down. |
 | 7 | `mum` | Mum | Across town, Mum needs a new home. She signs up as a tenant. |
 | 8 | `nr1` | Nurse (daughter) | Her daughter, a nurse in London, finds Ade's flat for her. No agent fee. |
 | 9 | `nr2` | Nurse (daughter) | She pays for her mum, with USDC on NEAR, or from Base, Solana or Ethereum through NEAR Intents. |

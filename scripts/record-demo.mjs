@@ -78,12 +78,25 @@ landing.end = Date.now() - landingT0;
 await landingCtx.close();
 writeFileSync(join(OUT, 'landing.json'), JSON.stringify({ ...landing, hello_audio: audio.hello, intro_audio: audio.intro }, null, 2));
 
+// A finger-tap ripple, so viewers see where each phone is touched, as in a screen recording with touches shown.
+const TAPS = `addEventListener('pointerdown', (e) => {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:rgba(31,158,97,.35);border:2px solid rgba(31,158,97,.9);transition:transform .45s ease-out,opacity .45s ease-out;left:' + e.clientX + 'px;top:' + e.clientY + 'px';
+  document.documentElement.appendChild(d);
+  requestAnimationFrame(() => { d.style.transform = 'scale(1.8)'; d.style.opacity = '0'; });
+  setTimeout(() => d.remove(), 600);
+}, true);`;
 const phones = {};
+const opened = {};
 for (const who of PHONES) {
+  opened[who] = Date.now();
   const ctx = await browser.newContext({ ...devices['iPhone 13'], recordVideo: { dir: join(OUT, who), size: { width: 390, height: 664 } } });
+  await ctx.addInitScript(TAPS);
   phones[who] = await ctx.newPage();
 }
 const t0 = Date.now();
+// Each phone's video starts when its context opened; this is how far into it the timeline's 0 is.
+const offsets = Object.fromEntries(PHONES.map((who) => [who, t0 - opened[who]]));
 const captions = [];
 
 /** Show a caption on a phone and make sure the step lasts as long as its narration. */
@@ -137,7 +150,7 @@ try {
     await p.getByPlaceholder(/2 bedroom flat for Yaba/).pressSequentially('I get flat for Yaba. AC for the rooms, POP ceiling with downlights. Rent na 2 million per year, caution 200k.', { delay: 18 });
     await p.getByRole('button', { name: /Draft with NEAR AI/ }).click();
     await toast(p, /Draft ready/);
-    await p.getByText(/verified NEAR AI enclave/).click();
+    await p.getByText('Drafted by NEAR AI, receipt checked').click();
     await p.waitForTimeout(600);
     await shot(p, '02-ai-draft');
   });
@@ -302,7 +315,7 @@ try {
   await phones.landlord.goto(`${URL}#/home/${listingId}`);
   await phones.landlord.getByRole('button', { name: 'Pause listing' }).click().catch(() => {});
   await toast(phones.landlord, /Listing paused/).catch(() => console.warn(`could not pause listing ${listingId}; pause it from the landlord account`));
-  writeFileSync(join(OUT, 'timeline.json'), JSON.stringify({ total: filmed, phones: PHONES, listingId, leaseId, captions }, null, 2));
+  writeFileSync(join(OUT, 'timeline.json'), JSON.stringify({ total: filmed, phones: PHONES, offsets, listingId, leaseId, captions }, null, 2));
   console.log(`recorded ${Math.round((Date.now() - t0) / 1000)}s — listing ${listingId}, lease ${leaseId}`);
 } finally {
   for (const p of Object.values(phones)) await p.context().close(); // flushes the videos
