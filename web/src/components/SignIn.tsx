@@ -34,6 +34,13 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
     return () => clearTimeout(t);
   }, [name]);
 
+  // Web wallets (Meteor Web, MyNearWallet) open a pop-up window. Arc and some mobile browsers open it
+  // behind the page or block it, and the wallet's own dialog then waits forever: say what to look for.
+  const connectWalletWatched = async () => {
+    const hint = setTimeout(() => toast('error', "The wallet window hasn't answered. Look for a separate browser window behind this one, or a blocked pop-up icon in the address bar; allow pop-ups for this site and try again. Or use Create with fingerprint: no wallet needed."), 25_000);
+    try { await connectWallet(); } finally { clearTimeout(hint); }
+  };
+
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
     try {
@@ -69,11 +76,11 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
               </span>
             </button>
           )}
-          <button onClick={() => run(connectWallet, 'Wallet connected')} disabled={busy} className="card flex w-full items-start gap-3 p-4 text-left hover:border-accent">
+          <button onClick={() => run(connectWalletWatched, 'Wallet connected')} disabled={busy} className="card flex w-full items-start gap-3 p-4 text-left hover:border-accent">
             <Wallet className="mt-0.5 h-6 w-6 text-accent" />
             <span>
               <span className="block font-semibold">{t('I have a NEAR wallet')}</span>
-              <span className="text-sm text-sub">HOT, Meteor, MyNearWallet, Intear and more via NEAR Connect.</span>
+              <span className="text-sm text-sub">HOT, Meteor, MyNearWallet, Intear and more via NEAR Connect. The wallet opens in its own window, so allow pop-ups for this site.</span>
             </span>
           </button>
           <div className="flex flex-wrap justify-center gap-x-5 gap-y-1 pt-1 text-sm font-semibold text-accent">
