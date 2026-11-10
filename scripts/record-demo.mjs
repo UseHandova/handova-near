@@ -117,7 +117,7 @@ async function signUp(p, name, role = 'tenant') {
   await p.goto(URL);
   await p.waitForTimeout(800);
   await p.getByRole('button', { name: 'Get started' }).first().click();
-  await p.getByText('New to crypto? Create an account').click();
+  await p.getByText('Create with a name instead').click();
   await p.locator('#name').pressSequentially(name, { delay: 60 });
   await p.getByText(/is free/).waitFor();
   await p.getByRole('radio', { name: role === 'landlord' ? /I rent out homes/ : /looking for a home/ }).click();

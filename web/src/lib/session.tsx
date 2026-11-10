@@ -14,6 +14,7 @@ import { summarize, type TxSummary } from '../../../shared/outcome';
 import type { SignedNep413 } from '../../../shared/nep413';
 import { API_BASE, api } from './api';
 import { getProvider, getSigningProvider, nearConfig } from './near';
+import { createPasskey, getPasskey } from './passkey';
 
 const STORE = 'handova:device-account';
 
@@ -41,6 +42,8 @@ interface DeviceAccount {
   secretKey: string;
   seedPhrase?: string;
   backedUp?: boolean;
+  /** The key was seeded by this passkey: the passkey is the backup, there is no phrase. */
+  passkey?: string;
 }
 
 export interface CallOpts {
@@ -69,6 +72,10 @@ interface SessionCtx {
   role: Role | null;
   setRole(role: Role): void;
   createAccount(name: string, role: Role): Promise<string>;
+  /** Face ID / Touch ID / phone lock makes the key and Handova picks the name. */
+  createWithPasskey(role: Role): Promise<string>;
+  /** The same passkey on any device gives the same key, so it finds the account by its public key. */
+  signInWithPasskey(): Promise<string>;
   restore(seedPhrase: string, accountId: string): Promise<void>;
   connectWallet(): Promise<void>;
   signOut(): Promise<void>;
@@ -186,6 +193,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const { accountId } = await api<{ accountId: string }>('/api/accounts', { name, publicKey: keyPair.getPublicKey().toString(), role: r });
       const d = { accountId, secretKey: keyPair.toString(), seedPhrase, backedUp: false };
       rememberRole(accountId, r);
+      saveDevice(d);
+      setDevice(d);
+      return accountId;
+    },
+    async createWithPasskey(r) {
+      const { credentialId, keyPair } = await createPasskey('Handova');
+      const { accountId } = await api<{ accountId: string }>('/api/accounts', { publicKey: keyPair.getPublicKey().toString(), role: r });
+      const d = { accountId, secretKey: keyPair.toString(), backedUp: true, passkey: credentialId };
+      rememberRole(accountId, r);
+      saveDevice(d);
+      setDevice(d);
+      return accountId;
+    },
+    async signInWithPasskey() {
+      const { credentialId, keyPair } = await getPasskey();
+      const { accountIds } = await api<{ accountIds: string[] }>(`/api/accounts/by-key?publicKey=${encodeURIComponent(keyPair.getPublicKey().toString())}`);
+      const accountId = accountIds[0];
+      if (!accountId) throw new Error('No Handova account is linked to this passkey yet. Choose "Create with fingerprint".');
+      const d = { accountId, secretKey: keyPair.toString(), backedUp: true, passkey: credentialId };
       saveDevice(d);
       setDevice(d);
       return accountId;

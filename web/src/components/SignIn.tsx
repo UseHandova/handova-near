@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useT } from '../lib/i18n';
-import { Check, KeyRound, Smartphone, Wallet } from 'lucide-react';
+import { Check, Fingerprint, KeyRound, Smartphone, Wallet } from 'lucide-react';
 import { api } from '../lib/api';
 import { nearConfig } from '../lib/near';
+import { passkeysSupported } from '../lib/passkey';
 import { useSession, type Role } from '../lib/session';
 import { go } from '../lib/router';
 import { RoleCards } from './RolePicker';
 import { useToast } from '../lib/toast';
 import { Busy, Sheet } from './ui';
 
-type Mode = 'choose' | 'create' | 'restore';
+type Mode = 'choose' | 'passkey' | 'create' | 'restore';
 
 export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { createAccount, connectWallet, restore } = useSession();
+  const { createAccount, createWithPasskey, signInWithPasskey, connectWallet, restore } = useSession();
   const toast = useToast();
   const cfg = nearConfig();
+  const passkeys = passkeysSupported();
   const [mode, setMode] = useState<Mode>('choose');
   const [name, setName] = useState('');
   const [check, setCheck] = useState<{ available: boolean; reason?: string; accountId?: string } | null>(null);
@@ -46,10 +48,19 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title={mode === 'create' ? 'Create your Handova account' : mode === 'restore' ? 'Restore your account' : t('Get started')}>
+    <Sheet open={open} onClose={onClose} title={mode === 'create' || mode === 'passkey' ? 'Create your Handova account' : mode === 'restore' ? 'Restore your account' : t('Get started')}>
       {mode === 'choose' && (
         <div className="space-y-3">
-          {cfg.accountCreation && (
+          {cfg.accountCreation && passkeys && (
+            <button onClick={() => setMode('passkey')} className="card flex w-full items-start gap-3 border-accent p-4 text-left">
+              <Fingerprint className="mt-0.5 h-6 w-6 text-accent" />
+              <span>
+                <span className="block font-semibold">{t('Create with fingerprint')}</span>
+                <span className="text-sm text-sub">Face ID, Touch ID or your phone's lock makes your NEAR account. No name to type, no words to write down, no gas to pay.</span>
+              </span>
+            </button>
+          )}
+          {cfg.accountCreation && !passkeys && (
             <button onClick={() => setMode('create')} className="card flex w-full items-start gap-3 p-4 text-left hover:border-accent">
               <Smartphone className="mt-0.5 h-6 w-6 text-accent" />
               <span>
@@ -65,7 +76,25 @@ export function SignInSheet({ open, onClose }: { open: boolean; onClose: () => v
               <span className="text-sm text-sub">HOT, Meteor, MyNearWallet, Intear and more via NEAR Connect.</span>
             </span>
           </button>
-          <button onClick={() => setMode('restore')} className="w-full py-2 text-sm font-semibold text-accent">{t('I have a recovery phrase')}</button>
+          <div className="flex flex-wrap justify-center gap-x-5 gap-y-1 pt-1 text-sm font-semibold text-accent">
+            {passkeys && <button onClick={() => run(signInWithPasskey, 'Signed in')} disabled={busy}>{t('Sign in with fingerprint')}</button>}
+            {cfg.accountCreation && passkeys && <button onClick={() => setMode('create')}>{t('Create with a name instead')}</button>}
+            <button onClick={() => setMode('restore')}>{t('I have a recovery phrase')}</button>
+          </div>
+        </div>
+      )}
+
+      {mode === 'passkey' && (
+        <div className="space-y-4">
+          <div>
+            <p className="label">{t('How will you use Handova?')}</p>
+            <RoleCards value={role} onChange={setRole} />
+            <p className="mt-1.5 text-xs text-faint">{t('You can switch any time on your Account page.')}</p>
+          </div>
+          <p className="rounded-xl bg-muted p-3 text-sm text-sub">Your phone will ask for your fingerprint, face or passcode. That makes the key of a real NEAR account only you control; Handova picks a free name for it. The same passkey signs you in on your next phone — there is no recovery phrase.</p>
+          <button className="btn-primary w-full" disabled={!role || busy} onClick={() => role && run(async () => { await createWithPasskey(role); if (role === 'landlord') go('/landlord'); }, 'Welcome! Your account is ready')}>
+            <Busy busy={busy}><Fingerprint className="h-4 w-4" /> {t('Continue with fingerprint')}</Busy>
+          </button>
         </div>
       )}
 

@@ -104,7 +104,7 @@ test('name already taken is shown before creating', async ({ phone }) => {
   const b = await phone('b');
   await b.goto('/');
   await b.getByRole('button', { name: 'Get started' }).first().click();
-  await b.getByText('New to crypto? Create an account').click();
+  await b.getByText('Create with a name instead').click();
   await b.locator('#name').fill(taken);
   await expect(b.getByText('That name is taken. Try another.')).toBeVisible();
   await expect(b.getByRole('button', { name: 'Create account' })).toBeDisabled();

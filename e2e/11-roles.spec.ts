@@ -28,7 +28,7 @@ test('roles: chosen at sign-up, menu follows the role, switchable on the Account
   const nw = await phone('newcomer');
   await nw.goto('/');
   await nw.getByRole('button', { name: 'Get started' }).first().click();
-  await nw.getByText('New to crypto? Create an account').click();
+  await nw.getByText('Create with a name instead').click();
   await nw.locator('#name').fill(`pick-${Date.now().toString(36)}`);
   await expect(nw.getByText(/is free/)).toBeVisible();
   await expect(nw.getByRole('button', { name: 'Create account' })).toBeDisabled();

@@ -121,7 +121,7 @@ export function AccountPage({ onNeedSignIn }: { onNeedSignIn: () => void }) {
       {session.kind === 'device' && !session.needsBackup && showPhrase && phrase && <p className="rounded-xl bg-muted p-3 font-mono text-sm">{phrase}</p>}
 
       <button className="btn-danger w-full" onClick={() => signOut().then(() => toast('ok', 'Signed out'))}><LogOut className="h-4 w-4" /> {t('Sign out')}</button>
-      {session.kind === 'device' && <p className="text-center text-xs text-sub">Signing out removes the key from this device. Make sure your recovery phrase is written down.</p>}
+      {session.kind === 'device' && <p className="text-center text-xs text-sub">Signing out removes the key from this device. {phrase ? 'Make sure your recovery phrase is written down.' : 'Your passkey (fingerprint) brings it back.'}</p>}
       </div>
 
       <div className="pt-4 text-center text-xs text-faint lg:col-span-2">

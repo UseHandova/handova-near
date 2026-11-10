@@ -27,6 +27,7 @@ export const chain = {
   nft: (id: number) => view<any>('nft_token', { token_id: String(id) }),
   config: () => view<any>('get_config'),
   passport: (acc: string) => view<any>('rental_record', { account_id: acc }),
+  keys: async (acc: string) => (await provider.viewAccessKeyList({ accountId: acc })).keys,
 };
 
 export function arbiter(): { accountId: string; seedPhrase: string } {
@@ -88,7 +89,7 @@ export async function toast(page: Page, text: RegExp) {
 export async function signUp(page: Page, label: string, role: 'tenant' | 'landlord' = /^(ll|ade)$|landlord/i.test(label) ? 'landlord' : 'tenant'): Promise<string> {
   await page.goto('/');
   await page.getByRole('button', { name: 'Get started' }).first().click();
-  await page.getByText('New to crypto? Create an account').click();
+  await page.getByText('Create with a name instead').click();
   const name = `${label}-${uid()}`;
   await page.locator('#name').fill(name);
   await expect(page.getByText(/is free/)).toBeVisible();

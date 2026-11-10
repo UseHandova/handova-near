@@ -30,6 +30,16 @@ export function fullAccountId(name: string): string {
   return `${name}.${deploy.accountParent}`;
 }
 
+const FASTNEAR_API = NETWORK === 'mainnet' ? 'https://api.fastnear.com' : 'https://test.api.fastnear.com';
+/** Public keys → accounts created here since the process started (FastNEAR catches up within seconds). */
+const createdByKey = new Map<string, string[]>();
+
+/** A readable name for a passkey account, e.g. `calm-iroko-27`: nothing for the person to type. */
+const WORDS_A = ['calm', 'bright', 'quiet', 'swift', 'warm', 'kind', 'bold', 'fresh', 'sunny', 'steady', 'gentle', 'lucky'];
+const WORDS_B = ['iroko', 'mango', 'cowrie', 'lagoon', 'harmattan', 'kola', 'baobab', 'palm', 'agbada', 'sunbird', 'okra', 'hibiscus'];
+const pick = <T>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
+export const randomName = () => `${pick(WORDS_A)}-${pick(WORDS_B)}-${10 + Math.floor(Math.random() * 90)}`;
+
 export function validName(name: string): string | null {
   if (!NAME_RE.test(name)) return 'Use 1–32 lowercase letters, numbers, - or _, starting and ending with a letter or number.';
   if (/[-_]{2}/.test(name)) return "Don't put two - or _ next to each other.";
@@ -71,17 +81,42 @@ export function mountAccounts(app: Express) {
     res.json({ accountId, available: !taken, reason: taken ? 'That name is taken. Try another.' : undefined });
   });
 
+  // Which accounts a key is on. FastNEAR indexes this a few seconds after the transaction; keys this
+  // process created are answered from memory meanwhile, so a brand-new passkey can sign in at once.
+  app.get('/api/accounts/by-key', async (req, res) => {
+    let publicKey: string;
+    try {
+      publicKey = PublicKey.from(String(req.query.publicKey ?? '')).toString();
+    } catch {
+      return res.status(400).json({ error: 'That is not a NEAR public key.' });
+    }
+    const found = new Set<string>(createdByKey.get(publicKey) ?? []);
+    try {
+      const r = await fetch(`${FASTNEAR_API}/v0/public_key/${publicKey}`, { signal: AbortSignal.timeout(8_000) });
+      if (r.ok) for (const id of ((await r.json()) as { account_ids?: string[] }).account_ids ?? []) found.add(id);
+    } catch (e) {
+      if (found.size === 0) return res.status(502).json({ error: 'Could not look up this key right now. Try again in a minute.', detail: (e as Error).message });
+    }
+    // Handova's own accounts first; a wallet that happens to hold the key comes after.
+    const accountIds = [...found].sort((a, b) => Number(b.endsWith(`.${deploy.accountParent}`)) - Number(a.endsWith(`.${deploy.accountParent}`)));
+    res.json({ accountIds });
+  });
+
   app.post('/api/accounts', async (req, res) => {
     if (!creator) return res.status(503).json({ error: 'Account creation is switched off on this server. Connect a NEAR wallet instead.' });
-    const name = String(req.body?.name ?? '').toLowerCase();
-    const problem = validName(name);
-    if (problem) return res.status(400).json({ error: problem });
     let publicKey: PublicKey;
     try {
       publicKey = PublicKey.from(String(req.body?.publicKey ?? ''));
     } catch {
       return res.status(400).json({ error: 'The device key is not valid. Reload the page and try again.' });
     }
+    // No name (passkey sign-up): Handova picks one that is free.
+    let name = String(req.body?.name ?? '').toLowerCase();
+    if (!name) {
+      for (let i = 0; i < 6 && (!name || (await accountExists(fullAccountId(name)))); i++) name = randomName();
+    }
+    const problem = validName(name);
+    if (problem) return res.status(400).json({ error: problem });
     if (!createPerIp.take(req.ip ?? 'ip')) return res.status(429).json({ error: 'Too many new accounts from this network. Try again in an hour.' });
     const accountId = fullAccountId(name);
     if (await accountExists(accountId)) {
@@ -118,6 +153,7 @@ export function mountAccounts(app: Express) {
         return res.status(422).json({ error: 'NEAR could not create the account. Try another name.', detail: s.error });
       }
       await withRetry(() => registerWithToken(accountId));
+      createdByKey.set(publicKey.toString(), [accountId]);
       res.json({ accountId, hash: s.hash, network: NETWORK });
     } catch (e) {
       res.status(502).json({ error: 'The NEAR network did not respond. Try again in a minute.', detail: (e as Error).message?.slice(0, 300) });

@@ -50,7 +50,7 @@ Expect a ✓ line with an explorer link for each step, and it ends with `✔ Don
 ## 4. Browser checks
 - **Hosted app:** https://handova-near.vercel.app. Create an account → open a home → **Pay into escrow** → **Get 2,000 test USDC** → **Pay**. **Any other chain** shows a live NEAR Intents quote and a simulated arrival.
 - **Checkout widget on another website:** https://handova-near.vercel.app/checkout-demo.html is a sample site that loads only [`public/checkout.js`](public/checkout.js) and marks a button with `data-handova-listing`. Clicking it opens Handova's checkout. After payment, the page shows the lease ID it received through the `handova:paid` event.
-- **Full suite:** `bun run setup:e2e && bunx playwright install chromium && bun run test:e2e` gives 30 tests, each with on-chain checks after every step. It takes about 30 minutes and needs a funded testnet root account. See `REPRODUCE.md`.
+- **Full suite:** `bun run setup:e2e && bunx playwright install chromium && bun run test:e2e` gives 31 tests, each with on-chain checks after every step. It takes about 30 minutes and needs a funded testnet root account. See `REPRODUCE.md`.
 
 ## Where each feature lives
 
@@ -59,6 +59,7 @@ Expect a ✓ line with an explorer link for each step, and it ends with `✔ Don
 | Escrow rules, timeouts, disputes | [`contract/src/escrow.rs`](contract/src/escrow.rs) | `contract/src/tests.rs`, e2e 01–04 |
 | Lease NFT (NEP-171, NEP-178, NEP-199, live metadata) | [`contract/src/nft.rs`](contract/src/nft.rs), [`svg.rs`](contract/src/svg.rs) | e2e 05, 09, 12 |
 | Takeover market and rental passport | [`contract/src/market.rs`](contract/src/market.rs) | e2e 09 |
+| Accounts from a passkey (fingerprint seeds the NEAR key, no phrase) | [`web/src/lib/passkey.ts`](web/src/lib/passkey.ts), [`server/near/accounts.ts`](server/near/accounts.ts) | e2e 14 |
 | Gasless relayer (NEP-366) with allowlist and caps | [`server/near/relayer.ts`](server/near/relayer.ts) | `server/near/relayer.test.ts`, e2e 08 |
 | Pay from any chain and cash out (NEAR Intents 1Click) | [`server/near/intents.ts`](server/near/intents.ts), [`IntentsPay.tsx`](web/src/components/IntentsPay.tsx), [`CashOut.tsx`](web/src/components/CashOut.tsx) | `intents.test.ts`, e2e 07, 12 |
 | Checkout widget for any website | [`public/checkout.js`](public/checkout.js), [`checkout-demo.html`](public/checkout-demo.html), [`ListingDetail.tsx`](web/src/components/ListingDetail.tsx) | e2e 13 |
