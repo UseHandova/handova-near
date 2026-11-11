@@ -60,7 +60,7 @@ Expect a ✓ line with an explorer link for each step, and it ends with `✔ Don
 | Lease NFT (NEP-171, NEP-178, NEP-199, live metadata) | [`contract/src/nft.rs`](contract/src/nft.rs), [`svg.rs`](contract/src/svg.rs) | e2e 05, 09, 12 |
 | Takeover market and rental passport | [`contract/src/market.rs`](contract/src/market.rs) | e2e 09 |
 | Accounts from a passkey (fingerprint seeds the NEAR key, no phrase) | [`web/src/lib/passkey.ts`](web/src/lib/passkey.ts), [`server/near/accounts.ts`](server/near/accounts.ts) | e2e 14 |
-| Viewing and agreement before payment (app rule; tests run it inside every `pay()`) | [`server/near/viewings.ts`](server/near/viewings.ts), [`server/near/auth.ts`](server/near/auth.ts), [`web/src/components/Viewing.tsx`](web/src/components/Viewing.tsx) | unit `viewings.test.ts`, e2e 16 |
+| Viewing and agreement before payment (app rule; tests run it inside every `pay()`); public count of people with a viewing booked; saved homes (on the device) | [`server/near/viewings.ts`](server/near/viewings.ts), [`server/near/auth.ts`](server/near/auth.ts), [`web/src/components/Viewing.tsx`](web/src/components/Viewing.tsx) | unit `viewings.test.ts`, e2e 16 |
 | Gasless relayer (NEP-366) with allowlist and caps | [`server/near/relayer.ts`](server/near/relayer.ts) | `server/near/relayer.test.ts`, e2e 08 |
 | Pay from any chain and cash out (NEAR Intents 1Click) | [`server/near/intents.ts`](server/near/intents.ts), [`IntentsPay.tsx`](web/src/components/IntentsPay.tsx), [`CashOut.tsx`](web/src/components/CashOut.tsx) | `intents.test.ts`, e2e 07, 12 |
 | Checkout widget for any website | [`public/checkout.js`](public/checkout.js), [`checkout-demo.html`](public/checkout-demo.html), [`ListingDetail.tsx`](web/src/components/ListingDetail.tsx) | e2e 13 |

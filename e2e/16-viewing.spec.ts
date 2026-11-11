@@ -27,6 +27,19 @@ test('viewing before paying: request, landlord suggests a time, tenant accepts, 
   await toast(tn, /Viewing request sent/);
   await expect(tn.getByText(/Waiting for the landlord to approve/)).toBeVisible();
 
+  // Everyone sees the interest (a count, no names); the tenant saves the home for later.
+  await expect(tn.getByText('1 person booked a viewing')).toBeVisible();
+  await ll.goto(`/#/home/${listingId}`);
+  await ll.reload();
+  await expect(ll.getByText('1 person booked a viewing')).toBeVisible();
+  await tn.getByRole('button', { name: 'Save this home for later' }).click();
+  await toast(tn, /Saved/);
+  await tn.goto('/');
+  await tn.getByRole('tab', { name: /Saved \(1\)/ }).click();
+  await expect(tn.locator('a[href^="#/home/"]')).toHaveCount(1);
+  await expect(tn.locator(`a[href="#/home/${listingId}"]`)).toBeVisible();
+  await tn.goto(`/#/home/${listingId}`);
+
   // The landlord sees who and when, and suggests another time.
   await ll.goto(`/#/home/${listingId}`);
   const card = ll.locator('[data-viewing]').filter({ hasText: 'Bisi' });

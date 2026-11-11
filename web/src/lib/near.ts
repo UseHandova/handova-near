@@ -68,7 +68,15 @@ export const nearAmount = (yocto: string | bigint) => `${(Number(BigInt(yocto) /
 
 export const chain = {
   config: () => escrow<EscrowConfig>('get_config'),
-  listings: (onlyOpen = false) => escrow<Listing[]>('get_listings', { from_index: 0, limit: 100, only_open: onlyOpen }),
+  /** Every listing, 100 per call (the contract's page size), so homes past the first 100 still show. */
+  listings: async (onlyOpen = false) => {
+    const all: Listing[] = [];
+    for (let from = 0; ; from += 100) {
+      const page = await escrow<Listing[]>('get_listings', { from_index: from, limit: 100, only_open: onlyOpen });
+      all.push(...page);
+      if (page.length < 100 || from > 10_000) return all;
+    }
+  },
   listing: (id: number) => escrow<Listing | null>('get_listing', { listing_id: id }),
   lease: (id: number) => escrow<Lease | null>('get_lease', { lease_id: id }),
   /** Every lease not yet closed or cancelled, paged in hundreds. */

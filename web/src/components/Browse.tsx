@@ -5,6 +5,7 @@ import { chain, nearConfig } from '../lib/near';
 import type { Lease, Listing } from '../lib/types';
 import { usd, usdc } from '../lib/money';
 import { ListingCard } from './ListingCard';
+import { useSaved } from '../lib/saved';
 import { decodeDetails } from '../lib/listing';
 import { Empty } from './ui';
 
@@ -25,6 +26,7 @@ export function Browse() {
   const [listings, setListings] = useState<Listing[] | null>(null);
   const [takeovers, setTakeovers] = useState<Lease[]>([]);
   const [area, setArea] = useState('');
+  const { saved } = useSaved();
   const [page, setPage] = useState(0);
   const gridTop = useRef<HTMLDivElement>(null);
   const { t } = useT();
@@ -47,7 +49,10 @@ export function Browse() {
     for (const a of areaOf.values()) count.set(a, (count.get(a) ?? 0) + 1);
     return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([a]) => a);
   }, [areaOf]);
-  const shown = (listings ?? []).filter((l) => !area || areaOf.get(l.id) === area);
+  const SAVED = '__saved';
+  // The last saved home was removed while looking at Saved: go back to all homes.
+  useEffect(() => { if (area === SAVED && saved.size === 0) setArea(''); }, [area, saved.size]);
+  const shown = (listings ?? []).filter((l) => (area === SAVED ? saved.has(l.id) : !area || areaOf.get(l.id) === area));
   const pages = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
   const current = shown.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
@@ -111,9 +116,9 @@ export function Browse() {
             <h2 className="font-display text-lg font-bold lg:text-2xl">{t('Homes')}</h2>
             {listings && <p className="text-sm text-sub">{shown.length} {shown.length === 1 ? t('home') : t('homes')} · {t('no agent fee')}</p>}
           </div>
-          {areas.length > 1 && (
+          {(areas.length > 1 || saved.size > 0) && (
             <div role="tablist" aria-label={t('Area')} className="-mx-1 flex max-w-full gap-1 overflow-x-auto rounded-full border border-line bg-surface p-1 shadow-card">
-              {['', ...areas].map((a) => (
+              {['', ...(areas.length > 1 ? areas : []), ...(saved.size ? [SAVED] : [])].map((a) => (
                 <button
                   key={a || 'all'}
                   role="tab"
@@ -121,7 +126,7 @@ export function Browse() {
                   onClick={() => pickArea(a)}
                   className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors duration-200 ${area === a ? 'bg-accent text-white shadow-sm' : 'text-sub hover:text-ink'}`}
                 >
-                  {a || t('All')}
+                  {a === SAVED ? `♥ Saved (${saved.size})` : a || t('All')}
                 </button>
               ))}
             </div>

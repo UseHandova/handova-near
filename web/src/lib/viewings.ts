@@ -1,4 +1,5 @@
 /** Viewings before paying, and the one signature that proves who you are to Handova's server. */
+import { useEffect, useState } from 'react';
 import { API_BASE, api } from './api';
 import type { Session } from './session';
 
@@ -76,3 +77,29 @@ export const toLocalInput = (ms: number) => {
 
 /** The first half hour that respects the lead time. */
 export const firstSlot = (minLeadMs: number, now = Date.now()) => Math.ceil((now + minLeadMs) / 1_800_000) * 1_800_000;
+
+/** How many people have a viewing booked per home; fetched at most every 15 s, shared by every card. */
+let counts: Record<string, number> = {};
+let fetchedAt = 0;
+let inflight: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+function refreshCounts() {
+  if (inflight || Date.now() - fetchedAt < 15_000) return;
+  inflight = api<{ counts: Record<string, number> }>('/api/viewings/counts')
+    .then((r) => { counts = r.counts; fetchedAt = Date.now(); listeners.forEach((f) => f()); })
+    .catch(() => {})
+    .finally(() => { inflight = null; });
+}
+export function useViewingCount(listingId: number): number {
+  const [n, setN] = useState(counts[listingId] ?? 0);
+  useEffect(() => {
+    const f = () => setN(counts[listingId] ?? 0);
+    listeners.add(f);
+    f();
+    refreshCounts();
+    return () => { listeners.delete(f); };
+  }, [listingId]);
+  return n;
+}
+/** Call after booking so the count on this device updates at once. */
+export function invalidateViewingCounts() { fetchedAt = 0; refreshCounts(); }

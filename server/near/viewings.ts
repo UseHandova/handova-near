@@ -107,6 +107,21 @@ export function mountViewings(app: Express) {
     res.json({ rules: RULES, viewing: v ? publicView(v) : null, canPay: !!v && canPay(v) });
   });
 
+  /**
+   * Public interest per home: how many different people have a viewing booked, approved or agreed in
+   * the last 30 days. Counts only; no names, numbers or times.
+   */
+  app.get('/api/viewings/counts', (_req, res) => {
+    const since = Date.now() - RULES.validMs;
+    const people = new Map<number, Set<string>>();
+    for (const v of load()) {
+      if (!['requested', 'rescheduled', 'approved', 'agreed'].includes(v.status) || v.updatedAt < since) continue;
+      if (!people.has(v.listingId)) people.set(v.listingId, new Set());
+      people.get(v.listingId)!.add(v.tenant);
+    }
+    res.json({ counts: Object.fromEntries([...people].map(([id, set]) => [id, set.size])) });
+  });
+
   /** Every viewing the signed-in person is part of, newest activity first. */
   app.get('/api/viewings', (req, res) => {
     const me = requireAccount(req, res);

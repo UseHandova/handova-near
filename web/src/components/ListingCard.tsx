@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { BadgeCheck, BedDouble, Home, Images, MapPin, Play } from 'lucide-react';
+import { BadgeCheck, BedDouble, Heart, Home, Images, MapPin, Play, Users } from 'lucide-react';
+import { useSaved } from '../lib/saved';
+import { useViewingCount } from '../lib/viewings';
+import { useToast } from '../lib/toast';
 import { decodeDetails } from '../lib/listing';
 import { naira, usdc, useNgnRate } from '../lib/money';
 import { useT } from '../lib/i18n';
@@ -57,6 +60,31 @@ function HoverVideo({ src, poster, hovered }: { src: string; poster?: string; ho
   );
 }
 
+/** Save a home for later (on this device). Inside a card link, so it stops the click from opening the home. */
+export function SaveButton({ id, className = '' }: { id: number; className?: string }) {
+  const { saved, toggle } = useSaved();
+  const toast = useToast();
+  const on = saved.has(id);
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      aria-label={on ? 'Remove from saved homes' : 'Save this home for later'}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); toast('ok', toggle(id) ? 'Saved. Find it under Saved on the home page.' : 'Removed from saved homes'); }}
+      className={`flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow-sm transition hover:scale-110 ${className}`}
+    >
+      <Heart className={`h-[18px] w-[18px] ${on ? 'fill-danger text-danger' : 'text-ink2'}`} />
+    </button>
+  );
+}
+
+/** "3 people booked a viewing": how much interest a home has right now. */
+export function Interest({ id, className = '' }: { id: number; className?: string }) {
+  const n = useViewingCount(id);
+  if (!n) return null;
+  return <span className={`chip !bg-warn/15 !text-warn ${className}`}><Users className="h-3.5 w-3.5" />{n === 1 ? '1 person booked a viewing' : `${n} people booked a viewing`}</span>;
+}
+
 export function ListingCard({ l }: { l: Listing }) {
   const [hovered, setHovered] = useState(false);
   const rate = useNgnRate();
@@ -80,6 +108,7 @@ export function ListingCard({ l }: { l: Listing }) {
           )}
           {taken && <span className="chip !bg-black/65 !text-white">{t('Taken')}</span>}
         </div>
+        <SaveButton id={l.id} className="absolute right-3 top-3" />
         <div className="absolute bottom-3 right-3 flex gap-1.5">
           {d.video && <span className="chip !bg-black/55 !text-white"><Play className="h-3.5 w-3.5 fill-current" />{t('Video')}</span>}
           {d.photos.length > 1 && <span className="chip !bg-black/55 !text-white"><Images className="h-3.5 w-3.5" />{d.photos.length}</span>}
@@ -91,6 +120,7 @@ export function ListingCard({ l }: { l: Listing }) {
           <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" />{[d.area, d.city].filter(Boolean).join(', ')}</span>
           {d.beds ? <span className="inline-flex items-center gap-1"><BedDouble className="h-4 w-4" />{d.beds} {t('bed')}</span> : null}
         </p>
+        {!taken && <Interest id={l.id} className="self-start" />}
         {!!d.amenities?.length && (
           <div className="flex flex-wrap gap-1.5">
             {d.amenities.slice(0, 3).map((a) => <span key={a} className="chip !py-0.5 !text-[11px]">{a}</span>)}

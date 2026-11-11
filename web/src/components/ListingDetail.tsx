@@ -14,7 +14,7 @@ import { IntentsPay } from './IntentsPay';
 import { LandlordViewings, TenantViewing } from './Viewing';
 import { viewingStatus, type ViewingStatusReply } from '../lib/viewings';
 import { ManageListing } from './ManageListing';
-import { Photo } from './ListingCard';
+import { Interest, Photo, SaveButton } from './ListingCard';
 import { Busy, Row, Sheet, Spinner } from './ui';
 
 export function ListingDetail({ id, onNeedSignIn, checkout = false }: { id: number; onNeedSignIn: () => void; checkout?: boolean }) {
@@ -82,7 +82,11 @@ export function ListingDetail({ id, onNeedSignIn, checkout = false }: { id: numb
           {(d.photos.length || !d.video ? (d.photos.length ? d.photos : [undefined]) : []).map((p, i) => <Photo key={i} src={p} className="h-60 w-full shrink-0 snap-center lg:h-[26rem]" />)}
         </div>
         <div className="space-y-2 p-4">
-          <h1 className="font-display text-2xl font-bold leading-tight">{d.title}</h1>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="font-display text-2xl font-bold leading-tight">{d.title}</h1>
+            {!mine && <SaveButton id={l.id} className="shrink-0 border border-line" />}
+          </div>
+          {open && <Interest id={l.id} />}
           <p className="text-sub">{[d.area, d.city].filter(Boolean).join(', ')}{d.beds ? ` · ${d.beds} bed` : ''}{d.baths ? ` · ${d.baths} bath` : ''}</p>
           {d.description && <p className="text-[15px] text-ink2">{d.description}</p>}
           {!!d.amenities?.length && <div className="flex flex-wrap gap-1.5 pt-1">{d.amenities.map((a) => <span key={a} className="chip">{a}</span>)}</div>}

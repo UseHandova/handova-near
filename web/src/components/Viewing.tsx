@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CalendarClock, CheckCircle2, Eye, Handshake, Phone, X } from 'lucide-react';
 import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
-import { authed, lagosTime, toLocalInput, type Viewing, type ViewingRules, type ViewingStatusReply } from '../lib/viewings';
+import { authed, invalidateViewingCounts, lagosTime, toLocalInput, type Viewing, type ViewingRules, type ViewingStatusReply } from '../lib/viewings';
 import { Busy } from './ui';
 
 const tomorrowTen = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); return d.getTime(); };
@@ -56,7 +56,7 @@ export function TenantViewing({ listingId, gate, onChanged }: { listingId: numbe
   const [phone, setPhone] = useState('');
   const [note, setNote] = useState('');
   const [changing, setChanging] = useState(false);
-  const done = (x: Viewing) => { setV(x); setChanging(false); onChanged(); };
+  const done = (x: Viewing) => { setV(x); setChanging(false); onChanged(); invalidateViewingCounts(); };
   const { busy, run } = useAction(done);
   const known = gate.viewing ? `${gate.viewing.id}:${gate.viewing.status}:${gate.viewing.tenantAgreed}:${gate.viewing.landlordAgreed}:${gate.viewing.slotAt}` : '';
 
