@@ -226,9 +226,29 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setDevice(d);
     },
     async connectWallet() {
-      const w = await getConnector().connect();
-      const accounts = await w.getAccounts();
-      setWalletAccount(accounts[0]?.accountId ?? null);
+      // Web wallets (Meteor Web, MyNearWallet) are opened with window.open after the wallet's code has
+      // loaded, which can be too long after the tap for the browser to still allow a pop-up. A blocked
+      // pop-up returns null and the wallet's dialog then waits forever, so stop and say what to do.
+      const realOpen = window.open;
+      let blocked!: (e: Error) => void;
+      const popupBlocked = new Promise<never>((_, reject) => { blocked = reject; });
+      window.open = function (...args: Parameters<typeof window.open>) {
+        const w = realOpen.apply(window, args);
+        if (!w) blocked(new Error('Your browser blocked the wallet window. Allow pop-ups for this site (the icon in the address bar, or the browser\'s site settings), then tap "I have a NEAR wallet" again. In a small preview window, open the page in a normal tab first.'));
+        return w;
+      };
+      try {
+        const w = await Promise.race([getConnector().connect(), popupBlocked]);
+        const accounts = await w.getAccounts();
+        setWalletAccount(accounts[0]?.accountId ?? null);
+      } catch (e) {
+        // Take the wallet's waiting dialog off the screen so the message can be read.
+        document.querySelectorAll('.modal-container').forEach((el) => (el.parentElement ?? el).remove());
+        connector.current = null;
+        throw e;
+      } finally {
+        window.open = realOpen;
+      }
     },
     async signOut() {
       if (device) {

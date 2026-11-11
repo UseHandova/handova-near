@@ -50,7 +50,7 @@ Expect a ✓ line with an explorer link for each step, and it ends with `✔ Don
 ## 4. Browser checks
 - **Hosted app:** https://handova-near.vercel.app. Create an account → open a home → **Pay into escrow** → **Get 2,000 test USDC** → **Pay**. **Any other chain** shows a live NEAR Intents quote and a simulated arrival.
 - **Checkout widget on another website:** https://handova-near.vercel.app/checkout-demo.html is a sample site that loads only [`public/checkout.js`](public/checkout.js) and marks a button with `data-handova-listing`. Clicking it opens Handova's checkout. After payment, the page shows the lease ID it received through the `handova:paid` event.
-- **Full suite:** `bun run setup:e2e && bunx playwright install chromium && bun run test:e2e` gives 31 tests, each with on-chain checks after every step. It takes about 30 minutes and needs a funded testnet root account. See `REPRODUCE.md`.
+- **Full suite:** `bun run setup:e2e && bunx playwright install chromium && bun run test:e2e` gives 32 tests, each with on-chain checks after every step. It takes about 30 minutes and needs a funded testnet root account. See `REPRODUCE.md`.
 
 ## Where each feature lives
 
