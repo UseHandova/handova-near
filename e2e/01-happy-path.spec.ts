@@ -1,4 +1,4 @@
-import { act, apiPost, chain, expect, expectLease, faucet, listHome, pay, signInWithPhrase, signUp, test, toast, withdrawAll, openLease } from './helpers';
+import { act, agreeViewing, apiPost, chain, expect, expectLease, faucet, listHome, pay, signInWithPhrase, signUp, test, toast, withdrawAll, openLease } from './helpers';
 
 test('list → pay → handover → move-in → NFT → landlord paid → move-out → caution back', async ({ phone }) => {
   const ll = await phone('landlord');
@@ -16,6 +16,9 @@ test('list → pay → handover → move-in → NFT → landlord paid → move-o
   expect(listing.landlord_verified).toBe(true);
   const rent = BigInt(listing.rent);
   const caution = BigInt(listing.caution);
+
+  // Before any money: the tenant views the home and both sides agree.
+  await agreeViewing(tn, ll, listingId);
 
   // Tenant sees it on the home page, with the verified badge.
   await tn.goto('/');

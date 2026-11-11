@@ -12,6 +12,8 @@ import { mountRelayer } from './relayer';
 import { runKeeperOnce } from './keeper';
 import { mountVerify } from './verify';
 import { mountInspect } from './inspect';
+import { mountAuth } from './auth';
+import { mountViewings } from './viewings';
 
 export function mountNear(app: Express) {
   /** What the web app needs to talk to the chain. Public. */
@@ -81,6 +83,8 @@ export function mountNear(app: Express) {
   mountAccounts(app);
   mountVerify(app);
   mountInspect(app);
+  mountAuth(app);
+  mountViewings(app);
   mountRelayer(app);
   mountIntents(app);
   mountAi(app);

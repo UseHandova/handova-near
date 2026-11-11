@@ -35,7 +35,7 @@ export default defineConfig({
     {
       command: `bun --env-file=.env.e2e run server/index.ts`,
       url: `http://localhost:${API_PORT}/api/health`,
-      env: { PORT: String(API_PORT), NEAR_DEPLOY_FILE: 'deploy/testnet.e2e.json', KEEPER: 'off', RATE_LIMIT_SCALE: '100', MEDIA_DIR: 'test-results/uploads' },
+      env: { PORT: String(API_PORT), NEAR_DEPLOY_FILE: 'deploy/testnet.e2e.json', KEEPER: 'off', RATE_LIMIT_SCALE: '100', MEDIA_DIR: 'test-results/uploads', VIEWING_DATA_FILE: 'test-results/viewings.json', VIEWING_MIN_LEAD_MIN: '0', VIEWING_OPENS_BEFORE_MIN: '60' },
       reuseExistingServer: false,
       timeout: 60_000,
     },

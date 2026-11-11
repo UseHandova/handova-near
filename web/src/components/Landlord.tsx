@@ -9,6 +9,7 @@ import { LeaseRow } from './MyRentals';
 import { Empty, Spinner } from './ui';
 import { Photo } from './ListingCard';
 import { VerifyIdentity } from './VerifyIdentity';
+import { LandlordViewings } from './Viewing';
 
 export function Landlord({ onNeedSignIn }: { onNeedSignIn: () => void }) {
   const { session } = useSession();
@@ -42,6 +43,7 @@ export function Landlord({ onNeedSignIn }: { onNeedSignIn: () => void }) {
       </div>
 
       <VerifyIdentity />
+      {!!listings?.length && <LandlordViewings />}
 
       {needsAction.length > 0 && (
         <section className="space-y-2">

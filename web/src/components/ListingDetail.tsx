@@ -11,6 +11,8 @@ import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 import type { Listing } from '../lib/types';
 import { IntentsPay } from './IntentsPay';
+import { LandlordViewings, TenantViewing } from './Viewing';
+import { viewingStatus, type ViewingStatusReply } from '../lib/viewings';
 import { ManageListing } from './ManageListing';
 import { Photo } from './ListingCard';
 import { Busy, Row, Sheet, Spinner } from './ui';
@@ -19,28 +21,30 @@ export function ListingDetail({ id, onNeedSignIn, checkout = false }: { id: numb
   const rate = useNgnRate();
   const { session } = useSession();
   const [l, setL] = useState<Listing | null | undefined>(undefined);
-  const [paying, setPaying] = useState(false);
+  const [paying, setPaying] = useState<false | 'me' | 'other'>(false);
+  const [gate, setGate] = useState<ViewingStatusReply | null>(null);
   const [leaseStorage, setLeaseStorage] = useState<bigint | null>(null);
   const { t } = useT();
-  const reload = () => chain.listing(id).then(setL).catch(() => setL(null));
+  const loadGate = () => (session ? viewingStatus(id, session.accountId).then(setGate).catch(() => {}) : setGate(null));
+  const reload = () => { loadGate(); return chain.listing(id).then(setL).catch(() => setL(null)); };
   useEffect(() => { chain.config().then((c) => setLeaseStorage(BigInt(c.lease_storage))).catch(() => {}); }, []);
   useEffect(() => {
     reload();
     // Pick up the landlord's changes (paused, new price, taken) while the page is open.
     const poll = setInterval(() => { if (!document.hidden) reload(); }, 15000);
     return () => clearInterval(poll);
-  }, [id]);
+  }, [id, session?.accountId]);
 
   // Checkout from another site: sign in if needed, then the pay sheet opens once the home is shown.
   const [autoOpened, setAutoOpened] = useState(false);
   const payable = !!l && l.available && l.active_lease === null && session?.accountId !== l.landlord && !(leaseStorage !== null && BigInt(l.storage_credit ?? '0') < leaseStorage);
   useEffect(() => {
     if (!checkout || autoOpened || !payable) return;
+    if (!session) { setAutoOpened(true); return onNeedSignIn(); }
+    if (!gate) return;
     setAutoOpened(true);
-    if (session) setPaying(true);
-    else onNeedSignIn();
-  }, [checkout, autoOpened, payable, session]);
-  useEffect(() => { if (checkout && autoOpened && session && payable) setPaying(true); }, [session?.accountId]);
+    if (gate.canPay) setPaying('me');
+  }, [checkout, autoOpened, payable, session, gate]);
 
   if (l === undefined) return <div className="flex justify-center py-16 text-sub"><Spinner className="h-6 w-6" /></div>;
   if (l === null) return <p className="py-16 text-center text-sub">This home doesn't exist. <a href="#/" className="font-semibold text-accent">See all homes</a></p>;
@@ -53,6 +57,20 @@ export function ListingDetail({ id, onNeedSignIn, checkout = false }: { id: numb
   const open = l.available && l.active_lease === null && !needsRenewal;
   const closedLabel = l.active_lease !== null ? t('Taken') : needsRenewal ? 'Waiting for the landlord to renew this listing' : t('Paused by the landlord');
   const mine = session?.accountId === l.landlord;
+  const viewed = !!gate?.canPay;
+  // Pay only after the viewing and both sides' agreement. Family abroad can still pay for someone who has.
+  const payButton = (cls: string) => !open ? (
+    <button className="btn-ghost w-full" disabled>{closedLabel}</button>
+  ) : !session ? (
+    <button className={cls} onClick={onNeedSignIn}>Sign in to book a viewing</button>
+  ) : viewed ? (
+    <button className={cls} onClick={() => setPaying('me')}>Pay {naira(rent + caution, rate)} into escrow</button>
+  ) : (
+    <div className="space-y-1.5">
+      <button className="btn-ghost w-full" disabled>Payment opens after the viewing</button>
+      <button className="w-full text-center text-sm font-semibold text-accent" onClick={() => setPaying('other')}>Paying for family? Pay for someone else</button>
+    </div>
+  );
 
   return (
     <div className="space-y-4 pt-2 lg:grid lg:grid-cols-[1.25fr_1fr] lg:items-start lg:gap-6 lg:space-y-0">
@@ -87,13 +105,10 @@ export function ListingDetail({ id, onNeedSignIn, checkout = false }: { id: numb
 
       {!mine && (
         <div className="hidden lg:block">
-          {open ? (
-            <button className="btn-primary w-full" onClick={() => (session ? setPaying(true) : onNeedSignIn())}>Pay {naira(rent + caution, rate)} into escrow</button>
-          ) : (
-            <button className="btn-ghost w-full" disabled>{closedLabel}</button>
-          )}
+          {payButton('btn-primary w-full')}
         </div>
       )}
+      {!mine && open && session && gate && <TenantViewing listingId={l.id} gate={gate} onChanged={loadGate} />}
       <div className="card space-y-3 p-4">
         <h2 className="font-display font-bold">{t('How your money is protected')}</h2>
         {[
@@ -108,29 +123,26 @@ export function ListingDetail({ id, onNeedSignIn, checkout = false }: { id: numb
         ))}
       </div>
 
+      {mine && <LandlordViewings listingId={l.id} />}
       {mine && <ManageListing listing={l} onChanged={reload} />}
       </div>
 
       <div className="sticky bottom-20 z-30 lg:hidden">
-        {mine ? null : open ? (
-          <button className="btn-primary w-full shadow-card" onClick={() => (session ? setPaying(true) : onNeedSignIn())}>Pay {naira(rent + caution, rate)} into escrow</button>
-        ) : (
-          <button className="btn-ghost w-full" disabled>{closedLabel}</button>
-        )}
+        {mine ? null : <div className="rounded-2xl bg-bg/90 backdrop-blur">{payButton('btn-primary w-full shadow-card')}</div>}
       </div>
 
-      {session && <PaySheet open={paying} onClose={() => setPaying(false)} listing={l} />}
+      {session && paying && <PaySheet open onClose={() => setPaying(false)} listing={l} startForOther={paying === 'other'} />}
     </div>
   );
 }
 
-function PaySheet({ open, onClose, listing }: { open: boolean; onClose: () => void; listing: Listing }) {
+function PaySheet({ open, onClose, listing, startForOther }: { open: boolean; onClose: () => void; listing: Listing; startForOther: boolean }) {
   const cfg = nearConfig();
   const rate = useNgnRate();
   const { session } = useSession();
   const toast = useToast();
   const total = BigInt(listing.rent) + BigInt(listing.caution);
-  const [forOther, setForOther] = useState(false);
+  const [forOther, setForOther] = useState(startForOther);
   const [tenantInput, setTenantInput] = useState('');
   const [method, setMethod] = useState<'near' | 'intents'>('near');
   const [balance, setBalance] = useState<bigint | null>(null);
@@ -141,6 +153,14 @@ function PaySheet({ open, onClose, listing }: { open: boolean; onClose: () => vo
   useEffect(() => { if (open) refresh(); }, [open, session?.accountId]);
 
   const tenantId = forOther ? (tenantInput.includes('.') || tenantInput.length === 64 ? tenantInput : tenantInput && `${tenantInput}.${cfg.accountParent}`) : session!.accountId;
+  // The person who'll live there must have viewed the home and agreed with the landlord.
+  const [viewedBy, setViewedBy] = useState<{ tenant: string; ok: boolean } | null>(null);
+  useEffect(() => {
+    if (!tenantId) return setViewedBy(null);
+    const t = setTimeout(() => viewingStatus(listing.id, tenantId).then((g) => setViewedBy({ tenant: tenantId, ok: g.canPay })).catch(() => setViewedBy(null)), 300);
+    return () => clearTimeout(t);
+  }, [tenantId, listing.id]);
+  const viewed = viewedBy?.tenant === tenantId && viewedBy.ok;
 
   async function checkTenant(): Promise<string | undefined> {
     if (!forOther) return undefined;
@@ -211,7 +231,11 @@ function PaySheet({ open, onClose, listing }: { open: boolean; onClose: () => vo
           <p className="text-xs text-sub">{session!.kind === 'device' ? 'No gas fee — Handova pays the NEAR network fee for you.' : 'Your wallet pays a tiny NEAR network fee (under ₦10).'}</p>
         </div>
 
-        {method === 'near' ? (
+        {!viewed ? (
+          <p className="rounded-xl bg-muted p-3 text-sm">{!tenantId ? 'Enter who will live there.' : viewedBy?.tenant !== tenantId ? 'Checking the viewing…' : forOther
+            ? `${tenantId} hasn't viewed this home and agreed with the landlord yet. They book the viewing from their own Handova account on this page; then you can pay for them.`
+            : "Payment opens after you've viewed the home and you and the landlord both agree."}</p>
+        ) : method === 'near' ? (
           <div className="space-y-2">
             {!enough && balance !== null && cfg.tokenOpenMint && (
               <button className="btn-ghost w-full" disabled={busy} onClick={() => run(async () => { await api('/api/faucet', { accountId: session!.accountId }); toast('ok', 'Added 2,000 test USDC'); await refresh(); })}>

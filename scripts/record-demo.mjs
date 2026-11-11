@@ -4,7 +4,7 @@
  * timeline, narration clips (macOS `say`) and README screenshots. scripts/compose-demo.mjs turns it
  * into the MP4.
  *
- *   bun run server & bun run dev        # the app on :5188 (main testnet deployment)
+ *   VIEWING_MIN_LEAD_MIN=0 VIEWING_OPENS_BEFORE_MIN=60 bun run server & bun run dev   # the app on :5188 (main testnet deployment); the viewing runs between scenes, so it must be allowed at once
  *   node scripts/record-demo.mjs <out-dir>
  */
 import { chromium, devices } from '@playwright/test';
@@ -126,6 +126,28 @@ async function signUp(p, name, role = 'tenant') {
   await toast(p, /Welcome! Your account is/);
 }
 
+/** Off camera, between scenes: mum asks to view the flat, the landlord approves, both agree after it. */
+async function viewing(tn, ll, id) {
+  await tn.goto(`${URL}#/home/${id}`);
+  await tn.reload();
+  const soon = await tn.evaluate(() => { const ms = Date.now() + 120_000; return new Date(ms - new Date(ms).getTimezoneOffset() * 60_000).toISOString().slice(0, 16); });
+  await tn.locator('#vt').fill(soon);
+  await tn.locator('#vn').fill('Mama Ada');
+  await tn.locator('#vp').fill('0803 123 4567');
+  await tn.getByRole('button', { name: 'Ask for a viewing' }).click();
+  await toast(tn, /Viewing request sent/);
+  await ll.goto(`${URL}#/home/${id}`);
+  await ll.reload();
+  const card = ll.locator('[data-viewing]').filter({ hasText: 'Mama Ada' }).first();
+  await card.getByRole('button', { name: 'Approve' }).click();
+  await toast(ll, /Viewing approved/);
+  await card.getByRole('button', { name: /I agree to rent to them/ }).click();
+  await toast(ll, /You agreed/);
+  await tn.reload();
+  await tn.getByRole('button', { name: /I viewed it and agree/ }).click();
+  await toast(tn, /You can pay now/);
+}
+
 async function withdraw(p) {
   await p.goto(`${URL}#/account`);
   await p.getByRole('button', { name: /Withdraw to my account/ }).click();
@@ -173,6 +195,7 @@ try {
 
   const mumName = `mum-${uid}`;
   await step('mum', 'mum', (p) => signUp(p, mumName));
+  await viewing(phones.mum, phones.landlord, listingId);
 
   await step('nr1', 'nurse', async (p) => {
     await signUp(p, `nurse-${uid}`);
@@ -182,8 +205,7 @@ try {
     await p.mouse.wheel(0, 500);
   });
   await step('nr2', 'nurse', async (p) => {
-    await p.getByRole('button', { name: /into escrow/ }).click();
-    await p.getByRole('button', { name: 'Someone else' }).click();
+    await p.getByRole('button', { name: /Pay for someone else/ }).first().click();
     await p.getByPlaceholder(/mum/).pressSequentially(mumName, { delay: 50 });
     await p.getByText('Any other chain').click();
     await p.waitForTimeout(800);

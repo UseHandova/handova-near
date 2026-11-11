@@ -1,4 +1,4 @@
-import { chain, expect, signUp, test, toast } from './helpers';
+import { agreeViewing, chain, expect, signUp, test, toast } from './helpers';
 import { secrets } from './env';
 
 test('pay from another chain: live NEAR Intents quote, then (testnet) simulated arrival pays the escrow', async ({ phone }) => {
@@ -15,6 +15,7 @@ test('pay from another chain: live NEAR Intents quote, then (testnet) simulated 
   await ll.waitForURL(/#\/home\/\d+/);
   const listingId = Number(ll.url().split('/').pop());
 
+  await agreeViewing(tn, ll, listingId);
   await tn.goto(`/#/home/${listingId}`);
   await tn.getByRole('button', { name: /into escrow/ }).click();
   await tn.getByText('Any other chain').click();

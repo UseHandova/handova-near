@@ -1,4 +1,4 @@
-import { chain, expect, faucet, listHome, signUp, test } from './helpers';
+import { agreeViewing, chain, expect, faucet, listHome, signUp, test } from './helpers';
 
 test('checkout widget: a button on another site opens Handova, the payer pays into escrow, the site gets the lease', async ({ phone }) => {
   const ll = await phone('landlord');
@@ -7,6 +7,8 @@ test('checkout widget: a button on another site opens Handova, the payer pays in
   const payer = await signUp(tn, 'payer');
   const listingId = await listHome(ll, { title: 'Checkout widget home', rentNgn: 20_000, cautionNgn: 5_000 });
   await faucet(payer);
+
+  await agreeViewing(tn, ll, listingId);
 
   // The sample merchant page loads only checkout.js and marks a button with data-handova-listing.
   await tn.goto(`/checkout-demo.html?listing=${listingId}`);

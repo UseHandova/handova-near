@@ -74,6 +74,14 @@ export const test = base.extend<{ phone: (label: string) => Promise<Page> }>({
 });
 export { expect };
 
+/** Which test phone each account is signed in on, so a payment can run the viewing with both sides. */
+const pages = new Map<string, Page>();
+const pageOf = (accountId: string) => {
+  const p = pages.get(accountId);
+  if (!p) throw new Error(`No test phone is signed in as ${accountId}; sign it up in this test first.`);
+  return p;
+};
+
 const uid = () => `${Date.now().toString(36)}${Math.floor(Math.random() * 1e3)}`;
 
 /** Expect a toast; fail fast with its text if an error toast shows instead. */
@@ -98,6 +106,7 @@ export async function signUp(page: Page, label: string, role: 'tenant' | 'landlo
   await toast(page, /Welcome! Your account is/);
   const accountId = `${name}.${deploy.accountParent}`;
   await expect(page.locator('header').getByText(accountId)).toBeVisible();
+  pages.set(accountId, page);
   return accountId;
 }
 
@@ -119,16 +128,50 @@ export async function listHome(page: Page, o: { title: string; area?: string; re
   return Number(page.url().split('/').pop());
 }
 
-/** Pay rent + caution into escrow from the listing page (USDC on NEAR); returns the lease ID. */
+/**
+ * The tenant asks for a viewing, the landlord approves, and after it both agree, all through the UI.
+ * Tests run the server with no lead time and the "agree" step open an hour ahead, so it takes seconds.
+ */
+export async function agreeViewing(tn: Page, ll: Page, listingId: number) {
+  await tn.goto(`/#/home/${listingId}`);
+  await tn.reload();
+  await expect(tn.getByRole('button', { name: /into escrow|Payment opens after the viewing/ }).first()).toBeVisible();
+  if (await tn.getByRole('button', { name: /into escrow/ }).first().isVisible()) return; // agreed earlier
+  const soon = await tn.evaluate(() => { const ms = Date.now() + 120_000; return new Date(ms - new Date(ms).getTimezoneOffset() * 60_000).toISOString().slice(0, 16); });
+  await tn.locator('#vt').fill(soon);
+  await tn.locator('#vn').fill('Ada Tenant');
+  await tn.locator('#vp').fill('0803 123 4567');
+  await tn.getByRole('button', { name: 'Ask for a viewing' }).click();
+  await toast(tn, /Viewing request sent/);
+
+  await ll.goto(`/#/home/${listingId}`);
+  await ll.reload();
+  const card = ll.locator('[data-viewing]').filter({ hasText: 'Ada Tenant' }).first();
+  await card.getByRole('button', { name: 'Approve' }).click();
+  await toast(ll, /Viewing approved/);
+  await card.getByRole('button', { name: /I agree to rent to them/ }).click();
+  await toast(ll, /You agreed\. Waiting for the tenant/);
+
+  await tn.reload();
+  await tn.getByRole('button', { name: /I viewed it and agree/ }).click();
+  await toast(tn, /Agreed\. You can pay now/);
+  await expect(tn.getByRole('button', { name: /into escrow/ }).first()).toBeVisible();
+}
+
+/** View and agree (see agreeViewing), then pay rent + caution into escrow from the listing page; returns the lease ID. */
 export async function pay(page: Page, listingId: number, opts: { forTenant?: string } = {}): Promise<number> {
+  const tenant = opts.forTenant ?? [...pages].find(([, p]) => p === page)?.[0];
+  if (!tenant) throw new Error('pay(): the paying phone is not signed in through signUp/signInWithPhrase');
+  await agreeViewing(pageOf(tenant), pageOf((await chain.listing(listingId)).landlord), listingId);
   await page.goto(`/#/home/${listingId}`);
   await page.reload(); // same-hash navigation doesn't reload; we want fresh chain state
-  await page.getByRole('button', { name: /into escrow/ }).click();
-  await expect(page.getByText('How do you want to pay?')).toBeVisible();
   if (opts.forTenant) {
-    await page.getByRole('button', { name: 'Someone else' }).click();
+    await page.getByRole('button', { name: /Pay for someone else/ }).first().click();
     await page.getByPlaceholder(/mum/).fill(opts.forTenant);
+  } else {
+    await page.getByRole('button', { name: /into escrow/ }).first().click();
   }
+  await expect(page.getByText('How do you want to pay?')).toBeVisible();
   const payBtn = page.getByRole('button', { name: /^Pay [\d,.]+ USDC$/ });
   await expect(payBtn).toBeEnabled();
   await payBtn.click();
@@ -163,6 +206,7 @@ export async function signInWithPhrase(page: Page, accountId: string, seedPhrase
   await page.locator('#phrase').fill(seedPhrase);
   await page.getByRole('button', { name: 'Restore' }).click();
   await toast(page, /Account restored/);
+  pages.set(accountId, page);
   // A new device doesn't know the role yet: Handova asks once.
   await page.getByText('How will you use Handova?').waitFor();
   await page.getByRole('radio', { name: /looking for a home/ }).click();
@@ -192,7 +236,7 @@ export async function activeLease(ll: Page, tn: Page, tenant: string, title = `E
 /** Start move-out as the holder and have the landlord dispute `claimUsdc` of the caution. */
 export async function disputed(ll: Page, holder: Page, leaseId: number, claimUsdc: string) {
   await act(holder, leaseId, /moving out/, /Move-out started/);
-  await ll.goto(`/#/lease/${leaseId}`);
+  await openLease(ll, leaseId); // fresh state at once: the review window is only 20 s
   await ll.getByPlaceholder(/Amount in USDC/).fill(claimUsdc);
   await ll.getByPlaceholder('What was damaged?').fill('Broken kitchen door');
   await ll.getByRole('button', { name: 'Open a dispute' }).click();
