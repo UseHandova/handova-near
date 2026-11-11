@@ -233,7 +233,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       let blocked!: (e: Error) => void;
       const popupBlocked = new Promise<never>((_, reject) => { blocked = reject; });
       window.open = function (...args: Parameters<typeof window.open>) {
-        const w = realOpen.apply(window, args);
+        // Arc refuses sized pop-up windows even for an allowed site; a plain new tab still opens there.
+        const w = realOpen.apply(window, args) ?? (args[2] ? realOpen.call(window, args[0], '_blank') : null);
         if (!w) blocked(new Error('Your browser blocked the wallet window. Allow pop-ups for this site (the icon in the address bar, or the browser\'s site settings), then tap "I have a NEAR wallet" again. In a small preview window, open the page in a normal tab first.'));
         return w;
       };
