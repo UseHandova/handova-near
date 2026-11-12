@@ -17,10 +17,14 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { HELLO, INTRO, OUTRO, SCRIPT } from './demo-voiceover.mjs';
+import { LINES as WALK } from './walkthrough/script.mjs';
 
 const FF = process.env.FFMPEG ?? 'ffmpeg';
 const MODEL = process.env.WHISPER_MODEL ?? join(homedir(), '.cache/whisper/ggml-small.en.bin');
-const LINES = { hello: HELLO, intro: INTRO, ...SCRIPT, outro: OUTRO };
+// VOICE_SCRIPT=walkthrough splits a recording of the walkthrough script (scripts/walkthrough/script.mjs).
+const LINES = process.env.VOICE_SCRIPT === 'walkthrough'
+  ? Object.fromEntries(WALK.map((l) => [l.id, l.text]))
+  : { hello: HELLO, intro: INTRO, ...SCRIPT, outro: OUTRO };
 const GAP_SECS = Number(process.env.VOICE_GAP_SECS ?? 1.5); // a pause this long separates two lines
 const MATCH = 0.5; // a passage with this share of a line's words is a whole take of it
 

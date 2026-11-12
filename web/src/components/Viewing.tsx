@@ -9,6 +9,7 @@ import { useSession } from '../lib/session';
 import { useToast } from '../lib/toast';
 import { authed, invalidateViewingCounts, lagosTime, toLocalInput, type Viewing, type ViewingRules, type ViewingStatusReply } from '../lib/viewings';
 import { Busy } from './ui';
+import { PassportSummary } from './Passport';
 
 const tomorrowTen = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); return d.getTime(); };
 const fromInput = (s: string) => (s ? new Date(s).getTime() : NaN);
@@ -194,6 +195,8 @@ export function LandlordViewings({ listingId }: { listingId?: number }) {
             <p>{home}{home && ' · '}{who}</p>
             <p>{v.status === 'rescheduled' ? 'You suggested' : 'Wants to view it on'} <b>{lagosTime(v.slotAt)}</b>{v.status === 'rescheduled' ? '. Waiting for the tenant.' : ''}</p>
             {v.note && <p className="text-sub">"{v.note}"</p>}
+            {/* Their record from past Handova leases, read from NEAR, before the landlord decides. */}
+            {v.status !== 'agreed' && <PassportSummary accountId={v.tenant} />}
             {v.status === 'requested' && proposing !== v.id && <>
               <input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Your phone for the tenant (optional)" />
               <div className="flex flex-wrap gap-2">

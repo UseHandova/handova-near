@@ -44,6 +44,8 @@ test('viewing before paying: request, landlord suggests a time, tenant accepts, 
   await ll.goto(`/#/home/${listingId}`);
   const card = ll.locator('[data-viewing]').filter({ hasText: 'Bisi' });
   await expect(card.getByRole('link', { name: '+2348031234567' })).toBeVisible();
+  // Before deciding, the landlord sees the requester's rental passport (a new renter has none yet).
+  await expect(card.getByText(/Rental passport: .*has no finished Handova leases yet/)).toBeVisible();
   await card.getByRole('button', { name: 'Suggest another time' }).click();
   await card.locator('input[type="datetime-local"]').fill(await soon(ll, 5));
   await card.getByRole('button', { name: 'Send this time' }).click();
