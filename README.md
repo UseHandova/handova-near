@@ -215,7 +215,7 @@ bun run setup:e2e && bunx playwright install chromium && bun run test:e2e
 | Suite | Needs | Result |
 |---|---|---|
 | Contract unit, sandbox, server, types, web build | Nothing live (local only) | 57, 7 and 36 passed; runs in [CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml) |
-| Browser, 12 Nov 2026 | Testnet, public RPCs, NEAR AI credit | All **34** in one run on the submitted commit `9829f98`: **32 passed, 1 passed on retry, 1 failed** (the Solana quote from the live NEAR Intents service didn't come back within 60 s; the same test passed when run alone minutes later). Log: [`full-run-2026-11-12.log`](docs/evidence/full-run-2026-11-12.log). Earlier: 29/29 in one run on 6 Nov ([`one-pass-v5.log`](docs/evidence/one-pass-v5.log)) |
+| Browser, 12 Nov 2026 | Testnet, public RPCs, NEAR AI credit | All **34** in one run on commit `9829f98` (the final tag only adds docs on top of it): **32 passed, 1 passed on retry, 1 failed** (the Solana quote from the live NEAR Intents service didn't come back within 60 s; the same test passed when run alone minutes later). Log: [`full-run-2026-11-12.log`](docs/evidence/full-run-2026-11-12.log). Earlier: 29/29 in one run on 6 Nov ([`one-pass-v5.log`](docs/evidence/one-pass-v5.log)) |
 
 Browser tests use a deployment with the same code hash. Cases: [`docs/EVIDENCE.md`](docs/EVIDENCE.md#browser-test-cases).
 

@@ -163,7 +163,7 @@ Browser tests run on `escrow-v8.handova-3b5eb6e5.testnet`, which has the **same 
 29. the app speaks Yorùbá, Hausa, Igbo and Pidgin, and remembers the choice
 30. checkout widget: a button on another site opens Handova, the payer pays into escrow, the site gets the lease
 
-These are the test titles as written in `e2e/`. **12 Nov 2026, all 34 in one run** on the submitted commit `9829f98`: 32 passed, 1 passed on Playwright's retry (silence pays nobody; public-RPC timeouts in the log), 1 failed (pay from another chain: the live Intents service didn't return the Solana quote within 60 s; it passed when the file was run alone minutes later). Log: [`evidence/full-run-2026-11-12.log`](evidence/full-run-2026-11-12.log).
+These are the test titles as written in `e2e/`. **12 Nov 2026, all 34 in one run** on commit `9829f98` (the final tag only adds docs on top of it): 32 passed, 1 passed on Playwright's retry (silence pays nobody; public-RPC timeouts in the log), 1 failed (pay from another chain: the live Intents service didn't return the Solana quote within 60 s; it passed when the file was run alone minutes later). Log: [`evidence/full-run-2026-11-12.log`](evidence/full-run-2026-11-12.log).
 
 Earlier, the first 29 passed in one run on 6 Nov 2026, with the sandbox tests (7/7), on commit `355915b` with a clean tree: [`evidence/one-pass-v5.log`](evidence/one-pass-v5.log). An earlier attempt had 4 failures while the test Mac slept, so the run was repeated with sleep blocked (`caffeinate`). Test 30 was added after that run and passed on its own on 6 Nov 2026 (`bunx playwright test e2e/13-checkout-widget.spec.ts`: 1 passed).
 
