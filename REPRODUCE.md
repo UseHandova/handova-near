@@ -84,12 +84,12 @@ See the README, section "D. The web app", for the click path.
 ```sh
 bun run test:near
 ```
-Expect `32 pass`: the relayer allowlist (refuses other contracts, other methods, NEAR deposits, token transfers not going to the escrow, bad signatures, too much gas), the keeper's timeout rules, the Intents quote shape, and NEAR AI receipt signature recovery (checked against a real saved receipt — no API key needed).
+Expect `36 pass`: the relayer allowlist (refuses other contracts, other methods, NEAR deposits, token transfers not going to the escrow, bad signatures, too much gas), the keeper's timeout rules, the Intents quote shape, and NEAR AI receipt signature recovery (checked against a real saved receipt — no API key needed).
 
-## End-to-end suite (optional, about 30 minutes)
+## End-to-end suite (optional, about 40 minutes)
 ```sh
 bun run setup:e2e
 bunx playwright install chromium
 bun run test:e2e
 ```
-Expect `30 passed`. Without `NEARAI_API_KEY` (with credit) in `.env.e2e`, the 2 NEAR AI tests are skipped, so expect `28 passed, 2 skipped`. Public-RPC rate limits can make a test pass only on Playwright's retry, reported as flaky. The suite creates many throwaway accounts: if a run fails with *New accounts are paused … needs a NEAR top-up*, refill your root account from the testnet faucet with `TREASURY=<your root account> TARGET=30 ./scripts/fund-testnet.sh` and run it again. Each test drives a phone-sized browser through the web app against your own testnet deployment with 20-second waiting periods, and checks balances on-chain.
+Expect `34 passed` (about 37 minutes on 12 Nov 2026). Without `NEARAI_API_KEY` (with credit) in `.env.e2e`, the NEAR AI draft test is skipped, so expect `33 passed, 1 skipped`. Public-RPC rate limits can make a test pass only on Playwright's retry, reported as flaky. The suite creates many throwaway accounts: if a run fails with *New accounts are paused … needs a NEAR top-up*, refill your root account from the testnet faucet with `TREASURY=<your root account> TARGET=30 ./scripts/fund-testnet.sh` and run it again. Each test drives a phone-sized browser through the web app against your own testnet deployment with 20-second waiting periods, and checks balances on-chain.

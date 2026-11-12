@@ -1,0 +1,172 @@
+Handova full browser run · commit 9829f98 (tag hackathon-submission) · 2026-11-12, about 16:50–17:27 WAT · run under caffeinate
+working tree: clean (doc edits stashed during the run)
+e2e escrow:   "escrow": "escrow-v8.handova-3b5eb6e5.testnet",
+
+== bunx playwright test (all 34)
+
+Running 34 tests using 1 worker
+
+  ✓   1 [mobile-chromium] › e2e/01-happy-path.spec.ts:3:1 › list → pay → handover → move-in → NFT → landlord paid → move-out → caution back (1.2m)
+  ✓   2 [mobile-chromium] › e2e/01-happy-path.spec.ts:75:1 › recovery phrase: back it up, sign out, restore on a new phone (12.6s)
+  ✓   3 [mobile-chromium] › e2e/01-happy-path.spec.ts:104:1 › name already taken is shown before creating (12.1s)
+  ✓   4 [mobile-chromium] › e2e/02-family-and-refunds.spec.ts:3:1 › family abroad pays for mum; only mum confirms; she gets the NFT (44.8s)
+  ✓   5 [mobile-chromium] › e2e/02-family-and-refunds.spec.ts:26:1 › no handover in time: the payer cancels and gets everything back (1.3m)
+  ✓   6 [mobile-chromium] › e2e/02-family-and-refunds.spec.ts:52:1 › landlord declines before move-in: tenant refunded in full (50.1s)
+  ✓   7 [mobile-chromium] › e2e/03-handover-rules.spec.ts:3:1 › tenant silent after handover: even a verified landlord waits for a yes or a ruling (1.1m)
+  ✓   8 [mobile-chromium] › e2e/03-handover-rules.spec.ts:24:1 › fake handover: tenant disputes, landlord cannot claim, arbiter refunds; second case arbiter rules moved in (1.6m)
+  ✘   9 [mobile-chromium] › e2e/03-handover-rules.spec.ts:68:1 › silence pays nobody; an arbiter who stays silent means a refund (1.8m)
+  ✓  10 [mobile-chromium] › e2e/03-handover-rules.spec.ts:68:1 › silence pays nobody; an arbiter who stays silent means a refund (retry #1) (3.4m)
+  ✓  11 [mobile-chromium] › e2e/03-handover-rules.spec.ts:98:1 › unverified landlord whose tenant won't confirm asks the arbiter, who rules moved in (1.5m)
+  ✓  12 [mobile-chromium] › e2e/04-caution.spec.ts:5:1 › caution dispute settled by agreement (1.5m)
+  ✓  13 [mobile-chromium] › e2e/04-caution.spec.ts:32:1 › caution dispute decided by the arbiter (56.9s)
+  ✓  14 [mobile-chromium] › e2e/04-caution.spec.ts:52:1 › dispute nobody settles: the caution goes back to the holder (1.5m)
+  ✓  15 [mobile-chromium] › e2e/04-caution.spec.ts:68:1 › landlord silent after move-out: tenant claims the caution (1.2m)
+  ✓  16 [mobile-chromium] › e2e/04-caution.spec.ts:85:1 › the keeper closes a review nobody acted on (1.2m)
+  ✓  17 [mobile-chromium] › e2e/05-nft-transfer.spec.ts:3:1 › lease handed to family for free, only after the landlord agrees: the caution right moves with it (1.3m)
+  ✓  18 [mobile-chromium] › e2e/06-listing-controls.spec.ts:3:1 › landlord pauses, resumes and reprices; price locks while a lease is open (1.8m)
+  ✘  19 [mobile-chromium] › e2e/07-intents-and-ai.spec.ts:4:1 › pay from another chain: live NEAR Intents quote, then (testnet) simulated arrival pays the escrow (1.5m)
+  ✘  20 [mobile-chromium] › e2e/07-intents-and-ai.spec.ts:4:1 › pay from another chain: live NEAR Intents quote, then (testnet) simulated arrival pays the escrow (retry #1) (1.5m)
+  ✓  21 [mobile-chromium] › e2e/07-intents-and-ai.spec.ts:40:1 › voice-note style text → NEAR AI draft with a signed TEE receipt → publish (15.3s)
+  ✓  22 [mobile-chromium] › e2e/08-api-guards.spec.ts:18:1 › relayer pays only for Handova calls (10.1s)
+  ✓  23 [mobile-chromium] › e2e/08-api-guards.spec.ts:33:1 › admin routes need the admin secret; faucet refuses unknown accounts; bad names refused (196ms)
+  ✓  24 [mobile-chromium] › e2e/09-takeover-and-passport.spec.ts:3:1 › lease takeover: holder offers, a new tenant asks, the landlord agrees to them, they buy it and get the caution right (2.2m)
+  ✓  25 [mobile-chromium] › e2e/09-takeover-and-passport.spec.ts:49:1 › rental passport: a finished lease shows on the tenant passport and to the next landlord (1.1m)
+  ✓  26 [mobile-chromium] › e2e/09-takeover-and-passport.spec.ts:80:1 › the app speaks Yorùbá, Hausa, Igbo and Pidgin, and remembers the choice (1.8s)
+  ✓  27 [mobile-chromium] › e2e/10-dao-arbiter.spec.ts:61:1 › caution dispute decided by a 2-of-3 DAO council (1.3m)
+  ✓  28 [mobile-chromium] › e2e/11-roles.spec.ts:3:1 › roles: chosen at sign-up, menu follows the role, switchable on the Account page (19.7s)
+  ✓  29 [mobile-chromium] › e2e/12-cashout-mintbase-inspection.spec.ts:3:1 › landlord cash-out: live NEAR Intents quote to USDT on TRON; a wrong address is refused (14.1s)
+  ✓  30 [mobile-chromium] › e2e/12-cashout-mintbase-inspection.spec.ts:20:1 › lease sold on Mintbase's market: listed after the landlord agrees, bought there, the caution right moves (2.0m)
+  ✓  31 [mobile-chromium] › e2e/12-cashout-mintbase-inspection.spec.ts:54:1 › AI move-out inspection: the landlord adds a photo, NEAR AI advises with a signed receipt (1.1m)
+  ✓  32 [mobile-chromium] › e2e/13-checkout-widget.spec.ts:3:1 › checkout widget: a button on another site opens Handova, the payer pays into escrow, the site gets the lease (29.9s)
+  ✓  33 [mobile-chromium] › e2e/14-passkey.spec.ts:14:1 › fingerprint: creates a named account with a key only the passkey can rebuild; signs in again from the same passkey (14.2s)
+  ✓  34 [mobile-chromium] › e2e/15-wallet-popup.spec.ts:2:1 › wallet pop-up blocked: says so at once (6.7s)
+  ✓  35 [mobile-chromium] › e2e/15-wallet-popup.spec.ts:16:1 › wallet pop-up window refused but a tab allowed (Arc): the wallet opens in a tab (6.1s)
+  ✓  36 [mobile-chromium] › e2e/16-viewing.spec.ts:8:1 › viewing before paying: request, landlord suggests a time, tenant accepts, both agree, then pay opens (23.3s)
+
+
+  1) [mobile-chromium] › e2e/07-intents-and-ai.spec.ts:4:1 › pay from another chain: live NEAR Intents quote, then (testnet) simulated arrival pays the escrow 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByText(/You send/).locator('..')
+    Expected pattern: /USDC on Solana/
+    Timeout: 60000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" getByText(/You send/).locator('..') with timeout 60000ms
+      - waiting for getByText(/You send/).locator('..')
+
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/e2e/07-intents-and-ai.spec.ts:32:56)
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/playwright/lib/worker/workerProcessEntry.js:1654:9)
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/playwright/lib/worker/workerProcessEntry.js:1134:11)
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/playwright/lib/worker/workerProcessEntry.js:1652:7)
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/07-intents-and-ai-pay-from-e96d3-ted-arrival-pays-the-escrow-mobile-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/07-intents-and-ai-pay-from-e96d3-ted-arrival-pays-the-escrow-mobile-chromium/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/07-intents-and-ai-pay-from-e96d3-ted-arrival-pays-the-escrow-mobile-chromium/error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/07-intents-and-ai-pay-from-e96d3-ted-arrival-pays-the-escrow-mobile-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/07-intents-and-ai-pay-from-e96d3-ted-arrival-pays-the-escrow-mobile-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByText(/You send/).locator('..')
+    Expected pattern: /USDC on Solana/
+    Timeout: 60000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" getByText(/You send/).locator('..') with timeout 60000ms
+      - waiting for getByText(/You send/).locator('..')
+
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/e2e/07-intents-and-ai.spec.ts:32:56)
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/playwright/lib/worker/workerProcessEntry.js:1654:9)
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/playwright/lib/worker/workerProcessEntry.js:1134:11)
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/playwright/lib/worker/workerProcessEntry.js:1652:7)
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/07-intents-and-ai-pay-from-e96d3-ted-arrival-pays-the-escrow-mobile-chromium-retry1/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/07-intents-and-ai-pay-from-e96d3-ted-arrival-pays-the-escrow-mobile-chromium-retry1/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/07-intents-and-ai-pay-from-e96d3-ted-arrival-pays-the-escrow-mobile-chromium-retry1/error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/07-intents-and-ai-pay-from-e96d3-ted-arrival-pays-the-escrow-mobile-chromium-retry1/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/07-intents-and-ai-pay-from-e96d3-ted-arrival-pays-the-escrow-mobile-chromium-retry1/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [mobile-chromium] › e2e/03-handover-rules.spec.ts:68:1 › silence pays nobody; an arbiter who stays silent means a refund 
+
+    Error: {"jsonrpc": "2.0", "error": {"code": -429, "message": "Rate limits exceeded. For higher rate limits get a subscription at https://fastnear.com"}, "id": "1"}
+
+       at helpers.ts:14
+
+      12 |   for (let i = 1; ; i++) {
+      13 |     try {
+    > 14 |       return (await provider.callFunction({ contractId, method, args })) as T;
+         |               ^
+      15 |     } catch (e) {
+      16 |       if (i >= 5 || !/-429|Rate limits exceeded/.test((e as Error).message ?? '')) throw e;
+      17 |       await new Promise((r) => setTimeout(r, 2000 * i));
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3073:13
+        at backOff (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3022:14)
+        at fetchJsonRpc (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3061:20)
+        at JsonRpcProvider.sendJsonRpc (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3531:22)
+        at JsonRpcProvider.callFunction (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/near-api-js/lib/index.js:3269:24)
+        at view (/Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/e2e/helpers.ts:14:15)
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/e2e/03-handover-rules.spec.ts:89:11
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/playwright/lib/worker/workerProcessEntry.js:1654:9)
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/playwright/lib/worker/workerProcessEntry.js:1134:11)
+        at /Users/mac/iCloud Drive (Archive)/Desktop/Desktop - Oluwagbemiga/Hacks/NEAR/handova-near/node_modules/playwright/lib/worker/workerProcessEntry.js:1652:7)
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/03-handover-rules-silence--21e7a-stays-silent-means-a-refund-mobile-chromium/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/03-handover-rules-silence--21e7a-stays-silent-means-a-refund-mobile-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/03-handover-rules-silence--21e7a-stays-silent-means-a-refund-mobile-chromium/error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/03-handover-rules-silence--21e7a-stays-silent-means-a-refund-mobile-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/03-handover-rules-silence--21e7a-stays-silent-means-a-refund-mobile-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  Slow test file: [mobile-chromium] › e2e/04-caution.spec.ts (6.4m)
+  Consider running tests from slow files in parallel. See: https://playwright.dev/docs/test-parallel
+  1 failed
+    [mobile-chromium] › e2e/07-intents-and-ai.spec.ts:4:1 › pay from another chain: live NEAR Intents quote, then (testnet) simulated arrival pays the escrow 
+  1 flaky
+    [mobile-chromium] › e2e/03-handover-rules.spec.ts:68:1 › silence pays nobody; an arbiter who stays silent means a refund 
+  32 passed (36.8m)
+
+== re-run of the failed file alone, same commit, a few minutes later: bunx playwright test e2e/07-intents-and-ai.spec.ts
+  ✓  pay from another chain: live NEAR Intents quote, then (testnet) simulated arrival pays the escrow (40.3s)
+  ✓  voice-note style text → NEAR AI draft with a signed TEE receipt → publish (29.8s)
+  2 passed (1.4m)

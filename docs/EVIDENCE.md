@@ -163,7 +163,9 @@ Browser tests run on `escrow-v8.handova-3b5eb6e5.testnet`, which has the **same 
 29. the app speaks Yorùbá, Hausa, Igbo and Pidgin, and remembers the choice
 30. checkout widget: a button on another site opens Handova, the payer pays into escrow, the site gets the lease
 
-These are the test titles as written in `e2e/`. All 29 passed in one run on 6 Nov 2026, with the sandbox tests (7/7), on commit `355915b` with a clean tree: [`evidence/one-pass-v5.log`](evidence/one-pass-v5.log). An earlier attempt had 4 failures while the test Mac slept, so the run was repeated with sleep blocked (`caffeinate`). Test 30 was added after that run and passed on its own on 6 Nov 2026 (`bunx playwright test e2e/13-checkout-widget.spec.ts`: 1 passed).
+These are the test titles as written in `e2e/`. **12 Nov 2026, all 34 in one run** on the submitted commit `9829f98`: 32 passed, 1 passed on Playwright's retry (silence pays nobody; public-RPC timeouts in the log), 1 failed (pay from another chain: the live Intents service didn't return the Solana quote within 60 s; it passed when the file was run alone minutes later). Log: [`evidence/full-run-2026-11-12.log`](evidence/full-run-2026-11-12.log).
+
+Earlier, the first 29 passed in one run on 6 Nov 2026, with the sandbox tests (7/7), on commit `355915b` with a clean tree: [`evidence/one-pass-v5.log`](evidence/one-pass-v5.log). An earlier attempt had 4 failures while the test Mac slept, so the run was repeated with sleep blocked (`caffeinate`). Test 30 was added after that run and passed on its own on 6 Nov 2026 (`bunx playwright test e2e/13-checkout-widget.spec.ts`: 1 passed).
 
 ## Who holds power today
 
@@ -204,3 +206,19 @@ near contract call-function as-read-only handova-council.sputnikv2.testnet get_p
 near contract call-function as-read-only escrow-v5.handova.testnet get_config json-args '{}' network-config testnet now           # "owner": "handova-council.sputnikv2.testnet"
 near account list-keys verifier.handova.testnet network-config testnet now                                                        # one full-access key, one function-call key: set_verified on escrow-v5
 ```
+
+## Timeline: git dates vs on-chain dates
+
+The chain is the stronger clock, so here it is next to the git history (all UTC):
+
+| When | What | Source |
+|---|---|---|
+| 2026-10-31 | Folder created; plan written (no NEAR code) | `CLAUDE.md` |
+| 2026-11-01 00:50 | First commit: the Arc baseline import (`baseline-arc` = `pre-hackathon`) | git |
+| 2026-11-01 01:11 | `handova.testnet` created, the first NEAR account of the project | [nearblocks](https://testnet.nearblocks.io/address/handova.testnet) |
+| 2026-11-01 01:12 | Commit `ab0588d` adds the deploy script and `deploy/testnet.json` naming `escrow.handova.testnet` | git |
+| 2026-11-01 09:04 | GitHub repository created | GitHub |
+| 2026-11-01 21:09 | `escrow.handova.testnet` actually created | [nearblocks](https://testnet.nearblocks.io/address/escrow.handova.testnet) |
+| 2026-11-06 21:36 | `escrow-v5.handova.testnet` created and locked (the live contract) | [nearblocks](https://testnet.nearblocks.io/address/escrow-v5.handova.testnet) |
+
+Commit `ab0588d`'s message says "Handova live on escrow.handova.testnet", but on-chain that account was created about 20 hours later, so the message is wrong: the config was committed before the first successful deploy. Some early commits also share a timestamp to the second. Either way, judge the timeline by the chain: every NEAR account and contract above was created inside the window (1–14 Nov), and the baseline commit holds no NEAR code (`git ls-tree -r baseline-arc` has no `.rs` files).

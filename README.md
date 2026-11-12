@@ -10,7 +10,7 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 |---|---|
 | ✅ **Real on NEAR testnet** | Escrow + lease NFT [`escrow-v5.handova.testnet`](https://testnet.nearblocks.io/address/escrow-v5.handova.testnet) (test USDC; the account has no keys, so its code can't change); family pays → move-in → NFT → move-out → caution to holder ([lease #4](docs/EVIDENCE.md#a-full-lease-on-escrow-v5), team-run accounts; gasless for the family, the landlord paid the 0.06 NEAR listing deposit from the 0.15 NEAR given at sign-up); a [takeover](docs/EVIDENCE.md#a-takeover-on-escrow-v5) whose caution went to the new holder; a Mintbase sale only to the landlord's named buyer; a 2-of-3 Sputnik DAO as arbiter that has [ruled on a dispute](docs/EVIDENCE.md#a-dao-ruling-on-escrow-v5) (all members are team accounts today) |
 | ⚠️ **Simulated** | **Pay from any chain** and **landlord cash-out** (NEAR Intents 1Click): quotes are live, but Intents has no testnet, so the deposit arriving is simulated with test USDC. No real cross-chain payment has been made |
-| ⏳ **Not proven yet** | Real use: nobody has rented through Handova. Two homes (Yaba, Ikorodu) are real Lagos flats; four are demo listings with openly licensed Wikimedia photos (credited in each); all six are from team-run, unverified accounts. No mainnet deployment: this entry stays on testnet, so cross-chain payment and cash-out remain simulated. No security audit. ID checks prove who a landlord is, not that they own the home |
+| ⏳ **Not proven yet** | Real use: nobody has rented through Handova. Two homes (Yaba, Ikorodu) are real Lagos flats; four are demo listings with openly licensed Wikimedia photos (credited in each), three in Lagos and one in Abuja; all six are from team-run, unverified accounts. Listings made by our test runs stay on-chain but are hidden from the home page (`HIDDEN_LISTINGS`). No mainnet deployment: this entry stays on testnet, so cross-chain payment and cash-out remain simulated. No security audit. ID checks prove who a landlord is, not that they own the home |
 
 **Built at NEAR HACKATHON (1–14 Nov 2026).** Tracks: `realworld`, `nfts`. Built on an earlier Arc version of Handova; only the NEAR work is the entry — see [Built before / during the hackathon](#built-before--during-the-hackathon).
 
@@ -214,8 +214,8 @@ bun run setup:e2e && bunx playwright install chromium && bun run test:e2e
 
 | Suite | Needs | Result |
 |---|---|---|
-| Contract unit, sandbox, server, types, web build | Nothing live (local only) | 57, 7 and 32 passed; runs in [CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml) |
-| Browser, 6 Nov 2026 | Testnet, public RPCs, NEAR AI credit | **29/29 in one run** (with sandbox 7/7) on commit `355915b`, the deployed code, clean tree. Log: [`one-pass-v5.log`](docs/evidence/one-pass-v5.log). Test 30 (checkout widget) was added later and passed alone the same day |
+| Contract unit, sandbox, server, types, web build | Nothing live (local only) | 57, 7 and 36 passed; runs in [CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml) |
+| Browser, 12 Nov 2026 | Testnet, public RPCs, NEAR AI credit | All **34** in one run on the submitted commit `9829f98`: **32 passed, 1 passed on retry, 1 failed** (the Solana quote from the live NEAR Intents service didn't come back within 60 s; the same test passed when run alone minutes later). Log: [`full-run-2026-11-12.log`](docs/evidence/full-run-2026-11-12.log). Earlier: 29/29 in one run on 6 Nov ([`one-pass-v5.log`](docs/evidence/one-pass-v5.log)) |
 
 Browser tests use a deployment with the same code hash. Cases: [`docs/EVIDENCE.md`](docs/EVIDENCE.md#browser-test-cases).
 
@@ -226,7 +226,7 @@ Browser tests are not in CI (they need a funded testnet deployment); they run by
 Handova first existed on **Arc** (Circle's L1) as a Solidity + USDC app: [`UseHandova/Handova`](https://github.com/UseHandova/Handova), commit `16fe0e4` (21 Oct 2026). It got little traction there, so we rebuilt it on NEAR during NEAR HACKATHON. **Only the NEAR work is the hackathon entry.**
 
 - The first commit (tags **`pre-hackathon`** and `baseline-arc`, the same commit) imports the Arc-era code unchanged, with no NEAR code and no Solidity. Later the EVM/Circle parts were **deleted** (no `@circle-fin`, wagmi, viem or ConnectKit remain); what carried over: brand assets, `server/media.ts` (photo uploads), the translation wording, and the Didit flow (adapted, see below).
-- Everything after it is hackathon work: the Rust contract (written from scratch, not ported), `server/near/`, `shared/`, `web/`, `e2e/`, `scripts/`, `deploy/`. Diff: `git diff baseline-arc..main --stat` (on GitHub: [`compare/baseline-arc...main`](https://github.com/UseHandova/handova-near/compare/baseline-arc...main)). Final diff: [`compare/pre-hackathon...hackathon-submission`](https://github.com/UseHandova/handova-near/compare/pre-hackathon...hackathon-submission); this link goes live when the `hackathon-submission` tag is added to the final commit.
+- Everything after it is hackathon work: the Rust contract (written from scratch, not ported), `server/near/`, `shared/`, `web/`, `e2e/`, `scripts/`, `deploy/`. Diff: `git diff baseline-arc..main --stat` (on GitHub: [`compare/baseline-arc...main`](https://github.com/UseHandova/handova-near/compare/baseline-arc...main)). Final diff: [`compare/pre-hackathon...hackathon-submission`](https://github.com/UseHandova/handova-near/compare/pre-hackathon...hackathon-submission).
 
 ### Libraries and AI-written code
 - Contract: `near-sdk` 5.30, `near-contract-standards` 5.30, `base64`; tests: `near-workspaces` 0.24, `tokio`.

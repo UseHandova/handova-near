@@ -34,7 +34,7 @@ All of these in one step, read-only, with no install: `bun scripts/verify-live.t
 |---|---|---|
 | Contract unit tests | `cd contract && cargo test --lib` | `test result: ok. 57 passed`. The first build takes about 15 minutes; a timed clean run is in `docs/evidence/rust-clean-run.log` |
 | Contract on a local NEAR node with a real NEP-141 token | `cd contract && cargo test --test sandbox` | `test result: ok. 7 passed`. It prints nothing for several minutes while it runs |
-| Server: relayer allowlist, signatures, keeper, Intents shapes, NEAR AI receipts | `bun install && bun run test:near` | `32 pass`, `0 fail` |
+| Server: relayer allowlist, signatures, keeper, Intents shapes, NEAR AI receipts | `bun install && bun run test:near` | `36 pass`, `0 fail` |
 | Types and web build | `bun run typecheck && bun run build` | No errors |
 
 The same tests run in [CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml) on every dispatch.
