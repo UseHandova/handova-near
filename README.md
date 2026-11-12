@@ -10,11 +10,12 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 |---|---|
 | ✅ **Real on NEAR testnet** | Escrow + lease NFT [`escrow-v5.handova.testnet`](https://testnet.nearblocks.io/address/escrow-v5.handova.testnet) (test USDC; the account has no keys, so its code can't change); family pays → move-in → NFT → move-out → caution to holder ([lease #4](docs/EVIDENCE.md#a-full-lease-on-escrow-v5), team-run accounts; gasless for the family, the landlord paid the 0.06 NEAR listing deposit from the 0.15 NEAR given at sign-up); a [takeover](docs/EVIDENCE.md#a-takeover-on-escrow-v5) whose caution went to the new holder; a Mintbase sale only to the landlord's named buyer; a 2-of-3 Sputnik DAO as arbiter that has [ruled on a dispute](docs/EVIDENCE.md#a-dao-ruling-on-escrow-v5) (all members are team accounts today) |
 | ⚠️ **Simulated** | **Pay from any chain** and **landlord cash-out** (NEAR Intents 1Click): quotes are live, but Intents has no testnet, so the deposit arriving is simulated with test USDC. No real cross-chain payment has been made |
-| ⏳ **Not proven yet** | Real use: two Lagos homes are listed (Yaba, Ikorodu) from one team-run, unverified account; nobody has rented through Handova. No mainnet deployment: this entry stays on testnet, so cross-chain payment and cash-out remain simulated. No security audit. ID checks prove who a landlord is, not that they own the home |
+| ⏳ **Not proven yet** | Real use: nobody has rented through Handova. Two homes (Yaba, Ikorodu) are real Lagos flats; four are demo listings with openly licensed Wikimedia photos (credited in each); all six are from team-run, unverified accounts. No mainnet deployment: this entry stays on testnet, so cross-chain payment and cash-out remain simulated. No security audit. ID checks prove who a landlord is, not that they own the home |
 
 **Built at NEAR HACKATHON (1–14 Nov 2026).** Tracks: `realworld`, `nfts`. Built on an earlier Arc version of Handova; only the NEAR work is the entry — see [Built before / during the hackathon](#built-before--during-the-hackathon).
 
 - 🌍 **Try it live (testnet, any device):** https://handova-near.vercel.app (web on Vercel, API on Railway)
+- 🎬 **Demo video:** [X post](https://x.com/crazydevvy/status/2120870128732545319): 1-min pitch + 4-min walkthrough of the real app
 - 🔎 **See it in one click:** lease [#4](https://handova-near.vercel.app/#/lease/4) (the nurse [paid](https://testnet.nearblocks.io/txns/GzVnAVcxqBAeAApB7f7RCppsYHvd1XNy2gvX6bN1eMEX), mum [got the caution](https://testnet.nearblocks.io/txns/8gsaiNoLhrojrCriD6E2thVrvmCiuWxgbmqpp7LgmAg4)) · lease [#5](https://handova-near.vercel.app/#/lease/5) (taken over; [caution to the new holder](https://testnet.nearblocks.io/txns/8qCic5haDyJeEzsWNP7MB1X1PQh1PQn8rQgiSSCqvoru)) · code hash `76d4GThL…` = wasm of `355915b` ([how](docs/EVIDENCE.md#the-deployed-code))
 - ✅ **Check it in one command:** `bun run verify:live` (read-only: code hash, keys, council, balances, leases) · [clean Rust test log](docs/evidence/rust-clean-run.log)
 - 🧪 **Reproduce it yourself:** [`REPRODUCE.md`](REPRODUCE.md) — three commands, your own accounts, no keys from us
@@ -72,8 +73,6 @@ An NFT on NEAR can't hold tokens by itself. So **one contract is both the escrow
 
 The metadata is never stored: `nft_token`, `nft_tokens` and `nft_tokens_for_owner` compute the title (`Handova lease #2 · Active`), description, `extra` JSON (`status`, `caution_held`, `ends_at_ms`…) and an SVG picture from the current lease state.
 
-Direct NFT transfers aren't on the relayer's list, so the holder signs and pays for them (new accounts get 0.05 NEAR).
-
 ### Selling the rest of a lease (takeover)
 
 A tenant who leaves early can hand the home — and the caution right — to the next tenant:
@@ -87,7 +86,7 @@ Offers show on the home page under **Take over a lease**. The holder can also se
 
 ### Rental passport
 
-`rental_record(account_id)` turns the lease NFTs an account held into an on-chain summary: leases finished, how many times the caution came back in full, caution kept for damage, homes lived in, whole months actually lived (up to move-out, never more than the term), and the rent paid (not a takeover buyer's price). Tenants see it under **Account → My rental passport**; landlords see it on every lease waiting for a handover or takeover.
+`rental_record(account_id)` turns the lease NFTs an account held into an on-chain summary: leases finished, how many times the caution came back in full, caution kept for damage, homes lived in, whole months actually lived (up to move-out, never more than the term), and the rent paid (not a takeover buyer's price). Tenants see it under **Account → My rental passport**; landlords see it on every viewing request and on every lease waiting for a handover or takeover.
 
 ## Escrow rules and lease states
 
@@ -135,7 +134,7 @@ Who can change what is in the [trust model](#trust-model-and-known-limits). Wait
 | Owner (the council DAO: 2 of 3 votes) | Replace the arbiter and verifier for **leases paid afterwards**; replace itself | Change who decides an open lease; call any method that moves money |
 | Anyone with a key to the escrow account | — | The account has **no access keys** (`view_access_key_list` is empty), so nobody, including the team, can redeploy or change the code |
 
-Each lease records its arbiter and its listing details (`property_ref`) at the moment the tenant paid, so later role changes and listing edits can't reach into it. Earlier deployments (`escrow` to `escrow-v4`.handova.testnet) stay on-chain with old test history.
+Each lease records its arbiter and its listing details (`property_ref`) at the moment the tenant paid, so later role changes and listing edits can't reach into it.
 
 - **The arbiter is the safety net, and today it is the team.** Known limit, the *move-in stalemate*: a tenant can take the keys and never confirm. The landlord's remedy is `dispute_move_in`; if the council doesn't rule within 7 days, the payer gets a full refund and the landlord can only recover the home off-chain. Likewise an unruled damage claim leaves the caution with the holder.
 - **Lease transfers:** every route (`nft_transfer`, `nft_transfer_call`, in-app takeover, Mintbase/NEP-199 sale) moves the NFT only to the account the landlord named; a new offer clears the agreement.
@@ -220,7 +219,7 @@ bun run setup:e2e && bunx playwright install chromium && bun run test:e2e
 
 Browser tests use a deployment with the same code hash. Cases: [`docs/EVIDENCE.md`](docs/EVIDENCE.md#browser-test-cases).
 
-[CI](https://github.com/UseHandova/handova-near/actions/workflows/ci.yml) runs the contract unit and sandbox tests, the server tests, type checks and the web build. Browser tests are not in CI, because they need a funded testnet deployment; they run by hand ([`REPRODUCE.md`](REPRODUCE.md)).
+Browser tests are not in CI (they need a funded testnet deployment); they run by hand ([`REPRODUCE.md`](REPRODUCE.md)).
 
 ## Built before / during the hackathon
 
@@ -234,7 +233,7 @@ Handova first existed on **Arc** (Circle's L1) as a Solidity + USDC app: [`UseHa
 - Server/web: `near-api-js` 7.4, `@hot-labs/near-connect` 0.12, `borsh`, `@noble/curves` + `@noble/hashes` (NEAR AI receipt signatures), `express`, `multer`, `react` 18, `vite`, `tailwindcss`, `lucide-react`, `qrcode`, `vite-plugin-node-polyfills`; tests: `@playwright/test`.
 - External services: NEAR RPC (FastNEAR and others), NEAR Intents 1Click API, NEAR AI Cloud, Didit (identity checks), open.er-api.com (USD→NGN display rate).
 - The Didit flow in [`server/near/verify.ts`](server/near/verify.ts) is adapted from the Arc version's `server/verification.ts` (same Didit calls and safeguards). What's new for NEAR: proving account control with a NEP-413 signed message instead of an EVM signature, and recording the result with the escrow's `set_verified` instead of a Solidity call.
-- Video: recorded with Playwright, narrated with YarnGPT (Nigerian English voice), composed with `ffmpeg-static`.
+- Videos: the walkthrough drives the real app with Playwright, narrated by the presenter ([`scripts/walkthrough/`](scripts/walkthrough/)); the pitch is narrated with YarnGPT.
 - Most of the NEAR-edition code was written with **Claude Code** (Anthropic), directed and reviewed by the team.
 
 ### Other project
@@ -261,7 +260,7 @@ The team also submitted **PatchBond** (refundable bonds for pull requests), an i
 | Landlord cash-out to any chain (NEAR Intents) | ⚠️ live quotes on testnet; sending runs on mainnet only (like the payment side) |
 | AI move-out inspection (NEAR AI vision, signed receipt) | ✅ advisory; landlord, tenant or council decide |
 | Landlord ID verification (Didit → NEP-413 → `set_verified` on NEAR) | ✅ built; live checks need Didit credits on the team's account |
-| Real landlords and tenants | ⏳ two Lagos homes listed (Yaba, Ikorodu) from one team-run account; no rentals yet |
+| Real landlords and tenants | ⏳ no rentals yet; 2 real Lagos homes + 4 demo listings, all team-run |
 | Hosted demo | ✅ https://handova-near.vercel.app (web on Vercel, API on Railway). Needs paid credits to work: NEAR AI (drafts, inspection) and Didit (ID checks); the escrow flow needs neither |
 
 ## How NEAR is used
