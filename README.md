@@ -15,7 +15,7 @@ Handova lets a tenant rent a home directly from the landlord, with no agent. The
 **Built at NEAR HACKATHON (1–14 Nov 2026).** Tracks: `realworld`, `nfts`. Built on an earlier Arc version of Handova; only the NEAR work is the entry — see [Built before / during the hackathon](#built-before--during-the-hackathon).
 
 - 🌍 **Try it live (testnet, any device):** https://handova-near.vercel.app (web on Vercel, API on Railway)
-- 🎬 **Demo video:** [X post](https://x.com/crazydevvy/status/2120870128732545319): 1-min pitch + 4-min walkthrough of the real app
+- 🎬 **Demo video:** [4-min walkthrough on YouTube](https://youtu.be/C994zinwb1o) (chapters, captions) · [X post](https://x.com/crazydevvy/status/2120870128732545319) with the 1-min pitch
 - 🔎 **See it in one click:** lease [#4](https://handova-near.vercel.app/#/lease/4) (the nurse [paid](https://testnet.nearblocks.io/txns/GzVnAVcxqBAeAApB7f7RCppsYHvd1XNy2gvX6bN1eMEX), mum [got the caution](https://testnet.nearblocks.io/txns/8gsaiNoLhrojrCriD6E2thVrvmCiuWxgbmqpp7LgmAg4)) · lease [#5](https://handova-near.vercel.app/#/lease/5) (taken over; [caution to the new holder](https://testnet.nearblocks.io/txns/8qCic5haDyJeEzsWNP7MB1X1PQh1PQn8rQgiSSCqvoru)) · code hash `76d4GThL…` = wasm of `355915b` ([how](docs/EVIDENCE.md#the-deployed-code))
 - ✅ **Check it in one command:** `bun run verify:live` (read-only: code hash, keys, council, balances, leases) · [clean Rust test log](docs/evidence/rust-clean-run.log)
 - 🧪 **Reproduce it yourself:** [`REPRODUCE.md`](REPRODUCE.md) — three commands, your own accounts, no keys from us
