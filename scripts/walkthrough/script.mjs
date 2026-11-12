@@ -17,6 +17,7 @@ export const LINES = [
   { id: 'w09', who: 'ada', text: 'Payment stays locked until she has seen the home. So she books a viewing, with her name and phone number.' },
   { id: 'w10', who: 'ade', text: 'Ade gets the request. He approves the time, and after the viewing, he agrees to rent to Ada.' },
   { id: 'w11', who: 'ada', text: 'Ada agrees too. Only now does payment open.' },
+  { id: 'w12a', who: 'ada', text: 'She can pay with USDC on NEAR, or from Base, Solana or Ethereum through NEAR Intents.' },
   { id: 'w12', who: 'sis', text: "Her sister in London pays it for her, from Base through NEAR Intents. She just types Ada's Handova name. This is a live Intents quote; on testnet the deposit is simulated." },
   { id: 'w13', who: 'sis', text: 'The rent and the caution are now locked in the escrow contract. Not with Ade, and not with Handova.' },
   { id: 'w14', who: 'ade', text: 'On moving day, Ade hands over the keys, and marks it in the app.' },

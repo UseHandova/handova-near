@@ -141,7 +141,7 @@ async function step(id, fn) {
   const start = Date.now() - T0();
   lines.push({ id, who: L.who, text: L.text, audio: clip[id].file, start });
   await fn(pages[L.who]);
-  const left = clip[id].ms + 450 - (Date.now() - T0() - start);
+  const left = clip[id].ms + 250 - (Date.now() - T0() - start);
   if (left > 0) await pause(left);
 }
 
@@ -266,6 +266,16 @@ try {
     await reload(p);
     await click(p, p.getByRole('button', { name: /I viewed it and agree/ }));
     await toast(p, /You can pay now/);
+  });
+  // Ada can pay herself: the pay window, for her, with both ways to pay. Then she leaves it to her sister.
+  await step('w12a', async (p) => {
+    await click(p, p.getByRole('button', { name: /into escrow/ }));
+    await pause(500);
+    const dialog = p.getByRole('dialog');
+    await hover(p, dialog.getByText('USDC on NEAR', { exact: true }), 1300);
+    await click(p, dialog.getByText('Any other chain'));
+    await hover(p, dialog.getByText(/Base, Solana, Ethereum/), 1500);
+    await click(p, dialog.getByRole('button', { name: 'Close' }));
   });
   // Her sister in London, signed in before the video started, opens the link Ada sent her and pays for Ada.
   await step('w12', async (p) => {
